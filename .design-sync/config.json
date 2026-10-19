@@ -1,0 +1,48 @@
+{
+  "projectId": "acde9ab3-4299-41e1-93f1-98f2d789f87a",
+  "pkg": "mavenscout",
+  "globalName": "MavenScout",
+  "shape": "package",
+  "tsconfig": "tsconfig.app.json",
+  "buildCmd": "npm run build",
+  "entry": ".design-sync/entry.mjs",
+  "componentSrcMap": {
+    "MultiSelect": "src/components/ui/MultiSelect.tsx",
+    "TagPills": "src/components/ui/TagPills.tsx",
+    "Modal": "src/components/ui/Modal.tsx",
+    "Switch": "src/components/ui/Switch.tsx",
+    "Carousel": "src/components/ui/Carousel.tsx",
+    "GatePrompt": "src/components/ui/GatePrompt.tsx",
+    "InfoTip": "src/components/ui/InfoTip.tsx",
+    "OrgLogo": "src/components/ui/OrgLogo.tsx",
+    "SignupPrompt": "src/components/ui/SignupPrompt.tsx",
+    "Skeleton": "src/components/ui/Skeletons.tsx",
+    "DirectorySkeleton": "src/components/ui/Skeletons.tsx",
+    "ProfileSkeleton": "src/components/ui/Skeletons.tsx",
+    "RowsSkeleton": "src/components/ui/Skeletons.tsx",
+    "VerifiedBadge": "src/components/ui/badges.tsx",
+    "FirmTypeBadge": "src/components/ui/badges.tsx",
+    "FeaturedRibbon": "src/components/ui/badges.tsx",
+    "AvailabilityBadges": "src/components/ui/badges.tsx",
+    "SelfAttestedMark": "src/components/ui/badges.tsx",
+    "FlipCard": "src/components/directory/FlipCard.tsx"
+  },
+  "cssEntry": ".design-sync/.cache/ds-styles.css",
+  "extraFonts": [".design-sync/fonts-src/google-fonts.css"],
+  "extraEntries": ["react-router-dom"],
+  "guidelinesGlob": "docs/MavenScout-design.md",
+  "readmeHeader": ".design-sync/conventions.md",
+  "provider": {
+    "component": "MemoryRouter"
+  },
+  "overrides": {
+    "MultiSelect": { "cardMode": "single", "primaryStory": "OpenGroupedOptions", "viewport": "700x560" },
+    "Modal": { "cardMode": "single", "primaryStory": "Wide" },
+    "SignupPrompt": { "cardMode": "single", "primaryStory": "Default" },
+    "DirectorySkeleton": { "cardMode": "column" },
+    "ProfileSkeleton": { "cardMode": "column" },
+    "Carousel": { "cardMode": "column" },
+    "GatePrompt": { "cardMode": "column" },
+    "RowsSkeleton": { "cardMode": "column" }
+  }
+}
