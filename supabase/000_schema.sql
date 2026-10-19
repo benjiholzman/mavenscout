@@ -146,6 +146,9 @@ CREATE TABLE portfolio_items (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id   uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   project_name text NOT NULL,
+  organization text,                          -- client/funder shown beside the dates
+  start_year   int,
+  end_year     int,                           -- NULL = ongoing; = start_year for a single year
   role         text NOT NULL,
   description  text NOT NULL,
   results      text,

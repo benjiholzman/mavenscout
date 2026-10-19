@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { resolveLogoUrl } from '../../lib/brandfetch'
 
 // Org logo with a monogram fallback. Falls back when there is no URL OR the
-// image fails to load — which covers dead links generally, and specifically
-// Brandfetch Logo Links in local dev (their CDN refuses localhost-referred
-// hotlinks; the same URLs render fine on a deployed domain).
+// image fails to load — which covers dead links generally, and Brandfetch
+// Logo Links in headless test browsers (the CDN redirects HeadlessChrome to
+// its website; real browsers get the image). Stored Brandfetch
+// Logo Links are id-free; resolveLogoUrl adds the configured client id.
 
 function monogram(name: string): string {
   return name
@@ -26,7 +28,8 @@ export function OrgLogo({
   monogramClassName?: string
 }) {
   const [errored, setErrored] = useState(false)
-  if (!url || errored)
+  const src = resolveLogoUrl(url)
+  if (!src || errored)
     return (
       <span className={`flex shrink-0 items-center justify-center ${className} ${monogramClassName}`}>
         {monogram(name)}
@@ -34,7 +37,7 @@ export function OrgLogo({
     )
   return (
     <img
-      src={url}
+      src={src}
       alt=""
       className={`shrink-0 object-contain ${className}`}
       onError={() => setErrored(true)}

@@ -23,7 +23,7 @@ function AddButton({ label, disabled, onClick }: { label: string; disabled: bool
   )
 }
 
-function YearFields({
+export function YearFields({
   start,
   end,
   onStart,

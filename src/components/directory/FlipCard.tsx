@@ -14,6 +14,7 @@ import {
 import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { logoIconUrl } from '../../lib/brandfetch'
+import { fmtPortfolioMeta } from '../../lib/dates'
 import { resolveVideo } from '../../lib/media'
 import { PRIMARY_CAP, SECONDARY_CAP } from '../../lib/validation'
 import type { PortfolioItem, Profile, TagSelection, VideoResponse } from '../../types/db'
@@ -467,6 +468,7 @@ function PortfolioFace({
   href: string
 }) {
   const { item } = face
+  const meta = fmtPortfolioMeta(item)
   return (
     <>
       <div
@@ -488,6 +490,9 @@ function PortfolioFace({
         >
           {item.project_name}
         </Link>
+        {meta && (
+          <p className="mt-1 shrink-0 truncate text-[13.5px] leading-[19px] text-ink-faint">{meta}</p>
+        )}
         <div className="mb-2 mt-[9px] h-px shrink-0 bg-line-soft" />
         <p className="shrink-0 truncate text-[13.5px] leading-[19px] text-ink-soft">
           <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-[.06em] text-ink-faint">

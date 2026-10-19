@@ -25,3 +25,20 @@ export function fmtLongMonthYear(value: string): string {
 export function fmtMonth(value: string): string {
   return parseLocalDate(value).toLocaleDateString(undefined, { month: 'short' })
 }
+
+/** Portfolio year span: "2023–2024", "2023" when start and end match,
+ *  "2023–present" when there's no end year. Null when no years are set. */
+export function fmtYearSpan(start: number | null, end: number | null): string | null {
+  if (!start) return end ? String(end) : null
+  if (end === null) return `${start}–present`
+  return start === end ? String(start) : `${start}–${end}`
+}
+
+/** "2023–2024 · GIZ" — portfolio dates and organization, either optional. */
+export function fmtPortfolioMeta(item: {
+  organization: string | null
+  start_year: number | null
+  end_year: number | null
+}): string | null {
+  return [fmtYearSpan(item.start_year, item.end_year), item.organization?.trim()].filter(Boolean).join(' · ') || null
+}

@@ -1,7 +1,8 @@
 // Brandfetch employer-logo lookup (PRD 7.11 — P1). The Brand Search API
 // resolves a typed organization name ("World Bank") to domain + logo matches;
-// picking one writes the Brandfetch CDN URL into the plain-text logo_url
-// field, so nothing about the schema knows or cares about the provider.
+// picking one writes the id-free Brandfetch CDN URL into the plain-text
+// logo_url field (resolveLogoUrl adds the client id at render), so nothing
+// about the schema knows or cares about the provider.
 //
 // Activation: needs a free Brandfetch client id. Set VITE_BRANDFETCH_CLIENT_ID
 // in .env (build-time), or — handy for trying it without a rebuild — put it in
@@ -23,20 +24,34 @@ export function brandfetchClientId(): string | null {
 }
 
 /** The durable Logo Link for a domain — this is what gets STORED in logo_url.
- *  (The Search API's own `icon` URLs carry short-lived tokens and expire.)
- *  Note: Brandfetch's CDN refuses hotlinks from localhost referers, so these
- *  render as broken in local dev and work on any real deployed domain —
- *  the OrgLogo component's monogram fallback covers the dev case. */
-export function logoLinkUrl(domain: string): string | null {
+ *  It deliberately omits the client id: resolveLogoUrl() adds it at render
+ *  time, so the id never lands in the database or seed files and rotating it
+ *  fixes every stored logo. (The Search API's own `icon` URLs carry
+ *  short-lived tokens and expire, so they're never stored.)
+ *  Note: Brandfetch's CDN redirects headless browsers (HeadlessChrome user
+ *  agent) to its website, so logos look broken in Playwright unless the test
+ *  sets a regular Chrome user agent; real browsers, localhost included, get
+ *  the image. OrgLogo's monogram fallback covers any load failure. */
+export function logoLinkUrl(domain: string): string {
+  return `https://cdn.brandfetch.io/${domain}`
+}
+
+const LOGO_LINK = /^https:\/\/cdn\.brandfetch\.io\/([^/?]+)\/?(?:\?|$)/
+
+/** Renderable URL for a stored logo_url: adds the configured client id to an
+ *  id-free Logo Link (null without one, so the monogram shows). Links already
+ *  carrying `c=` and non-Brandfetch URLs pass through unchanged. */
+export function resolveLogoUrl(url: string | null | undefined): string | null {
+  if (!url || !LOGO_LINK.test(url) || /[?&]c=/.test(url)) return url ?? null
   const clientId = brandfetchClientId()
-  return clientId ? `https://cdn.brandfetch.io/${domain}?c=${clientId}` : null
+  return clientId ? `${url.replace(/\/$/, '')}?c=${clientId}` : null
 }
 
 /** Square-icon variant of a stored Logo Link, for small square logo tiles
  *  (Brandfetch serves its own lettermark when a brand has no icon). Any
  *  non-Brandfetch URL passes through unchanged. */
 export function logoIconUrl(url: string | null): string | null {
-  const domain = url?.match(/^https:\/\/cdn\.brandfetch\.io\/([^/?]+)\/?(?:\?|$)/)?.[1]
+  const domain = url?.match(LOGO_LINK)?.[1]
   const clientId = brandfetchClientId()
   if (!domain || !clientId) return url
   return `https://cdn.brandfetch.io/${domain}/icon/fallback/lettermark/w/96/h/96?c=${clientId}`

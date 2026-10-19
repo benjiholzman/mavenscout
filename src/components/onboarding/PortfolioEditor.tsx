@@ -4,11 +4,12 @@ import { supabase } from '../../lib/supabase'
 import { PORTFOLIO_LINK_CAP } from '../../lib/validation'
 import type { PortfolioItem } from '../../types/db'
 import { FieldRow, ListItemCard, TextArea, TextField } from './fields'
+import { YearFields } from './HistoryEditors'
 
 // Portfolio editor (PRD 7.2/7.3): portfolio_items is its own table, so this
 // section does direct row CRUD (not part of the profiles-row save). Tier cap:
-// 3 Standard / 10 Premium. Each item: name, role, description, results,
-// cover image, captioned carousel images, up to 3 links.
+// 3 Standard / 10 Premium. Each item: name, organization, year span, role,
+// description, results, cover image, captioned carousel images, up to 3 links.
 
 type Draft = Omit<PortfolioItem, 'id'> & { id?: string }
 
@@ -31,6 +32,8 @@ export function PortfolioEditor({ profileId, cap }: { profileId: string; cap: nu
     setItems(items.map((it, j) => (j === i ? { ...it, ...patch } : it)))
 
   const saveAll = async () => {
+    const badSpan = items.findIndex((it) => it.start_year && it.end_year && it.end_year < it.start_year)
+    if (badSpan >= 0) return setStatus(`Error: project ${badSpan + 1} ends before it starts`)
     setStatus('Saving…')
     for (const [i, item] of items.entries()) {
       const row = { ...item, profile_id: profileId, sort_order: i + 1 }
@@ -60,9 +63,27 @@ export function PortfolioEditor({ profileId, cap }: { profileId: string; cap: nu
       {items.map((item, i) => (
         <ListItemCard key={item.id ?? `new-${i}`} onRemove={() => remove(i)}>
           <FieldRow>
-            <TextField label="Project name" value={item.project_name} onChange={(v) => update(i, { project_name: v })} />
+            <TextField
+              label="Project name"
+              value={item.project_name}
+              onChange={(v) => update(i, { project_name: v })}
+              hint="Describe the project; the organization and dates are shown separately."
+            />
             <TextField label="Your role" value={item.role} onChange={(v) => update(i, { role: v })} />
           </FieldRow>
+          <TextField
+            label="Organization (optional)"
+            value={item.organization ?? ''}
+            onChange={(v) => update(i, { organization: v || null })}
+            placeholder="e.g. GIZ, World Bank, Ministry of Health"
+          />
+          <YearFields
+            start={item.start_year ?? ''}
+            end={item.end_year ?? ''}
+            onStart={(v) => update(i, { start_year: v === '' ? null : v })}
+            onEnd={(v) => update(i, { end_year: v === '' ? null : v })}
+            endHint="Blank = ongoing. Same as start for a single year."
+          />
           <TextArea label="Description" rows={3} value={item.description} onChange={(v) => update(i, { description: v })} />
           <TextArea
             label="Results (what changed because of your work?)"
@@ -169,6 +190,9 @@ export function PortfolioEditor({ profileId, cap }: { profileId: string; cap: nu
               {
                 profile_id: profileId,
                 project_name: '',
+                organization: null,
+                start_year: null,
+                end_year: null,
                 role: '',
                 description: '',
                 results: null,

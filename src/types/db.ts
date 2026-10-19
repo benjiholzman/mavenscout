@@ -126,6 +126,9 @@ export interface PortfolioItem {
   id: string
   profile_id: string
   project_name: string
+  organization: string | null
+  start_year: number | null
+  end_year: number | null // null = ongoing (shown as "–present")
   role: string
   description: string
   results: string | null

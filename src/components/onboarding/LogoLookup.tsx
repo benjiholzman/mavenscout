@@ -52,9 +52,8 @@ export function LogoLookup({
               key={m.domain}
               type="button"
               onClick={() => {
-                // Store the durable Logo Link (search icons carry expiring tokens).
-                const durable = logoLinkUrl(m.domain)
-                if (durable) onPick(durable)
+                // Store the durable, id-free Logo Link (search icons carry expiring tokens).
+                onPick(logoLinkUrl(m.domain))
                 setMatches(null)
               }}
               title={m.domain}

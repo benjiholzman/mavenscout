@@ -12,7 +12,7 @@ RLS notes) — the PRD defines *what* was intended; this defines *where the seam
 |---|---|
 | Stack | React 18 + TypeScript + Vite, Tailwind 3, Framer Motion, React Router 6, Supabase (Postgres + Storage) |
 | Run | `npm install && npm run dev` — needs `.env` with `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (see `.env.example`) |
-| Database | `supabase/000_schema.sql` → `001` → `002` → `003`, run in order in the Supabase SQL editor. 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data. A fresh project bootstraps from just these four files. |
+| Database | `supabase/000_schema.sql` → `001` → `002` → `003` → `004`, run in order in the Supabase SQL editor. 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data; 004 fills portfolio organization/years and work-history logo links on the seeded rows. A fresh project bootstraps from just these five files. An existing database that already ran 000–003 only needs 004 (its `ADD COLUMN IF NOT EXISTS` is a no-op on fresh projects, where 000 already creates the columns). |
 | Verification baseline | Every PRD Definition-of-Done item (Section 13) was verified in-browser at desktop and 375px before handoff. The Playwright scripts lived in a temp scratchpad and are **not** committed — if you want a regression suite, the DoD checklist is the spec to automate against. |
 
 ## What is mocked vs. real (the load-bearing distinction)

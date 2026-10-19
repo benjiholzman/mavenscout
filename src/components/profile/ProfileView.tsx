@@ -1,6 +1,7 @@
 import { Bookmark, Download, ExternalLink, Globe, Mail, MapPin, Star } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { ProfileData } from '../../hooks/useProfile'
+import { fmtPortfolioMeta } from '../../lib/dates'
 import { resumeDownloadUrl } from '../../lib/media'
 import { useSession } from '../../lib/session'
 import { platformIcon } from '../../lib/socials'
@@ -509,6 +510,7 @@ function PortfolioCard({
   const images = item.cover_image
     ? [{ url: item.cover_image }, ...item.images.filter((i) => i.url !== item.cover_image)]
     : item.images
+  const meta = fmtPortfolioMeta(item)
   return (
     <article className="grid gap-6 rounded-card border border-line bg-white p-5 md:grid-cols-2">
       <div>
@@ -516,6 +518,7 @@ function PortfolioCard({
       </div>
       <div className="flex flex-col">
         <h3 className="font-display text-lg font-semibold">{item.project_name}</h3>
+        {meta && <p className="mt-0.5 text-sm text-ink-faint">{meta}</p>}
         <p className="mt-0.5 text-sm font-medium text-brand-700">{item.role}</p>
         <p className="mt-3 text-sm leading-relaxed text-ink-soft">{item.description}</p>
         {item.results && (
