@@ -26,6 +26,7 @@ import {
   WORK_HISTORY_CAP,
   portfolioCap,
   socialLinkCap,
+  tagCapError,
 } from '../lib/validation'
 import type { PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../types/db'
 
@@ -313,7 +314,11 @@ export default function Onboarding() {
             id="tags"
             title="Domain expertise & technical skills"
             description="Self-attested — shown with a marker so managers know these are your claims. Tight caps keep specialists looking like specialists."
-            onSave={() => save({ expertise: draft.expertise, skills: draft.skills })}
+            onSave={async () =>
+              tagCapError(draft.expertise, 'Domain expertise') ??
+              tagCapError(draft.skills, 'Technical skills') ??
+              save({ expertise: draft.expertise, skills: draft.skills })
+            }
           >
             <div className="space-y-6">
               <TagPicker

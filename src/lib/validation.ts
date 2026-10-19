@@ -28,6 +28,17 @@ export function tagCapReached(tags: TagSelection[], tier: 'primary' | 'secondary
   return tags.filter((t) => t.tier === tier).length >= cap
 }
 
+/** Save-time check for the caps — catches over-cap data loaded from older
+ *  rows, which the picker's add/toggle guards can't prevent. */
+export function tagCapError(tags: TagSelection[], label: string): string | null {
+  const primary = tags.filter((t) => t.tier === 'primary').length
+  const secondary = tags.filter((t) => t.tier === 'secondary').length
+  if (primary > PRIMARY_CAP) return `${label}: pick at most ${PRIMARY_CAP} primary (you have ${primary}).`
+  if (secondary > SECONDARY_CAP)
+    return `${label}: pick at most ${SECONDARY_CAP} secondary (you have ${secondary}).`
+  return null
+}
+
 // ---- social link validation (PRD 7.13) -------------------------------------
 
 const PLATFORM_HOSTS: Record<string, string[]> = {

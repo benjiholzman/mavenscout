@@ -32,6 +32,16 @@ export function logoLinkUrl(domain: string): string | null {
   return clientId ? `https://cdn.brandfetch.io/${domain}?c=${clientId}` : null
 }
 
+/** Square-icon variant of a stored Logo Link, for small square logo tiles
+ *  (Brandfetch serves its own lettermark when a brand has no icon). Any
+ *  non-Brandfetch URL passes through unchanged. */
+export function logoIconUrl(url: string | null): string | null {
+  const domain = url?.match(/^https:\/\/cdn\.brandfetch\.io\/([^/?]+)\/?(?:\?|$)/)?.[1]
+  const clientId = brandfetchClientId()
+  if (!domain || !clientId) return url
+  return `https://cdn.brandfetch.io/${domain}/icon/fallback/lettermark/w/96/h/96?c=${clientId}`
+}
+
 export async function searchBrands(name: string): Promise<BrandMatch[]> {
   const clientId = brandfetchClientId()
   if (!clientId || name.trim().length < 2) return []

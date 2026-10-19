@@ -21,3 +21,7 @@ export function fmtMonthYear(value: string): string {
 export function fmtLongMonthYear(value: string): string {
   return parseLocalDate(value).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 }
+
+export function fmtMonth(value: string): string {
+  return parseLocalDate(value).toLocaleDateString(undefined, { month: 'short' })
+}

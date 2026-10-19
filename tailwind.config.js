@@ -25,12 +25,17 @@ export default {
           soft: '#4A5B63',
           faint: '#7C8B92',
         },
-        line: '#E7E2DA',
+        line: {
+          DEFAULT: '#E7E2DA',
+          soft: '#EFEBE4', // in-card rules and dividers
+          strong: '#D9D2C6', // card bottom-bar divider
+        },
         // Premium "Featured" gold treatment (PRD 7.8).
         gold: {
           300: '#E5C878',
           500: '#C9A227',
           700: '#9A7B1C',
+          800: '#6E5714', // small gold text on white (AA contrast)
         },
       },
       fontFamily: {
@@ -39,6 +44,11 @@ export default {
       },
       borderRadius: {
         card: '0.875rem',
+      },
+      boxShadow: {
+        card: '0 1px 2px rgba(34,51,59,.06), 0 10px 28px -14px rgba(34,51,59,.24)',
+        'card-hover': '0 2px 6px rgba(34,51,59,.1), 0 16px 34px -14px rgba(34,51,59,.32)',
+        tooltip: '0 6px 16px -4px rgba(34,51,59,.35)',
       },
     },
   },

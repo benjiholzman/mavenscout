@@ -42,6 +42,10 @@ export function TagPicker({
   const selectedNames = new Set(value.map((t) => t.name))
   const primaryFull = tagCapReached(value, 'primary')
   const secondaryFull = tagCapReached(value, 'secondary')
+  const primaryCount = value.filter((t) => t.tier === 'primary').length
+  const secondaryCount = value.filter((t) => t.tier === 'secondary').length
+  // Older rows can predate the caps; flag them so the save check isn't a surprise.
+  const overCap = primaryCount > PRIMARY_CAP || secondaryCount > SECONDARY_CAP
 
   const add = (name: string, level: 'category' | 'item') => {
     if (selectedNames.has(name)) return
@@ -90,15 +94,19 @@ export function TagPicker({
     <div>
       <div className="flex items-baseline justify-between">
         <p className="text-sm font-medium">{label}</p>
-        <p className="text-xs text-ink-faint">
-          {value.filter((t) => t.tier === 'primary').length}/{PRIMARY_CAP} primary ·{' '}
-          {value.filter((t) => t.tier === 'secondary').length}/{SECONDARY_CAP} secondary
+        <p className={`text-xs ${overCap ? 'font-medium text-red-600' : 'text-ink-faint'}`}>
+          {primaryCount}/{PRIMARY_CAP} primary · {secondaryCount}/{SECONDARY_CAP} secondary
         </p>
       </div>
       <p className="mt-0.5 text-xs text-ink-faint">
         Pick a whole category to signal broad competency, or specific sub-items for depth.
         Click a selected tag to switch primary ↔ secondary.
       </p>
+      {overCap && (
+        <p className="mt-1 text-xs text-red-600">
+          Over the limit — remove tags or move them to secondary before saving.
+        </p>
+      )}
 
       <div className="mt-2 flex flex-wrap gap-1.5">
         {value.map((t) => (
