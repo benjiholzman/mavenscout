@@ -197,7 +197,7 @@ export function applyFilters(
       !f.workArrangements.some((w) => p.work_types.includes(w))
     )
       return false
-    if (f.locations.length > 0 && (!p.location || !f.locations.includes(p.location))) return false
+    if (f.locations.length > 0 && !matchesLocation(p.location, f.locations)) return false
     if (f.languages.length > 0 && !f.languages.some((l) => p.languages.includes(l))) return false
     if (f.availability && !matchesAvailability(p, f.availability)) return false
     if (f.verifiedOnly && p.verification_status !== 'verified') return false
@@ -207,9 +207,51 @@ export function applyFilters(
   })
 }
 
+// ---- location (two-tier: country → city) ----------------------------------
+// profiles.location stays free text, conventionally "City, Country". The
+// country is the last comma-separated segment. In the filter, a country is
+// selected by its bare name ("Nigeria") and a city by the full location
+// string ("Lagos, Nigeria"), so same-named cities in different countries
+// never collide.
+
+export function locationCountry(location: string): string {
+  return location.split(',').pop()!.trim()
+}
+
+/** Display label for a location filter value: cities show without the country. */
+export function locationLabel(value: string): string {
+  const i = value.lastIndexOf(',')
+  return i === -1 ? value : value.slice(0, i).trim()
+}
+
+/** Country selections match every profile in that country; city selections
+ *  match only that city. OR within the selection. */
+function matchesLocation(location: string | null, selected: string[]): boolean {
+  if (!location) return false
+  const loc = location.trim()
+  return selected.some((sel) => sel === loc || sel === locationCountry(loc))
+}
+
+export function deriveLocationGroups(profiles: Profile[]): { label: string; items: string[] }[] {
+  const byCountry = new Map<string, Set<string>>()
+  for (const p of profiles) {
+    const loc = p.location?.trim()
+    if (!loc) continue
+    const country = locationCountry(loc)
+    const cities = byCountry.get(country) ?? new Set<string>()
+    if (loc !== country) cities.add(loc)
+    byCountry.set(country, cities)
+  }
+  return [...byCountry.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([label, cities]) => ({ label, items: [...cities].sort() }))
+}
+
 /** Dynamic filter options from what's actually in the data (PRD §8). */
-export function deriveOptions(profiles: Profile[]): { locations: string[]; languages: string[] } {
-  const locations = [...new Set(profiles.map((p) => p.location).filter(Boolean) as string[])].sort()
+export function deriveOptions(profiles: Profile[]): {
+  locations: { label: string; items: string[] }[]
+  languages: string[]
+} {
   const languages = [...new Set(profiles.flatMap((p) => p.languages))].sort()
-  return { locations, languages }
+  return { locations: deriveLocationGroups(profiles), languages }
 }

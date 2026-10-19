@@ -1,6 +1,7 @@
 import { FlaskConical, X } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { FLIP_NAV_VARIANTS, setFlipNavVariant, useFlipNavVariant } from '../../lib/tweaks'
 import { resetEditorProfile, useSession, type Role } from '../../lib/session'
 
 // ---------------------------------------------------------------------------
@@ -24,11 +25,12 @@ export function DevRoleSwitcher() {
   const { role, setRole } = useSession()
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
+  const flipNav = useFlipNavVariant()
 
   return (
     <div className="fixed bottom-4 right-4 z-[60]">
       {open ? (
-        <div className="w-52 rounded-xl border border-line bg-white p-3 shadow-xl">
+        <div className="w-60 rounded-xl border border-line bg-white p-3 shadow-xl">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
               Dev: viewing as
@@ -56,6 +58,26 @@ export function DevRoleSwitcher() {
                 {r.label}
               </button>
             ))}
+          </div>
+          <div className="mt-3 border-t border-line pt-2">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+              Tweak: flip card nav
+            </p>
+            <div className="space-y-1">
+              {FLIP_NAV_VARIANTS.map((v) => (
+                <button
+                  key={v.value}
+                  onClick={() => setFlipNavVariant(v.value)}
+                  className={`w-full rounded-lg px-2.5 py-1.5 text-left text-xs ${
+                    flipNav === v.value
+                      ? 'bg-brand-50 font-semibold text-brand-700'
+                      : 'text-ink-soft hover:bg-paper'
+                  }`}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       ) : (

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import {
   firmsOnlySelected,
   hasActiveFilters,
+  locationLabel,
   type FilterState,
   type SearchMode,
 } from '../../lib/filters'
@@ -44,7 +45,7 @@ export function FilterBar({
 }: {
   filters: FilterState
   onChange: (next: FilterState) => void
-  locations: string[]
+  locations: OptionGroup[]
   languages: string[]
   taxonomyCategories: TaxonomyCategory[]
   taxonomyItems: TaxonomyItem[]
@@ -150,7 +151,9 @@ export function FilterBar({
         />
         <MultiSelect
           label="Location"
-          options={locations}
+          groups={locations}
+          selectableGroup
+          formatValue={locationLabel}
           selected={filters.locations}
           onChange={(v) => set('locations', v)}
           open={openKey === 'location'}

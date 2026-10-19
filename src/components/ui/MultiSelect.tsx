@@ -15,6 +15,7 @@ export function MultiSelect({
   options,
   groups,
   selectableGroup = false,
+  formatValue = (v) => v,
   selected,
   onChange,
   disabled = false,
@@ -26,6 +27,8 @@ export function MultiSelect({
   options?: string[]
   groups?: OptionGroup[]
   selectableGroup?: boolean
+  /** Display label for a value (e.g. strip the country from "Lagos, Nigeria"). */
+  formatValue?: (value: string) => string
   selected: string[]
   onChange: (next: string[]) => void
   disabled?: boolean
@@ -66,7 +69,7 @@ export function MultiSelect({
         >
           {checked && <Check size={12} strokeWidth={3} />}
         </span>
-        <span className="min-w-0 truncate">{value}</span>
+        <span className="min-w-0 truncate">{formatValue(value)}</span>
       </button>
     )
   }

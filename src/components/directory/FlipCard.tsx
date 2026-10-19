@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bookmark, ChevronLeft, ChevronRight, Mic, Star, Video } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { resolveVideo } from '../../lib/media'
+import { useFlipNavVariant } from '../../lib/tweaks'
 import type { PortfolioItem, Profile, VideoResponse } from '../../types/db'
 import { OrgLogo } from '../ui/OrgLogo'
 import { TagPills } from '../ui/TagPills'
@@ -15,14 +16,15 @@ import {
   VerifiedBadge,
 } from '../ui/badges'
 
-// Flip card (PRD 7.1): cycles through up to seven faces — Front → Domain
-// Expertise → Technical Skills → up to 3 Portfolio items → Video Intro.
+// Flip card (PRD 7.1): cycles through up to six faces — Front → Expertise &
+// Skills (Domain Expertise and Technical Skills combined on one face) → up to
+// 3 Portfolio items → Video Intro.
 // Pagination dots reflect only the faces that exist; the action bar below
 // the flip area never animates with the card.
 
 type Face =
   | { kind: 'front' }
-  | { kind: 'tags'; title: string; tags: Profile['expertise'] }
+  | { kind: 'tags'; sections: { title: string; tags: Profile['expertise'] }[] }
   | { kind: 'portfolio'; item: PortfolioItem }
   | { kind: 'video'; video: VideoResponse }
 
@@ -62,13 +64,16 @@ export function FlipCard({
 }) {
   const [index, setIndex] = useState(0)
   const [direction, setDirection] = useState(1)
+  const navVariant = useFlipNavVariant()
+  const faceRef = useRef<HTMLDivElement>(null)
 
   const faces = useMemo<Face[]>(() => {
     const f: Face[] = [{ kind: 'front' }]
-    if (profile.expertise.length > 0)
-      f.push({ kind: 'tags', title: 'Domain Expertise', tags: profile.expertise })
-    if (profile.skills.length > 0)
-      f.push({ kind: 'tags', title: 'Technical Skills', tags: profile.skills })
+    const sections = [
+      { title: 'Domain Expertise', tags: profile.expertise },
+      { title: 'Technical Skills', tags: profile.skills },
+    ].filter((s) => s.tags.length > 0)
+    if (sections.length > 0) f.push({ kind: 'tags', sections })
     for (const item of portfolio.slice(0, 3)) f.push({ kind: 'portfolio', item })
     if (intro) f.push({ kind: 'video', video: intro })
     return f
@@ -77,6 +82,11 @@ export function FlipCard({
   const go = (delta: number) => {
     setDirection(delta)
     setIndex((i) => (i + delta + faces.length) % faces.length)
+  }
+
+  const pick = (i: number) => {
+    setDirection(i > index ? 1 : -1)
+    setIndex(i)
   }
 
   const face = faces[index]
@@ -92,30 +102,45 @@ export function FlipCard({
       }`}
     >
       {/* Flip area */}
-      <div className="relative overflow-hidden rounded-t-card" style={{ perspective: 1200 }}>
+      <div className="group/flip relative overflow-hidden rounded-t-card" style={{ perspective: 1200 }}>
         {profile.is_premium && index === 0 && <FeaturedRibbon />}
         <AnimatePresence mode="wait" initial={false} custom={direction}>
           <motion.div
             key={index}
+            ref={faceRef}
             custom={direction}
-            initial={{ rotateY: direction * 65, opacity: 0 }}
+            initial={{ rotateY: direction * -65, opacity: 0 }}
             animate={{ rotateY: 0, opacity: 1 }}
-            exit={{ rotateY: direction * -65, opacity: 0 }}
-            transition={{ duration: 0.28, ease: 'easeOut' }}
+            exit={{ rotateY: direction * 65, opacity: 0 }}
+            transition={{ duration: 0.13, ease: 'easeOut' }}
             drag={faces.length > 1 && face.kind !== 'video' ? 'x' : false}
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.3}
+            // Tap-card variant: a tap (not a drag) on the left third goes back, the
+            // rest goes forward. The video face is exempt so its controls work.
+            onTap={(_, info) => {
+              if (navVariant !== 'tap' || faces.length < 2 || face.kind === 'video') return
+              const rect = faceRef.current?.getBoundingClientRect()
+              if (!rect) return
+              const x = info.point.x - rect.left - window.scrollX
+              go(x < rect.width / 3 ? -1 : 1)
+            }}
+            tabIndex={navVariant === 'tap' && face.kind !== 'video' ? 0 : undefined}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowRight') go(1)
+              else if (e.key === 'ArrowLeft') go(-1)
+            }}
             onDragEnd={(_, info) => {
               if (info.offset.x < -60) go(1)
               else if (info.offset.x > 60) go(-1)
             }}
-            className="h-[430px]"
+            className={`h-[460px] ${navVariant === 'tap' && face.kind !== 'video' ? 'cursor-pointer' : ''}`}
             style={{ transformStyle: 'preserve-3d' }}
           >
             {face.kind === 'front' && (
               <div className="flex h-full flex-col">
                 <div
-                  className="h-20 shrink-0 bg-brand-100 bg-cover bg-center"
+                  className="h-[120px] shrink-0 bg-brand-100 bg-cover bg-center"
                   style={
                     profile.cover_image_url
                       ? { backgroundImage: `url(${profile.cover_image_url})` }
@@ -123,15 +148,15 @@ export function FlipCard({
                   }
                 />
                 <div className="relative flex-1 px-4 pb-3">
-                  <div className="-mt-8 flex items-end justify-between">
+                  <div className="-mt-[45px] flex items-end justify-between">
                     {profile.photo_url ? (
                       <img
                         src={profile.photo_url}
                         alt=""
-                        className="h-16 w-16 rounded-full border-2 border-white object-cover shadow"
+                        className="h-[90px] w-[90px] rounded-full border-2 border-white object-cover shadow"
                       />
                     ) : (
-                      <span className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-white bg-brand-100 text-lg font-semibold text-brand-700 shadow">
+                      <span className="flex h-[90px] w-[90px] items-center justify-center rounded-full border-2 border-white bg-brand-100 text-2xl font-semibold text-brand-700 shadow">
                         {monogram(profile.name)}
                       </span>
                     )}
@@ -194,13 +219,18 @@ export function FlipCard({
             )}
 
             {face.kind === 'tags' && (
-              <div className="flex h-full flex-col p-4">
-                <div className="mb-3 flex items-baseline justify-between">
-                  <h4 className="font-display text-base font-semibold">{face.title}</h4>
-                  <SelfAttestedMark />
+              <div className="flex h-full flex-col overflow-hidden px-4 pb-7 pt-4">
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+                  {face.sections.map((section, i) => (
+                    <section key={section.title}>
+                      <div className="mb-2 flex items-baseline justify-between">
+                        <h4 className="font-display text-base font-semibold">{section.title}</h4>
+                        {i === 0 && <SelfAttestedMark />}
+                      </div>
+                      <TagPills tags={section.tags} />
+                    </section>
+                  ))}
                 </div>
-                <TagPills tags={face.tags} />
-                <p className="mt-auto pt-3 text-xs text-ink-faint">{profile.name}</p>
               </div>
             )}
 
@@ -223,7 +253,6 @@ export function FlipCard({
                   </h4>
                   <p className="mt-0.5 text-xs font-medium text-brand-700">{face.item.role}</p>
                   <p className="mt-2 line-clamp-4 text-sm text-ink-soft">{face.item.description}</p>
-                  <p className="mt-auto pt-3 text-xs text-ink-faint">{profile.name}</p>
                 </div>
               </div>
             )}
@@ -232,41 +261,59 @@ export function FlipCard({
           </motion.div>
         </AnimatePresence>
 
-        {/* Face navigation */}
-        {faces.length > 1 && (
+        {/* Face navigation (variant chosen via the dev Tweaks panel) */}
+        {faces.length > 1 && navVariant !== 'bar' && navVariant !== 'tap' && (
           <>
-            <button
-              aria-label="Previous"
-              onClick={() => go(-1)}
-              className="absolute left-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/85 p-1 text-ink-soft shadow hover:text-ink"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <button
-              aria-label="Next"
-              onClick={() => go(1)}
-              className="absolute right-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/85 p-1 text-ink-soft shadow hover:text-ink"
-            >
-              <ChevronRight size={16} />
-            </button>
-            <div className="absolute bottom-1.5 left-1/2 z-10 flex -translate-x-1/2 gap-1.5 rounded-full bg-white/85 px-2 py-1 shadow-sm">
-              {faces.map((_, i) => (
+            {(navVariant === 'overlay' || navVariant === 'hover') && (
+              <>
                 <button
-                  key={i}
-                  aria-label={`Face ${i + 1}`}
-                  onClick={() => {
-                    setDirection(i > index ? 1 : -1)
-                    setIndex(i)
-                  }}
-                  className={`h-1.5 rounded-full transition-all ${
-                    i === index ? 'w-4 bg-brand-500' : 'w-1.5 bg-ink/20 hover:bg-ink/40'
+                  aria-label="Previous"
+                  onClick={() => go(-1)}
+                  className={`absolute left-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/85 p-1 text-ink-soft shadow hover:text-ink ${
+                    navVariant === 'hover' ? 'hidden [@media(hover:hover)]:group-hover/flip:block' : ''
                   }`}
-                />
-              ))}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  aria-label="Next"
+                  onClick={() => go(1)}
+                  className={`absolute right-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/85 p-1 text-ink-soft shadow hover:text-ink ${
+                    navVariant === 'hover' ? 'hidden [@media(hover:hover)]:group-hover/flip:block' : ''
+                  }`}
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </>
+            )}
+            <div className="absolute bottom-1.5 left-1/2 z-10 flex -translate-x-1/2 gap-1.5 rounded-full bg-white/85 px-2 py-1 shadow-sm">
+              <Dots count={faces.length} index={index} onPick={pick} />
             </div>
           </>
         )}
       </div>
+
+      {faces.length > 1 && (navVariant === 'bar' || navVariant === 'tap') && (
+        <div className="flex items-center justify-between border-t border-line px-2 py-1">
+          <button
+            aria-label="Previous"
+            onClick={() => go(-1)}
+            className="rounded-full p-1.5 text-ink-soft hover:bg-paper hover:text-ink"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <div className="flex gap-1.5">
+            <Dots count={faces.length} index={index} onPick={pick} />
+          </div>
+          <button
+            aria-label="Next"
+            onClick={() => go(1)}
+            className="rounded-full p-1.5 text-ink-soft hover:bg-paper hover:text-ink"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Persistent action bar — never animates with the card */}
       <div className="flex items-center gap-1 border-t border-line px-2 py-2">
@@ -297,6 +344,31 @@ export function FlipCard({
   )
 }
 
+function Dots({
+  count,
+  index,
+  onPick,
+}: {
+  count: number
+  index: number
+  onPick: (i: number) => void
+}) {
+  return (
+    <>
+      {Array.from({ length: count }, (_, i) => (
+        <button
+          key={i}
+          aria-label={`Face ${i + 1}`}
+          onClick={() => onPick(i)}
+          className={`h-1.5 rounded-full transition-all ${
+            i === index ? 'w-4 bg-brand-500' : 'w-1.5 bg-ink/20 hover:bg-ink/40'
+          }`}
+        />
+      ))}
+    </>
+  )
+}
+
 function VideoFace({ video, name }: { video: VideoResponse; name: string }) {
   const playable = resolveVideo(video)
   return (
@@ -317,7 +389,7 @@ function VideoFace({ video, name }: { video: VideoResponse; name: string }) {
         )}
       </div>
       <p className="px-4 py-2.5 text-xs text-white/70">
-        Video introduction — {name}
+        Video introduction
       </p>
     </div>
   )
