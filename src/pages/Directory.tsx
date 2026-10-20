@@ -96,13 +96,13 @@ export default function Directory() {
 
   if (error)
     return (
-      <div className="mx-auto max-w-7xl px-4 py-10">
+      <div className="mx-auto max-w-[1104px] px-4 py-10">
         <p className="text-red-600">Couldn't load the directory: {error}</p>
       </div>
     )
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
+    <div className="mx-auto max-w-[1104px] px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold">Browse experts</h1>

@@ -33,7 +33,7 @@ export function AppLayout() {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-40 border-b border-line bg-white/85 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
+        <div className="mx-auto flex max-w-[1104px] items-center justify-between gap-4 px-4 py-3">
           <Link to="/" aria-label="MavenScout home" className="shrink-0">
             <img src={lockup} alt="MavenScout" className="h-8" />
           </Link>
@@ -129,7 +129,7 @@ export function AppLayout() {
       </main>
 
       <footer className="border-t border-line py-6">
-        <p className="mx-auto max-w-7xl px-4 text-xs text-ink-faint">
+        <p className="mx-auto max-w-[1104px] px-4 text-xs text-ink-faint">
           © {new Date().getFullYear()} MavenScout — a curated marketplace for international
           development expertise.
         </p>
