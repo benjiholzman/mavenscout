@@ -14,6 +14,7 @@ import {
   saveRankingToOpening,
   type SavedRanking,
 } from '../lib/matching/run'
+import { defaultWeights } from '../lib/matching/computeMatchScore'
 import { computeTeamStats } from '../lib/openings'
 import { DEMO_HIRING_MANAGER_ID, useSession } from '../lib/session'
 import { supabase } from '../lib/supabase'
@@ -204,7 +205,7 @@ export default function OpeningDetail() {
             ? {
                 raw_text: saved.jd.raw_text,
                 hiring_organization: saved.jd.hiring_organization,
-                weights: saved.jd.weights,
+                weights: saved.jd.weights ?? defaultWeights(),
               }
             : undefined
         }
