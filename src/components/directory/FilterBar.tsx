@@ -1,9 +1,10 @@
 import { CalendarClock, Search, X } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   firmsOnlySelected,
   hasActiveFilters,
   locationLabel,
+  type FacetKey,
   type FilterState,
   type SearchMode,
 } from '../../lib/filters'
@@ -12,6 +13,7 @@ import { MultiSelect, type OptionGroup } from '../ui/MultiSelect'
 import { Switch } from '../ui/Switch'
 import { AvailabilityModal, availabilitySummary } from './AvailabilityModal'
 
+const TYPE_OPTIONS = ['Individual', 'Small Firm', 'Large Firm']
 const CAREER_LEVEL_OPTIONS = ['Early Career (0–5 yrs)', 'Mid-Career (5–15 yrs)', 'Senior (15+ yrs)']
 const CAREER_LEVEL_VALUES: Record<string, string> = {
   'Early Career (0–5 yrs)': 'early_career',
@@ -42,6 +44,7 @@ export function FilterBar({
   languages,
   taxonomyCategories,
   taxonomyItems,
+  countFor,
 }: {
   filters: FilterState
   onChange: (next: FilterState) => void
@@ -49,6 +52,8 @@ export function FilterBar({
   languages: string[]
   taxonomyCategories: TaxonomyCategory[]
   taxonomyItems: TaxonomyItem[]
+  /** Faceted counts for one filter's option values (see lib/filters facetCounts). */
+  countFor: (key: FacetKey, values: string[]) => Map<string, number>
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null)
   const [availabilityOpen, setAvailabilityOpen] = useState(false)
@@ -65,6 +70,34 @@ export function FilterBar({
       return cat?.type === 'work_arrangement'
     })
     .map((i) => i.name)
+
+  const expertiseGroups = taxonomyGroups(taxonomyCategories, taxonomyItems, 'domain_expertise')
+  const skillsGroups = taxonomyGroups(taxonomyCategories, taxonomyItems, 'technical_skills')
+  const groupValues = (groups: OptionGroup[]) => groups.flatMap((g) => [g.label, ...g.items])
+
+  // Counts are computed only for the dropdown that's open.
+  const openCounts = useMemo(() => {
+    switch (openKey) {
+      case 'type':
+        return countFor('types', TYPE_OPTIONS)
+      case 'expertise':
+        return countFor('expertise', groupValues(expertiseGroups))
+      case 'skills':
+        return countFor('skills', groupValues(skillsGroups))
+      case 'career': {
+        const byValue = countFor('careerLevels', Object.values(CAREER_LEVEL_VALUES))
+        return new Map(CAREER_LEVEL_OPTIONS.map((l) => [l, byValue.get(CAREER_LEVEL_VALUES[l]) ?? 0]))
+      }
+      case 'arrangement':
+        return countFor('workArrangements', workArrangements)
+      case 'location':
+        return countFor('locations', groupValues(locations))
+      case 'language':
+        return countFor('languages', languages)
+      default:
+        return undefined
+    }
+  }, [openKey, countFor, filters])
 
   return (
     <div className="space-y-3">
@@ -107,27 +140,30 @@ export function FilterBar({
       <div className="flex flex-wrap items-center gap-2">
         <MultiSelect
           label="Type"
-          options={['Individual', 'Small Firm', 'Large Firm']}
+          options={TYPE_OPTIONS}
           selected={filters.types}
           onChange={(v) => set('types', v)}
+          counts={openKey === 'type' ? openCounts : undefined}
           open={openKey === 'type'}
           onToggle={toggleFor('type')}
         />
         <MultiSelect
           label="Domain Expertise"
-          groups={taxonomyGroups(taxonomyCategories, taxonomyItems, 'domain_expertise')}
+          groups={expertiseGroups}
           selectableGroup
           selected={filters.expertise}
           onChange={(v) => set('expertise', v)}
+          counts={openKey === 'expertise' ? openCounts : undefined}
           open={openKey === 'expertise'}
           onToggle={toggleFor('expertise')}
         />
         <MultiSelect
           label="Skills"
-          groups={taxonomyGroups(taxonomyCategories, taxonomyItems, 'technical_skills')}
+          groups={skillsGroups}
           selectableGroup
           selected={filters.skills}
           onChange={(v) => set('skills', v)}
+          counts={openKey === 'skills' ? openCounts : undefined}
           open={openKey === 'skills'}
           onToggle={toggleFor('skills')}
         />
@@ -138,6 +174,7 @@ export function FilterBar({
           onChange={(labels) => set('careerLevels', labels.map((l) => CAREER_LEVEL_VALUES[l] ?? l))}
           disabled={firmsOnly}
           disabledNote="Career level applies to individuals — it doesn't apply when filtering firms only"
+          counts={openKey === 'career' ? openCounts : undefined}
           open={openKey === 'career'}
           onToggle={toggleFor('career')}
         />
@@ -146,6 +183,7 @@ export function FilterBar({
           options={workArrangements}
           selected={filters.workArrangements}
           onChange={(v) => set('workArrangements', v)}
+          counts={openKey === 'arrangement' ? openCounts : undefined}
           open={openKey === 'arrangement'}
           onToggle={toggleFor('arrangement')}
         />
@@ -156,6 +194,7 @@ export function FilterBar({
           formatValue={locationLabel}
           selected={filters.locations}
           onChange={(v) => set('locations', v)}
+          counts={openKey === 'location' ? openCounts : undefined}
           open={openKey === 'location'}
           onToggle={toggleFor('location')}
         />
@@ -164,6 +203,7 @@ export function FilterBar({
           options={languages}
           selected={filters.languages}
           onChange={(v) => set('languages', v)}
+          counts={openKey === 'language' ? openCounts : undefined}
           open={openKey === 'language'}
           onToggle={toggleFor('language')}
         />

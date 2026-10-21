@@ -16,6 +16,7 @@ export function MultiSelect({
   groups,
   selectableGroup = false,
   formatValue = (v) => v,
+  counts,
   selected,
   onChange,
   disabled = false,
@@ -29,6 +30,8 @@ export function MultiSelect({
   selectableGroup?: boolean
   /** Display label for a value (e.g. strip the country from "Lagos, Nigeria"). */
   formatValue?: (value: string) => string
+  /** Optional per-value result counts, shown right-aligned on each row. */
+  counts?: Map<string, number>
   selected: string[]
   onChange: (next: string[]) => void
   disabled?: boolean
@@ -70,6 +73,11 @@ export function MultiSelect({
           {checked && <Check size={12} strokeWidth={3} />}
         </span>
         <span className="min-w-0 truncate">{formatValue(value)}</span>
+        {counts && (
+          <span className="ml-auto shrink-0 pl-2 text-xs font-normal tabular-nums text-ink-faint">
+            {counts.get(value) ?? 0}
+          </span>
+        )}
       </button>
     )
   }

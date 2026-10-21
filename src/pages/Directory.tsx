@@ -1,5 +1,5 @@
 import { SearchX, Sparkles, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { FilterBar } from '../components/directory/FilterBar'
 import { FlipCard } from '../components/directory/FlipCard'
 import { SortDropdown } from '../components/directory/SortDropdown'
@@ -15,6 +15,8 @@ import {
   applyFilters,
   buildTaxonomyTree,
   deriveOptions,
+  facetCounts,
+  type FacetKey,
   EMPTY_FILTERS,
   type FilterState,
 } from '../lib/filters'
@@ -64,6 +66,14 @@ export default function Directory() {
       trees.skills,
     )
   }, [data, trees, filters])
+
+  const countFor = useCallback(
+    (key: FacetKey, values: string[]) =>
+      data && trees
+        ? facetCounts(data.profiles, data.portfolioByProfile, filters, trees.expertise, trees.skills, key, values)
+        : new Map<string, number>(),
+    [data, trees, filters],
+  )
 
   const scoreMap = useMemo(
     () => new Map(ranking?.results.map((r) => [r.profile_id, r.total_score]) ?? []),
@@ -133,6 +143,7 @@ export default function Directory() {
             languages={options.languages}
             taxonomyCategories={data.taxonomyCategories}
             taxonomyItems={data.taxonomyItems}
+            countFor={countFor}
           />
         )}
       </div>

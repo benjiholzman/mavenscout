@@ -255,3 +255,37 @@ export function deriveOptions(profiles: Profile[]): {
   const languages = [...new Set(profiles.flatMap((p) => p.languages))].sort()
   return { locations: deriveLocationGroups(profiles), languages }
 }
+
+// ---- facet counts (filter dropdown item counts) ----------------------------
+
+export type FacetKey =
+  | 'types'
+  | 'expertise'
+  | 'skills'
+  | 'careerLevels'
+  | 'workArrangements'
+  | 'locations'
+  | 'languages'
+
+/** For each option value of one filter, how many profiles it would match
+ *  given every OTHER active filter (standard faceted counts: the dropdown's
+ *  own selections are ignored, so counts don't collapse as you tick items). */
+export function facetCounts(
+  profiles: Profile[],
+  portfolioByProfile: Map<string, PortfolioItem[]>,
+  f: FilterState,
+  expertiseTree: TaxonomyTree,
+  skillsTree: TaxonomyTree,
+  key: FacetKey,
+  values: string[],
+): Map<string, number> {
+  const pool = applyFilters(profiles, portfolioByProfile, { ...f, [key]: [] }, expertiseTree, skillsTree)
+  const counts = new Map<string, number>()
+  for (const value of values) {
+    const only: FilterState = { ...EMPTY_FILTERS, [key]: [value] }
+    // Career level is ignored when Type is firms-only; keep that context.
+    if (key === 'careerLevels') only.types = f.types
+    counts.set(value, applyFilters(pool, portfolioByProfile, only, expertiseTree, skillsTree).length)
+  }
+  return counts
+}
