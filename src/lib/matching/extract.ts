@@ -1,4 +1,5 @@
 import { EXTRACTION_STRONG_MIN_OCCURRENCES, MAX_TAG_ROWS } from './config'
+import { countTerm as countOccurrences, normalizeText as normalize } from './text'
 import type { ExtractedRequirements, ExtractedTag, ExtractRequirementsFn } from './types'
 
 // ============================================================================
@@ -19,31 +20,6 @@ import type { ExtractedRequirements, ExtractedTag, ExtractRequirementsFn } from 
 // organization (if found) only fills the Org History row's name — that row's
 // level stays No preference.
 // ============================================================================
-
-/** Lowercase, '&' → 'and', every other non-alphanumeric run → one space, so
- *  "Monitoring & Evaluation", "monitoring and evaluation" and
- *  "Monitoring-and-Evaluation" all compare equal. Padded with spaces so a
- *  search for " wash " only hits whole words. */
-function normalize(text: string): string {
-  return ` ${text
-    .toLowerCase()
-    .replace(/&/g, ' and ')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()} `
-}
-
-function countOccurrences(haystack: string, name: string): number {
-  const needle = normalize(name)
-  if (needle.trim().length < 2) return 0
-  let count = 0
-  let from = 0
-  for (;;) {
-    const at = haystack.indexOf(needle, from)
-    if (at === -1) return count
-    count += 1
-    from = at + needle.length - 1 // keep the trailing space as the next match's leading space
-  }
-}
 
 export const extractRequirements: ExtractRequirementsFn = async (jdText, ctx) => {
   const text = normalize(jdText)

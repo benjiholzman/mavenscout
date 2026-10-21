@@ -88,15 +88,19 @@ export const FIT_BLEND = {
   skills: 3,
 } as const
 
-/** Placeholder Fit calibration. TUNABLE — set in Stage 4 against a sample JD so
- *  a clearly on-topic profile lands ≥ 70 instead of clustering in the 40s.
+/** Placeholder Fit calibration. TUNABLE.
  *  - salientTerms: how many of the JD's most frequent terms the evidence is
  *    matched against (stops long JDs from saturating every score).
- *  - steepness: the raw 0–1 blend maps to 100 × (1 − e^(−steepness × raw)). */
+ *  - steepness: the raw 0–1 blend maps to
+ *    100 × (1 − e^(−steepness × raw)) / (1 − e^(−steepness)).
+ *  Tuned against a sample M&E ToR and the 15 seeded profiles: clearly
+ *  on-topic profiles land at Fit 75–77, related ones ~55, unrelated 13–37,
+ *  leaving headroom for the +20 preference cap (2.5 pushed the top four to
+ *  Fit 84 and a clamped 100 total, tied). */
 export const FIT_CALIBRATION = {
   salientTerms: 40,
-  steepness: 2.5,
-} as const
+  steepness: 1.5,
+}
 
 // ---- Availability (spec §3.1) ----------------------------------------------
 

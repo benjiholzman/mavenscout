@@ -141,7 +141,7 @@ function trackMatches(track: AvailabilityTrack, filter: AvailabilityFilter): boo
   return true
 }
 
-function matchesAvailability(p: Profile, filter: AvailabilityFilter): boolean {
+export function matchesAvailability(p: Profile, filter: AvailabilityFilter): boolean {
   const pt = () => trackMatches(p.part_time_availability, filter)
   const ft = () => trackMatches(p.full_time_availability, filter)
   if (filter.engagement === 'part_time') return pt()
@@ -228,7 +228,7 @@ export function locationLabel(value: string): string {
 
 /** Country selections match every profile in that country; city selections
  *  match only that city. OR within the selection. */
-function matchesLocation(location: string | null, selected: string[]): boolean {
+export function matchesLocation(location: string | null, selected: string[]): boolean {
   if (!location) return false
   const loc = location.trim()
   return selected.some((sel) => sel === loc || sel === locationCountry(loc))
