@@ -45,6 +45,9 @@ export function FilterBar({
   taxonomyCategories,
   taxonomyItems,
   countFor,
+  onClearAll,
+  gridOnlyMustHaves = [],
+  onOpenRequirement,
 }: {
   filters: FilterState
   onChange: (next: FilterState) => void
@@ -54,6 +57,15 @@ export function FilterBar({
   taxonomyItems: TaxonomyItem[]
   /** Faceted counts for one filter's option values (see lib/filters facetCounts). */
   countFor: (key: FacetKey, values: string[]) => Map<string, number>
+  /** Clear All. Defaults to clearing every filter through onChange; the
+   *  directory passes the requirements store's clearMustHaves so must-haves
+   *  without a filter-bar control (Org History) are cleared too. */
+  onClearAll?: () => void
+  /** Must-have rows the filter bar has no control for (match rework §2.1),
+   *  shown as a chip at the end of the bar. */
+  gridOnlyMustHaves?: { id: string; label: string }[]
+  /** Opens the ranking panel at a requirement row (the chip's action). */
+  onOpenRequirement?: (id: string) => void
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null)
   const [availabilityOpen, setAvailabilityOpen] = useState(false)
@@ -227,22 +239,33 @@ export function FilterBar({
           label="Verified only"
         />
 
-        {hasActiveFilters(filters) && (
+        {gridOnlyMustHaves.length > 0 && (
+          <button
+            onClick={() => onOpenRequirement?.(gridOnlyMustHaves[0].id)}
+            className="rounded-full border border-dashed border-brand-400 bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-700 hover:border-brand-500"
+          >
+            +{gridOnlyMustHaves.length} must-have: {gridOnlyMustHaves.map((m) => m.label).join(', ')}
+          </button>
+        )}
+
+        {(hasActiveFilters(filters) || gridOnlyMustHaves.length > 0) && (
           <button
             onClick={() =>
-              onChange({
-                ...filters,
-                types: [],
-                expertise: [],
-                skills: [],
-                careerLevels: [],
-                workArrangements: [],
-                locations: [],
-                languages: [],
-                availability: null,
-                verifiedOnly: false,
-                searchTerm: '',
-              })
+              onClearAll
+                ? onClearAll()
+                : onChange({
+                    ...filters,
+                    types: [],
+                    expertise: [],
+                    skills: [],
+                    careerLevels: [],
+                    workArrangements: [],
+                    locations: [],
+                    languages: [],
+                    availability: null,
+                    verifiedOnly: false,
+                    searchTerm: '',
+                  })
             }
             className="flex items-center gap-1 text-sm font-medium text-ink-faint hover:text-ink"
           >

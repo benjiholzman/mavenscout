@@ -186,9 +186,11 @@ export function applyFilters(
     if (f.types.length > 0 && !f.types.includes(p.consultant_type)) return false
     if (!matchesTaxonomySelection(p.expertise, f.expertise, expertiseTree)) return false
     if (!matchesTaxonomySelection(p.skills, f.skills, skillsTree)) return false
+    // Career level is individual-only (PRD 7.19): firms are "not applicable"
+    // and never excluded by it (match rework spec §3.1).
     if (
       f.careerLevels.length > 0 &&
-      !firmsOnlySelected(f.types) &&
+      p.consultant_type === 'Individual' &&
       (!p.career_level || !f.careerLevels.includes(p.career_level))
     )
       return false
@@ -283,8 +285,6 @@ export function facetCounts(
   const counts = new Map<string, number>()
   for (const value of values) {
     const only: FilterState = { ...EMPTY_FILTERS, [key]: [value] }
-    // Career level is ignored when Type is firms-only; keep that context.
-    if (key === 'careerLevels') only.types = f.types
     counts.set(value, applyFilters(pool, portfolioByProfile, only, expertiseTree, skillsTree).length)
   }
   return counts

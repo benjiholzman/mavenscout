@@ -12,14 +12,19 @@ import { DirectorySkeleton } from '../components/ui/Skeletons'
 import { rankPool, type RankingRun } from '../lib/matching/run'
 import { useDirectoryData } from '../hooks/useDirectoryData'
 import {
-  applyFilters,
   buildTaxonomyTree,
   deriveOptions,
   facetCounts,
   type FacetKey,
-  EMPTY_FILTERS,
   type FilterState,
 } from '../lib/filters'
+import {
+  gridOnlyMustHaves,
+  mustHavesToFilterState,
+  type TagLevelOf,
+} from '../lib/requirements/model'
+import { applyMustHaves, applyOrgMustHaves } from '../lib/requirements/mustHaves'
+import { useRequirements } from '../lib/requirements/store'
 import { useSession } from '../lib/session'
 import { sortProfiles, type SortMode } from '../lib/sort'
 
@@ -27,7 +32,12 @@ export default function Directory() {
   const { data, error } = useDirectoryData()
   const { isLoggedIn } = useSession()
 
-  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
+  // One requirements store behind the filter bar and (in ranking mode) the
+  // ranking panel — match rework spec §2.1. The filter bar renders the
+  // Must-have rows as a FilterState and writes changes back as rows.
+  const reqs = useRequirements()
+  const { requirements, search } = reqs.state
+  const filters = useMemo(() => mustHavesToFilterState(requirements, search), [requirements, search])
   const [sort, setSort] = useState<SortMode>('shuffle')
   // Bumped on every filter change so card flip state resets (PRD 7.1).
   const [epoch, setEpoch] = useState(0)
@@ -41,11 +51,6 @@ export default function Directory() {
   const [saveRankingOpen, setSaveRankingOpen] = useState(false)
   const [ranking, setRanking] = useState<RankingRun | null>(null)
 
-  const handleFilterChange = (next: FilterState) => {
-    setFilters(next)
-    setEpoch((e) => e + 1)
-  }
-
   const trees = useMemo(() => {
     if (!data) return null
     return {
@@ -54,25 +59,50 @@ export default function Directory() {
     }
   }, [data])
 
+  const tagLevelOf = useCallback<TagLevelOf>(
+    (kind, name) =>
+      (kind === 'expertise' ? trees?.expertise : trees?.skills)?.categoryNames.has(name)
+        ? 'category'
+        : 'item',
+    [trees],
+  )
+
+  const handleFilterChange = (next: FilterState) => {
+    reqs.fromFilterBar(next, tagLevelOf)
+    setEpoch((e) => e + 1)
+  }
+  const handleClearAll = () => {
+    reqs.clearMustHaves()
+    setEpoch((e) => e + 1)
+  }
+
   const options = useMemo(() => (data ? deriveOptions(data.profiles) : null), [data])
 
   const filtered = useMemo(() => {
     if (!data || !trees) return []
-    return applyFilters(
-      data.profiles,
-      data.portfolioByProfile,
-      filters,
-      trees.expertise,
-      trees.skills,
-    )
-  }, [data, trees, filters])
+    return applyMustHaves(data.profiles, data.portfolioByProfile, requirements, search, trees)
+  }, [data, trees, requirements, search])
 
   const countFor = useCallback(
     (key: FacetKey, values: string[]) =>
       data && trees
-        ? facetCounts(data.profiles, data.portfolioByProfile, filters, trees.expertise, trees.skills, key, values)
+        ? facetCounts(
+            // Org History must-haves have no filter-bar control, so apply them first.
+            applyOrgMustHaves(data.profiles, requirements),
+            data.portfolioByProfile,
+            filters,
+            trees.expertise,
+            trees.skills,
+            key,
+            values,
+          )
         : new Map<string, number>(),
-    [data, trees, filters],
+    [data, trees, requirements, filters],
+  )
+
+  const gridOnlyChips = useMemo(
+    () => gridOnlyMustHaves(requirements).map((r) => ({ id: r.id, label: 'Org history' })),
+    [requirements],
   )
 
   const scoreMap = useMemo(
@@ -144,6 +174,8 @@ export default function Directory() {
             taxonomyCategories={data.taxonomyCategories}
             taxonomyItems={data.taxonomyItems}
             countFor={countFor}
+            onClearAll={handleClearAll}
+            gridOnlyMustHaves={gridOnlyChips}
           />
         )}
       </div>
@@ -231,7 +263,7 @@ export default function Directory() {
             search to full profiles.
           </p>
           <button
-            onClick={() => handleFilterChange(EMPTY_FILTERS)}
+            onClick={handleClearAll}
             className="mt-4 rounded-full border border-line bg-white px-4 py-1.5 text-sm font-medium text-ink-soft hover:border-ink-faint"
           >
             Clear all filters
