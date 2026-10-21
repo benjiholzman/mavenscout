@@ -186,6 +186,7 @@ export function FilterBar({
           onChange={(labels) => set('careerLevels', labels.map((l) => CAREER_LEVEL_VALUES[l] ?? l))}
           disabled={firmsOnly}
           disabledNote="Career level applies to individuals — it doesn't apply when filtering firms only"
+          note="Firms aren't filtered by career level — they always show."
           counts={openKey === 'career' ? openCounts : undefined}
           open={openKey === 'career'}
           onToggle={toggleFor('career')}

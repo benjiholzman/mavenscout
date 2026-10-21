@@ -1,4 +1,4 @@
-import { Check, ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, Info } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
 export interface OptionGroup {
@@ -21,6 +21,7 @@ export function MultiSelect({
   onChange,
   disabled = false,
   disabledNote,
+  note,
   open,
   onToggle,
 }: {
@@ -36,6 +37,8 @@ export function MultiSelect({
   onChange: (next: string[]) => void
   disabled?: boolean
   disabledNote?: string
+  /** Short explanatory line shown at the bottom of the open panel. */
+  note?: string
   open: boolean
   onToggle: (open: boolean) => void
 }) {
@@ -129,6 +132,12 @@ export function MultiSelect({
               ))}
             </div>
           ))}
+          {note && (
+            <p className="mt-1 flex gap-1.5 border-t border-line px-2 pb-1 pt-2 text-xs leading-snug text-ink-faint">
+              <Info size={13} className="mt-px shrink-0" aria-hidden />
+              {note}
+            </p>
+          )}
         </div>
       )}
     </div>
