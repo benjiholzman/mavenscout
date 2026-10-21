@@ -6,8 +6,8 @@ import { useSession } from '../../lib/session'
 import { DevRoleSwitcher } from './DevRoleSwitcher'
 import { UserMenu } from './UserMenu'
 
-// Global navigation (PRD §6): logo, Browse, About, prominent "Join MavenScout"
-// CTA; Login when logged out, role-appropriate user menu when logged in (7.9b).
+// Global navigation (PRD §6): logo, Browse, About; "Join MavenScout" CTA and
+// Login when logged out, role-appropriate user menu when logged in (7.9b).
 
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   const linkCls = ({ isActive }: { isActive: boolean }) =>
@@ -48,12 +48,14 @@ export function AppLayout() {
                 Login
               </Link>
             )}
-            <Link
-              to="/signup"
-              className="rounded-full bg-brand-500 px-4 py-1.5 font-medium text-white hover:bg-brand-600"
-            >
-              Join MavenScout
-            </Link>
+            {!isLoggedIn && (
+              <Link
+                to="/signup"
+                className="rounded-full bg-brand-500 px-4 py-1.5 font-medium text-white hover:bg-brand-600"
+              >
+                Join MavenScout
+              </Link>
+            )}
           </nav>
 
           {/* Mobile */}
@@ -113,13 +115,15 @@ export function AppLayout() {
                 Login
               </Link>
             )}
-            <Link
-              to="/signup"
-              className="rounded-full bg-brand-500 px-4 py-2 text-center font-medium text-white"
-              onClick={() => setMenuOpen(false)}
-            >
-              Join MavenScout
-            </Link>
+            {!isLoggedIn && (
+              <Link
+                to="/signup"
+                className="rounded-full bg-brand-500 px-4 py-2 text-center font-medium text-white"
+                onClick={() => setMenuOpen(false)}
+              >
+                Join MavenScout
+              </Link>
+            )}
           </nav>
         )}
       </header>
