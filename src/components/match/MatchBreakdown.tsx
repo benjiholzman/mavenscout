@@ -37,7 +37,7 @@ export function MatchBreakdown({
   narrative,
   defaultOpen = false,
 }: {
-  subScores: MatchSubScore[]
+  subScores: MatchSubScore[] | null
   narrative: string | null
   defaultOpen?: boolean
 }) {
@@ -53,7 +53,7 @@ export function MatchBreakdown({
       </button>
       {open && (
         <div className="mt-2 space-y-2 rounded-lg bg-paper p-3">
-          {subScores.map((s) => (
+          {(subScores ?? []).map((s) => (
             <div key={s.component}>
               <div className="flex items-baseline justify-between gap-2 text-xs">
                 <span className="font-medium">

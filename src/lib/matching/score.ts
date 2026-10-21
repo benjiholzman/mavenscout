@@ -1,6 +1,7 @@
 import { supabase } from '../supabase'
 import { computeAdjustments, mustHavesPassed, type TaxonomyIndex } from './adjustments'
 import { ADJUSTMENT_CAP, bandFor } from './config'
+import { scoreBreakdown } from './display'
 import { buildJdSignature, computeFit, tagCredit, type CandidateInput, type TagIndex } from './fit'
 import { buildNarrative } from './narrative'
 import type { ExtractedRequirements, MatchResult, RankPoolFn, Requirement } from './types'
@@ -24,9 +25,8 @@ import type {
 // then rank (total ↓, Fit ↓, availability freshness ↓, id ↑) and band.
 //
 // Rounding (§5.3): everything is computed in floats; only the stored/displayed
-// total, Fit and each adjustment's displayed points are rounded. The results
-// UI shows the preference term as total − Fit, so "Fit 72 + 10 = 82" always
-// adds up.
+// total and Fit are rounded here. Displayed adjustment points come from
+// display.ts (largest-remainder rounding), so the build-up always adds up.
 // ============================================================================
 
 function tagIndex(cats: TaxonomyCategory[], items: TaxonomyItem[], type: TaxonomyCategory['type']): TagIndex {
@@ -125,9 +125,8 @@ export function scorePool(args: {
         total: total_score,
         band,
         fit: fit_score,
-        bonus: total_score - fit_score,
         capped,
-        adjustments,
+        breakdown: scoreBreakdown({ fit_score, total_score, adjustments, adjustments_capped: capped }),
         coveredTerms,
       }),
     }

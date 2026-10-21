@@ -245,7 +245,7 @@ export function FilterBar({
             onClick={() => onOpenRequirement?.(gridOnlyMustHaves[0].id)}
             className="rounded-full border border-dashed border-brand-400 bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-700 hover:border-brand-500"
           >
-            +{gridOnlyMustHaves.length} must-have: {gridOnlyMustHaves.map((m) => m.label).join(', ')}
+            +{gridOnlyMustHaves.length} required: {gridOnlyMustHaves.map((m) => m.label).join(', ')}
           </button>
         )}
 

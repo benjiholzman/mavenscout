@@ -1,19 +1,19 @@
 # MavenScout — Match Rework Spec (Branch 1)
 
-**Status:** Build spec for the `match-rework` branch (revision 2 — ranking is a mode of the directory, not a separate page). **Supersedes PRD §7.7** and the AI-match rows of the PRD Decisions table wherever they conflict. Everything not mentioned here stays as the PRD describes.
+**Status:** Build spec for the `match-rework` branch (revision 3 — ranking is a mode of the directory, worked in a right-hand drawer; rows exist only when added; extraction suggests rather than applies). **Supersedes PRD §7.7** and the AI-match rows of the PRD Decisions table wherever they conflict. Everything not mentioned here stays as the PRD describes.
 **Owner:** Benji · **Date:** October 2026
 
 ---
 
 ## 0. Read this first
 
-**What this branch does:** replaces the "Rank by Job Description" modal and its sliders with a single requirements model. Ranking happens inside the directory: a panel opens beside the grid, and the grid itself becomes the ranked list. Filters and preferences become one grid with four levels (No preference / Slight / Strong / Must-have). Must-haves are hard pre-filters applied *before* scoring. Everything else adjusts a fit score additively, so every point in the final score can be explained.
+**What this branch does:** replaces the "Rank by Job Description" modal and its sliders with a single requirements model. Ranking happens inside the directory: a drawer slides in from the right, and the grid itself becomes the ranked list. Filters and preferences become one grid of rows, each at one of three levels — **Nice to have / Important / Required** (internally `slight` / `strong` / `must`). A row only exists once it's added; no row means no preference. Required rows are hard pre-filters applied *before* scoring. Everything else adjusts a fit score additively, so every point in the final score can be explained.
 
 **Ground rules:**
 - Read `src/lib/matching/`, `run.ts`, the current JD modal, and the ranked-results UI before changing anything. Keep the engine isolated in `src/lib/matching/` — the UI must only touch it through the contract in §6.
 - Placeholder logic (extraction and scoring) stays **clearly labeled as placeholder** in code comments and in the UI, exactly as today. Loop8 replaces it.
 - All tunable numbers (points, cap, band thresholds) live in **one config file** (`src/lib/matching/config.ts`), commented as tunable.
-- The directory **filter bar stays.** When a ranking is active it is a view of the must-have rows — one shared state, not two (see §2.1).
+- The directory **filter bar stays.** It is the view of the Required rows — one shared state, not two (see §2.1).
 - Mobile (375px) is a first-class target — verify every new surface there.
 - **Out of scope for this branch** (Branch 2, later): Mapbox location, UN M49 regions, canonical language list + proficiency, map view. This branch uses the existing free-text `location` and `languages` fields and the existing dynamic filter options. Structure the location and language rows so Branch 2 can swap their value pickers without touching scoring.
 
@@ -23,11 +23,11 @@
 
 | Removed | Added |
 |---|---|
-| "Rank by Job Description" modal | A **ranking panel** that opens beside the directory grid; the grid itself becomes the ranked list ("ranking mode") |
+| "Rank by Job Description" modal | A **ranking drawer** that slides in from the right over the directory; the grid itself becomes the ranked list ("ranking mode") |
 | Merit sliders (Demonstrated Experience, Domain Expertise, Technical Skills) | A fixed **Fit** score (holistic fit to the JD — not adjustable) |
-| Five 0–5 preference sliders | A **requirements grid** with four levels per row |
+| Five 0–5 preference sliders | A **requirements grid**: rows are added as needed, each Nice to have / Important / Required |
 | Hiring-organization field in the JD step | Org name lives inside the Organizational History row |
-| Filters and ranking as separate state that can drift apart | Filter bar and must-have rows are **one shared state**; must-haves pre-filter before scoring |
+| Filters and ranking as separate state that can drift apart | Filter bar and Required rows are **one shared state**; Required rows pre-filter before scoring |
 | Expanding "Why this score?" box above each card | Fixed rank strip + "Match" flip face + "About this result" modal |
 | Weighted-average total | **Additive** total: Fit + preference adjustments (capped) |
 | `Best Match` as one sort option among others | While ranking mode is on, order is always rank order (sort dropdown locked); the ranking is held in the URL |
@@ -38,68 +38,77 @@
 
 ## 2. User flow
 
+Managers see three levels — **Nice to have**, **Important**, **Required** — stored as `slight`, `strong`, `must`. This spec uses the manager-facing names; "Required row" and "must-have" mean the same thing.
+
 **Entry points**
-- Directory → "Rank by Job Description" → opens the **ranking panel** beside the grid. The current filters are already must-have rows (shared state, §2.1); the search term stays as a pool constraint.
+- Directory → "Rank by Job Description" → opens the **ranking drawer** (§8). Filters already set in the filter bar are already Required rows (shared state, §2.1); the search term stays as a pool constraint.
 - Opening → "Rank candidates" → opens the directory in ranking mode linked to that opening (`/?opening=:id&rank=1`), keeping today's opening linkage: the run saves to that opening, and the banner says "Ranking for: <opening name>". If the opening already has a persisted ranking, load its JD, requirements, and results.
-- The old `/match` route redirects to `/?rank=1` (panel open).
+- The old `/match` route redirects to `/?rank=1` (drawer open).
 
 **Step 1 — Job description**
 - Textarea, **max 15,000 characters, min 200**, live counter (e.g. "3,412 / 15,000").
 - Hint text: *"Paste the scope of work and qualifications sections. You can paste the full ToR — we'll pull out what matters."*
 - Paste only (no file upload this branch). Future note in code: docx/PDF upload should **fill this textarea** so the manager sees and can trim extracted text.
-- Button: **"Read job description"** → calls `extractRequirements` (§4) and fills the grid. After extraction, collapse the textarea to a 3-line preview with "Edit".
+- Button: **"Read job description"** → calls `extractRequirements` (§4). After extraction, collapse the textarea to a 3-line preview with "Edit".
 
-**Step 2 — Review requirements (the grid, §3)**
-- Rows come from two sources:
-  - **From the JD** (extraction) — tagged "from JD".
-  - **From the filter bar** — every active filter already *is* a Must-have row (§2.1), tagged "from filters". The search term shows as a pool chip ("Search: 'climate'") that also constrains the pool.
-  - If extraction suggests a row that already exists as a must-have, keep the must-have.
-- **Live count**, debounced: *"23 candidates meet your must-haves"*. If 0: disable Run and say which must-have rows to loosen. Under 5: show a gentle warning.
+**Step 2 — Review requirements**
+- **Extraction suggests; it doesn't apply.** After reading, a **"Found in your JD"** box lists suggestion chips grouped as Expertise / Skills / Locations / Languages, each with its mention count (e.g. "Climate Adaptation (3×)") and a **+**, plus an **"Add all"** link. An added suggestion becomes a row at **Nice to have**, tagged "from JD". Nothing is added to the grid automatically.
+- The only rows that arrive on their own are **filters the manager already set**, which are Required rows tagged "from filters".
+- A suggestion that's already in the grid shows as added (✓). A location or language suggestion never changes a Required row of that kind (that would silently widen a filter) — its chip is disabled with an explanation, and "Add all" skips it. Expertise/skill suggestions respect the 10-row cap.
+- The search term shows as a pool chip ("Search: 'climate'") that also constrains the pool.
+- **Live count**, debounced: *"23 candidates meet everything marked Required"*. If 0: disable Run and say which Required rows to loosen (and how many each would admit). Under 5: show a gentle warning.
 
 **Step 3 — Run**
-- Runs must-have pre-filter → scoring on the survivors → the directory grid re-sorts into rank order and each card gains its rank strip (§7). On mobile, the panel (a full-screen sheet) closes to reveal the results.
+- Runs the Required pre-filter → scoring on the survivors → the drawer closes and the directory grid re-sorts into rank order, each card gaining its rank strip (§7). **Edit requirements** reopens the drawer.
 - What happens on later changes is in §2.2.
 
 **Guardrails on extraction (important):**
-- Extraction **never sets Must-have.** Only carried-over filters arrive as must-haves; any other must-have is a deliberate manager choice.
-- Extraction may fill in the organization name on the Org History row, but **leaves its level at No preference.** That row only affects ranking if the manager turns it on.
+- Extraction **never suggests Required.** Only carried-over filters arrive as Required; any other Required row is a deliberate manager choice.
+- Extraction may report a hiring organization; it is only ever a suggestion. Org History is added by the manager on purpose (§3.1).
 
 ### 2.1 Shared requirements state
 
-- **One store** (e.g. `src/lib/matching/requirementsStore.ts` or a React context) holds `Requirement[]`, the search term, and the active ranking id. The filter bar and the ranking panel both read and write it. There is no separate copy of filter state.
-- **The filter bar is the must-have view.** Each filter-bar control maps to the must-have rows of its kind: Type, Domain Expertise, Skills, Career Level, Work Arrangement, Location, Language, Availability, Verified only.
-  - Setting a filter creates or updates a Must-have row.
-  - Raising a grid row to Must-have makes it appear in the filter bar.
-  - Lowering a row from Must-have to Strong or Slight removes it from the filter bar. The filter bar only ever shows must-haves.
-- **Matching semantics are unchanged.** Must-have evaluation reuses the existing filter logic exactly (e.g. selecting a parent category matches its children).
-- **Grid-only must-haves** (Org History has no filter-bar control): show a chip at the end of the filter bar — "+1 must-have: Org history" — that opens the panel at that row.
-- **Outside ranking mode** the filter bar behaves exactly as today. Slight/Strong rows only exist once the panel is used.
+- **One store** (`src/lib/requirements/store.ts`) holds `Requirement[]` and the search term; the active ranking id lives in the URL. The filter bar and the ranking drawer both read and write it. There is no separate copy of filter state.
+- **Rows only exist when added** — from a JD suggestion, an add chip in the grid (§3), or a filter. Removing a row (×) means no preference. There is no "No preference" level.
+- **The filter bar is the Required view.** Each filter-bar control maps to the Required rows of its kind: Type, Domain Expertise, Skills, Career Level, Work Arrangement, Location, Language, Availability, Verified only.
+  - Setting a filter creates that kind's Required row (or makes the existing row Required with the filter's value), tagged "from filters".
+  - Raising a grid row to Required makes it appear in the filter bar.
+  - Lowering a row from Required to Important or Nice to have keeps the row but removes it from the filter bar. Clearing a filter deletes its Required row.
+- **Matching semantics are unchanged.** Required-row evaluation reuses the existing filter logic exactly (e.g. selecting a parent category matches its children). Several Required expertise (or skill) rows mean "any of", like several selections in one filter dropdown; different kinds combine with AND. Career level never excludes firms (they're not applicable).
+- **Grid-only Required rows** (Org History has no filter-bar control): show a chip at the end of the filter bar — "+1 required: Org history" — that opens the drawer at that row.
+- **Outside ranking mode** the filter bar behaves exactly as today. Nice to have / Important rows only exist once the drawer is used.
 
 ### 2.2 Changes after a run
 
 | Change | Behavior |
 |---|---|
-| **Tighten** a must-have (add a filter, narrow a selection, add or narrow the search term) | Instant. Hide candidates who now fail; ranks renumber. No re-run. |
-| **Loosen** a must-have (remove a filter, widen a selection, Clear All) | Newly eligible candidates are unscored. Show *"N more candidates now qualify — Score them."* Score only the newcomers (`rankPool` on that subset), merge, and re-rank. Code comment for Loop8: if the engine normalizes scores across the pool, this becomes a full re-run. |
-| Change a Slight/Strong row, add or remove a preference row, or edit the JD | Show *"Requirements changed — Re-run ranking."* Do **not** auto re-run. |
+| **Tighten** a Required row (add a filter, narrow a selection, add or narrow the search term) | Instant. Hide candidates who now fail; ranks renumber. No re-run. The change is written back to the run (no re-scoring), so a reload keeps it. |
+| **Loosen** a Required row (remove a filter, widen a selection, Clear All) | Newly eligible candidates are unscored and hidden. Show *"N more candidates now qualify — Score them."* Score only the newcomers (`rankPool` on that subset), merge, and re-rank. Code comment for Loop8: if the engine normalizes scores across the pool, this becomes a full re-run. |
+| Change a Nice to have / Important row, add or remove such a row, or edit the JD | Show *"Requirements changed — Re-run ranking."* Do **not** auto re-run. |
 
-- **URL state:** ranking mode lives in the URL as `/?ranking=<job_description_id>` (plus `opening=:id` when linked). Reload and back restore the ranked view. Ad-hoc rankings keep today's behavior: a `job_descriptions` row with `opening_id` null, unlisted and transient unless saved to an opening.
+- **URL state:** ranking mode lives in the URL as `/?ranking=<job_description_id>` (plus `opening=:id` when linked, and `q` / `qm` for the search term). Reload and back restore the ranked view. Ad-hoc rankings are a `job_descriptions` row with `opening_id` null — unlisted, and replaced by the manager's next ad-hoc run unless saved to an opening.
 - **While ranking mode is active:** the Premium-first float is suspended; the sort dropdown shows "Ranked by match" and is disabled.
-- **Clear** (in the ranking banner) exits ranking mode: the JD, preference rows, and ranking are dropped; active filters stay as plain filters. **Clear All** (in the filter bar) clears must-haves only and counts as loosening.
+- **Clear** (in the ranking banner) exits ranking mode: the JD, preference rows, and ranking are dropped; Required rows stay as plain filters. **Clear All** (in the filter bar) deletes Required rows only (and the search term, as today) and counts as loosening.
 
 ---
 
 ## 3. The requirements grid
 
-Each row: label · value picker · level control · source tag (from JD / from filters / added) · remove (×, for addable rows).
-Level control: segmented control **No preference / Slight / Strong / Must-have**. On mobile, the same control full-width under the row label.
+Each row: label · value picker · level control · source tag (from JD / from filters / added) · remove (×). Every row can be removed.
+Level control: segmented control **Nice to have / Important / Required** — no "No preference" segment, because removing the row means that. Full width under the row label at every size.
 
-### 3.1 Always-present rows (default: No preference)
+The grid has two sections:
+- **Expertise & skills** — rows from JD suggestions or "+ Expertise" / "+ Skill" (taxonomy picker). Several rows allowed.
+- **Other requirements** — **starts empty**, with one add chip per kind, in this order: **+ Location, + Language, + Availability, + Org history, + Type, + Career level, + Work arrangement, + Verified**. Adding one creates that row (at most one per kind) at Nice to have; × removes it. A chip disappears while its row exists.
 
-| Row | Value picker | Must-have allowed? | Met / partial / not met |
+Rows added by the manager start at **Nice to have**.
+
+### 3.1 Other requirements (single-instance rows, added via chips)
+
+| Row | Value picker | Required allowed? | Met / partial / not met |
 |---|---|---|---|
-| **Organizational history** | Org name (text; prefill from `hiring_managers.organization`, editable) + scope: *Currently at* / *Ever at* / *Ever at, or at a peer org*. When peer scope is chosen, show an editable **peer organizations** chip list (empty in placeholder; manager can add names; helper text: "The real engine will suggest peers"). Keep the existing ethics note: off by default because it can entrench who-you-know hiring. | **Yes** | *Currently at* = a `work_history` entry matching the org with `end_year` null. *Ever at* = any matching entry. *Peer* = any entry matching a listed peer org → **partial** (same org = met). Placeholder name matching: case-insensitive, normalized contains. |
-| **Location** | Select from the existing dynamic location options (multi-select) | Yes | Placeholder: case-insensitive substring ("Kenya" matches "Nairobi, Kenya"). |
+| **Organizational history** | Org name (text; prefilled from `hiring_managers.organization` when the row is added, editable) + scope: *Currently at* / *Ever at* / *Ever at, or at a peer org*. When peer scope is chosen, show an editable **peer organizations** chip list (empty in placeholder; manager can add names; helper text: "The real engine will suggest peers"). Ethics note on the row: add it deliberately, because it can entrench who-you-know hiring. | **Yes** | *Currently at* = a `work_history` entry matching the org with `end_year` null. *Ever at* = any matching entry. *Peer* = any entry matching a listed peer org → **partial** (same org = met). Placeholder name matching: case-insensitive, normalized whole-word contains. |
+| **Location** | Select from the existing dynamic location options (multi-select) | Yes | Uses the filter's location matching (a country matches every city in it; a city matches itself). |
 | **Language** | Select from the existing dynamic language options (multi-select; "speaks any of") | Yes | Candidate lists the language. |
 | **Type** | Individual / Small Firm / Large Firm (multi-select, same as filter) | Yes | `consultant_type` in selection. |
 | **Availability** | Engagement type (Part-time / Full-time / Either) + "available by [month]" | Yes | Reuse the existing availability-filter logic. Available within one month after the target → **partial**. |
@@ -107,15 +116,17 @@ Level control: segmented control **No preference / Slight / Strong / Must-have**
 | **Verified** | (no value) | Yes | `verification_status = 'verified'`. |
 | **Work arrangement** | Remote / On-site / Hybrid (multi-select) | Yes | Any overlap with `work_types`. |
 
-### 3.2 Addable rows (from JD or "+ Add expertise" / "+ Add skill")
+A row without a value yet (e.g. Location with no places picked) constrains and scores nothing, and says so.
 
-| Row | Value picker | Must-have allowed? | Met / partial / not met |
+### 3.2 Expertise & skill rows (from JD suggestions or "+ Expertise" / "+ Skill")
+
+| Row | Value picker | Required allowed? | Met / partial / not met |
 |---|---|---|---|
 | **Domain expertise** | Taxonomy picker (category or item) | Yes, with warning | See §3.3 |
 | **Technical skill** | Taxonomy picker (category or item) | Yes, with warning | See §3.3 |
 
 Cap expertise + skill rows at **10 combined**.
-Must-have is allowed on these rows because the filter bar's Domain Expertise and Skills filters are must-haves (§2.1). When a manager sets Must-have on one of these rows, show an inline note: *"Candidates can tag only 6 items, so this may exclude qualified people who didn't tag it. Consider Strong."* Must-have evaluation here uses the existing filter logic (tags only); the text-evidence credit in §3.3 applies only to Slight/Strong.
+Required is allowed on these rows because the filter bar's Domain Expertise and Skills filters are Required rows (§2.1). When a manager sets Required on one of these rows, show an inline note: *"Candidates can tag only 6 items, so Required may exclude qualified people who didn't tag it. Consider Important."* Required evaluation here uses the existing filter logic (tags only); the text-evidence credit in §3.3 applies only to Nice to have / Important.
 
 ### 3.3 Expertise / skill matching (placeholder; credit multipliers in config)
 
@@ -138,15 +149,17 @@ extractRequirements(jdText: string, ctx: { taxonomy, locationOptions, languageOp
   : Promise<ExtractedRequirements>
 
 interface ExtractedRequirements {
-  expertise: { name: string; level: 'category' | 'item'; suggested: 'slight' | 'strong' }[];
-  skills:    { name: string; level: 'category' | 'item'; suggested: 'slight' | 'strong' }[];
-  locations: string[];             // suggested at 'slight'
-  languages: string[];             // suggested at 'slight'
-  hiring_organization: string | null; // fills Org History name only; level stays 'none'
+  expertise: { name: string; level: 'category' | 'item'; suggested: 'slight' | 'strong'; mentions: number }[];
+  skills:    { name: string; level: 'category' | 'item'; suggested: 'slight' | 'strong'; mentions: number }[];
+  locations: { value: string; mentions: number }[];
+  languages: { value: string; mentions: number }[];
+  hiring_organization: string | null; // a suggestion only
 }
 ```
 
-Placeholder behavior: case-insensitive match of taxonomy item and category names in the JD text (`strong` if the term appears 2+ times, else `slight`); match known location and language options; `hiring_organization` may be null. Cap output at 10 expertise + skill rows, highest-frequency first.
+Everything here is a **suggestion** shown in the "Found in your JD" box (§2); `mentions` is the count on each chip. Added suggestions become Nice to have rows regardless of `suggested`, which only informs the placeholder Fit (§5.2).
+
+Placeholder behavior: case-insensitive whole-word match of taxonomy item and category names in the JD text (`strong` if the term appears 2+ times, else `slight`); match known location and language options; `hiring_organization` is null. Cap output at 10 expertise + skill suggestions, highest-frequency first.
 
 **Contract requirement for Loop8 (write as a code comment):** the JD is read **once**, here. Scoring receives the extracted requirements plus the stored JD reference — it must not re-send the full JD text per candidate. This keeps a 15,000-character JD from multiplying cost across hundreds of candidates.
 
@@ -158,7 +171,7 @@ Persist the extraction output with the job description (§6.3).
 
 ### 5.1 Pipeline
 1. **Pool** = approved + active profiles, narrowed by pool chips (search term) and, inside an opening, today's opening pool semantics.
-2. **Must-have pre-filter** as a database query (or as close to it as the current code allows). Candidates failing any must-have are **not scored**. Must-have rows add no points.
+2. **Required-row (must-have) pre-filter** as a database query (or as close to it as the current code allows; today it runs in the browser on the loaded pool, in `src/lib/requirements/mustHaves.ts`). Candidates failing any Required row are **not scored**. Required rows add no points.
 3. **Score** each survivor: `total = clamp(fit + Σ adjustments, 0, 100)`.
 4. **Rank**, then **band**.
 
@@ -167,16 +180,16 @@ The engine's holistic fit to the JD: demonstrated experience (bio, portfolio, ac
 Placeholder: reuse today's computation, internally blending the old Demonstrated Experience / Domain / Skills components at the old 5/3/3 ratio. Labeled placeholder. Tune the placeholder so a profile that is clearly on-topic for the JD lands **≥ 70** — real calibration is Loop8's job, but the demo should not cluster everyone in the 40s.
 
 ### 5.3 Adjustments (constants in config)
-For every row at Slight or Strong (not Must-have, not No preference):
+For every Nice to have or Important row with a value (Required rows add no points; they already filtered the pool):
 
 | Level | Met | Partial | Not met | Not applicable |
 |---|---|---|---|---|
-| Slight | +3 | +3 × credit | 0 | 0 |
-| Strong | +8 | +8 × credit | 0 | 0 |
+| Nice to have (`slight`) | +3 | +3 × credit | 0 | 0 |
+| Important (`strong`) | +8 | +8 × credit | 0 | 0 |
 
 - `credit` = the multiplier from §3.3 or 0.5 for other partials (peer org, near-miss availability).
 - **Total positive adjustment cap: +20.** Preferences reorder close candidates; they cannot lift a weak fit past a strong one by more than 20 points. When the cap bites, show it in the breakdown ("Preference bonus capped at +20").
-- Rounding: compute in floats, round only the displayed total and each displayed adjustment.
+- **Rounding:** compute in floats; store and display the total and Fit rounded. Displayed adjustment points use **largest-remainder rounding** (floor every value, then give the leftover whole points to the values with the largest fractional parts) so they always sum **exactly** to (displayed total − displayed Fit) — e.g. three +2.25 partials with total − Fit = 7 show as +3, +2, +2. When the +20 cap (or the 100 ceiling) applies, the rows are rounded to their uncapped sum and a cap row (and, if needed, a 100-ceiling row) brings the build-up to exactly (total − Fit). The middle number of "Fit 72 + 10 = 82" is that sum, never a separately derived value.
 
 ### 5.4 Bands (thresholds in config)
 - **80–100:** Strong match
@@ -197,7 +210,7 @@ For every row at Slight or Strong (not Must-have, not No preference):
 ### 6.1 Types (`src/lib/matching/types.ts`)
 
 ```ts
-type Level = 'none' | 'slight' | 'strong' | 'must';
+type Level = 'slight' | 'strong' | 'must'; // Nice to have / Important / Required — no 'none': a row exists only once added
 type RequirementKind =
   | 'expertise' | 'skill' | 'org_history' | 'location' | 'language'
   | 'type' | 'availability' | 'career_level' | 'verified' | 'work_arrangement';
@@ -216,7 +229,7 @@ interface Requirement {
 interface Adjustment {
   requirement_id: string;
   label: string;                 // e.g. "Based in Kenya"
-  level: 'slight' | 'strong';
+  level: 'slight' | 'strong';      // Nice to have / Important
   outcome: 'met' | 'partial' | 'not_met' | 'not_applicable';
   points: number;                // signed, after credit, before cap
   detail: string;                // e.g. "Tagged as secondary expertise"; org: "Same org" / "Peer org: ADB"
@@ -240,7 +253,7 @@ rankPool(jobDescriptionId, requirements: Requirement[], pool: Profile[]): Promis
 ```
 
 ### 6.2 Narrative (placeholder)
-Template must be **grounded in the actual numbers** and never contradict them. Reference the band, the Fit score, the largest positive adjustment, and the most important unmet Strong preference (if any). Do not call a preference "the strongest signal" relative to the profile's evidence — the current template does this and should be removed.
+Template must be **grounded in the actual numbers** and never contradict them. Reference the band, the Fit score, the largest positive adjustment (with its displayed, largest-remainder points), and the most important unmet Important row (if any). Do not call a preference "the strongest signal" relative to the profile's evidence — the current template does this and should be removed.
 
 ### 6.3 Migration — `supabase/004_match_rework.sql`
 - `job_descriptions`: add `requirements jsonb`, `extracted jsonb`; keep `hiring_organization` and `weights` nullable for legacy rows (new code stops writing them).
@@ -275,8 +288,8 @@ Template must be **grounded in the actual numbers** and never contradict them. R
 
 ### 7.4 Results header banner
 Keep the current banner: "Ranked N candidates against your JD · placeholder scorer" · **Save ranking to opening…** · **Clear**. Add:
-- "N excluded by must-haves".
-- An **Edit requirements** button that reopens the panel.
+- "N excluded by Required rows".
+- An **Edit requirements** button that reopens the drawer.
 - When linked to an opening: "Ranking for: <opening name>", and hide Save (the run saves automatically).
 
 **Clear** behaves as described in §2.2.
@@ -286,15 +299,15 @@ Keep the current banner: "Ranked N candidates against your JD · placeholder sco
 ## 8. Ranking mode layout (directory)
 
 **Desktop**
-- **Ranking panel** (~420px, left of the grid, sticky, scrolls independently): JD textarea / collapsed preview → pool chips → requirements grid → live count → **Run ranking** pinned to the panel's bottom. A close button collapses it; the banner's **Edit requirements** reopens it.
-- **Panel open:** the card grid drops to 2 columns. The filter bar stays visible above the grid (it is the must-have view of the same state).
-- **Panel closed:** normal 3-column grid, in rank order.
-- The panel sits inside the page max-width already in place.
+- **Ranking drawer** slides in from the right edge: full viewport height, **~480px** wide, overlaying the card grid with a light scrim. Clicking the scrim or pressing **Esc** closes it without losing anything (the JD, suggestions and rows live outside the drawer).
+- The drawer's **header** (title, linked opening, close) and **footer** (live count + Run) stay pinned; the content between them — JD step, "Found in your JD", requirements grid — scrolls.
+- The card grid stays at **3 columns at all times**; there is no 2-column state.
+- **After Run** the drawer closes and the ranked grid shows; the banner's **Edit requirements** reopens it.
 
 **Mobile**
-- The panel is a full-screen sheet with stepped sections (JD → requirements → Run). Run closes the sheet and shows ranked cards in one column.
+- The drawer is a full-screen sheet with numbered steps (job description → review requirements → run). Run closes the sheet and shows ranked cards in one column.
 - A sticky **Edit requirements** button shows while ranked.
-- The filter-bar modals (including Availability) keep working and stay in sync with the sheet.
+- The filter-bar modals (including Availability) keep working and stay in sync with the sheet — both read the same store.
 
 ---
 
@@ -307,23 +320,26 @@ Keep the current banner: "Ranked N candidates against your JD · placeholder sco
 
 ## 10. Acceptance criteria
 
-- [ ] Directory "Rank by Job Description" opens the ranking panel beside the grid; active filters already appear as Must-have rows tagged "from filters"; the search term shows as a pool chip.
-- [ ] Filter bar and must-have rows are one state: changing either updates the other; lowering a row below Must-have removes it from the filter bar; grid-only must-haves (Org History) show as a filter-bar chip.
-- [ ] After a run: tightening a must-have hides failing candidates instantly with no re-run; loosening one offers to score only the newly eligible candidates; changing a preference or the JD shows a Re-run prompt.
-- [ ] Ranking mode is held in the URL; reload and back restore the ranked view; Clear exits ranking mode and keeps active filters.
-- [ ] While ranked: Premium-first float suspended; sort dropdown locked to "Ranked by match"; the grid drops to 2 columns with the panel open and returns to 3 when closed.
+- [ ] Directory "Rank by Job Description" opens the ranking drawer from the right (~480px, full height, light scrim); Esc or a click outside closes it without losing state; header and footer stay pinned while the content scrolls; the grid stays at 3 columns.
+- [ ] Rows exist only when added: the grid starts empty apart from filters already set, which appear as Required rows tagged "from filters"; "Other requirements" offers add chips (+ Location, + Language, + Availability, + Org history, + Type, + Career level, + Work arrangement, + Verified); × removes any row; the search term shows as a pool chip.
+- [ ] The level control has three segments — Nice to have / Important / Required — and no "No preference".
+- [ ] Filter bar and Required rows are one state: setting a filter creates a Required row; raising a row to Required adds it to the filter bar; lowering it below Required removes it from the filter bar but keeps the row; clearing a filter deletes its Required row; grid-only Required rows (Org History) show as a filter-bar chip.
+- [ ] "Read job description" shows a "Found in your JD" box of suggestion chips with mention counts, each with +, and an "Add all" link; nothing is added automatically; added suggestions become Nice to have rows tagged "from JD"; extraction never suggests Required, and suggestions never change a Required row.
+- [ ] After a run: tightening a Required row hides failing candidates instantly with no re-run and persists the change; loosening one offers to score only the newly eligible candidates; changing a Nice to have / Important row or the JD shows a Re-run prompt.
+- [ ] Ranking mode is held in the URL; reload and back restore the ranked view; Clear exits ranking mode and keeps Required rows as filters.
+- [ ] While ranked: Premium-first float suspended; sort dropdown locked to "Ranked by match"; Run closes the drawer and Edit requirements reopens it.
 - [ ] `/match` redirects to `/?rank=1`.
 - [ ] JD textarea enforces 200–15,000 characters with a live counter.
-- [ ] "Read job description" fills expertise/skill/location/language rows (tagged "from JD"); extraction never sets Must-have; Org History's level stays No preference even when the org name is filled.
-- [ ] Org History supports Currently at / Ever at / Ever at or peer, with an editable peer list, and allows Must-have.
-- [ ] Expertise and skill rows allow Must-have with the inline warning; max 10 combined.
-- [ ] Live must-have count updates as rows change; Run is disabled at 0.
-- [ ] Candidates failing any must-have are excluded before scoring; the banner shows how many were excluded.
+- [ ] Org History supports Currently at / Ever at / Ever at or peer, with an editable peer list, and allows Required.
+- [ ] Expertise and skill rows allow Required with the inline warning; max 10 combined.
+- [ ] Live count updates as rows change; Run is disabled at 0.
+- [ ] Candidates failing any Required row are excluded before scoring; the banner shows how many were excluded.
 - [ ] Total = Fit + adjustments, positive adjustments capped at +20, clamped 0–100; all constants live in `config.ts`.
+- [ ] Displayed adjustments use largest-remainder rounding and sum exactly to (displayed total − displayed Fit), with cap / 100-ceiling rows when they apply.
 - [ ] Bands display per thresholds; ties break by Fit, then availability freshness, then id; Premium does not affect ranked order.
 - [ ] Each ranked card has a fixed-height rank strip, a "Match" face 2 with the equation line, and an "About this result" modal with the full build-up table; card heights stay uniform.
 - [ ] Narrative references actual numbers and never contradicts them.
 - [ ] Ranking inside an opening persists (JD, extraction, requirements, results) and reloads; ad-hoc ranking remains transient unless saved.
-- [ ] `004_match_rework.sql` runs cleanly on the existing database; the seeded Sahel ranking works under the new model.
+- [ ] `005_match_rework.sql` runs cleanly on the existing database; the seeded Sahel ranking works under the new model.
 - [ ] Placeholder extraction and scoring are clearly labeled in code and UI.
-- [ ] Every new surface works at 375px: ranking sheet, grid level controls, live count, Run, match face, modal (as full-screen sheet), and filter-bar ↔ sheet sync.
+- [ ] Every new surface works at 375px: ranking sheet, level controls, suggestion chips, live count, Run, match face, modal (as full-screen sheet), and filter-bar ↔ sheet sync.

@@ -6,35 +6,41 @@ const LABELS: Record<SortMode, string> = {
   newly_added: 'Newly Added',
   location: 'Location (A–Z)',
   career_level: 'Career Level',
-  best_match: 'Best Match',
 }
+
+const MODES: SortMode[] = ['shuffle', 'newly_added', 'location', 'career_level']
 
 export function SortDropdown({
   value,
   onChange,
-  bestMatchAvailable,
+  ranked = false,
 }: {
   value: SortMode
   onChange: (mode: SortMode) => void
-  /** Best Match only appears after an AI ranking has been run (PRD 7.1). */
-  bestMatchAvailable: boolean
+  /** Ranking mode: order is always rank order, so the control is locked
+   *  (match rework spec §2.2). */
+  ranked?: boolean
 }) {
-  const modes: SortMode[] = ['shuffle', 'newly_added', 'location', 'career_level']
-  if (bestMatchAvailable) modes.push('best_match')
   return (
     <label className="flex items-center gap-1.5 text-sm text-ink-soft">
       <ArrowUpDown size={14} className="text-ink-faint" />
       <span className="sr-only">Sort by</span>
       <select
-        value={value}
+        value={ranked ? 'ranked' : value}
+        disabled={ranked}
+        title={ranked ? 'Ranked results are always in rank order' : undefined}
         onChange={(e) => onChange(e.target.value as SortMode)}
-        className="rounded-full border border-line bg-white px-3 py-1.5 text-sm font-medium outline-none focus:border-brand-400"
+        className="rounded-full border border-line bg-white px-3 py-1.5 text-sm font-medium outline-none focus:border-brand-400 disabled:cursor-not-allowed disabled:bg-paper disabled:text-ink-soft"
       >
-        {modes.map((m) => (
-          <option key={m} value={m}>
-            {LABELS[m]}
-          </option>
-        ))}
+        {ranked ? (
+          <option value="ranked">Ranked by match</option>
+        ) : (
+          MODES.map((m) => (
+            <option key={m} value={m}>
+              {LABELS[m]}
+            </option>
+          ))
+        )}
       </select>
     </label>
   )

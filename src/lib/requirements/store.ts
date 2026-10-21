@@ -1,22 +1,16 @@
 import { useCallback, useMemo, useReducer } from 'react'
 import type { FilterState } from '../filters'
 import { MAX_TAG_ROWS } from '../matching/config'
-import type {
-  ExtractedRequirements,
-  Level,
-  Requirement,
-  RequirementKind,
-  RequirementValueByKind,
-} from '../matching/types'
+import type { Level, Requirement } from '../matching/types'
 import {
+  addSuggestion,
   applyFilterStateToRequirements,
   clearMustHaves,
-  mergeExtraction,
-  defaultRequirements,
+  dropPreferences,
   EMPTY_SEARCH,
-  newRequirementId,
   normalizeRequirements,
   type SearchState,
+  type Suggestion,
   type TagLevelOf,
 } from './model'
 
@@ -33,47 +27,48 @@ export interface RequirementsState {
 export type RequirementsAction =
   | { type: 'fromFilterBar'; next: FilterState; tagLevelOf: TagLevelOf }
   | { type: 'clearMustHaves' }
+  | { type: 'dropPreferences' }
   | { type: 'setLevel'; id: string; level: Level }
   | { type: 'setValue'; id: string; value: Requirement['value'] }
   | { type: 'addRow'; row: Requirement }
   | { type: 'removeRow'; id: string }
-  | { type: 'applyExtraction'; extracted: ExtractedRequirements }
+  | { type: 'addSuggestions'; suggestions: Suggestion[] }
   | { type: 'clearSearch' }
   | { type: 'hydrate'; state: RequirementsState }
   | { type: 'reset' }
 
 export function initialRequirementsState(): RequirementsState {
-  return { requirements: defaultRequirements(), search: EMPTY_SEARCH }
+  return { requirements: [], search: EMPTY_SEARCH }
 }
 
-export function requirementsReducer(
-  state: RequirementsState,
-  action: RequirementsAction,
-): RequirementsState {
+export function requirementsReducer(state: RequirementsState, action: RequirementsAction): RequirementsState {
+  const withRows = (requirements: Requirement[]) => ({ ...state, requirements })
   switch (action.type) {
     case 'fromFilterBar':
       return applyFilterStateToRequirements(state.requirements, action.next, action.tagLevelOf)
     case 'clearMustHaves':
       // Clear All clears the search term too, as it always has.
       return { requirements: clearMustHaves(state.requirements), search: { ...EMPTY_SEARCH, mode: state.search.mode } }
+    case 'dropPreferences':
+      return withRows(dropPreferences(state.requirements))
     case 'setLevel':
-      return {
-        ...state,
-        requirements: state.requirements.map((r) => (r.id === action.id ? { ...r, level: action.level } : r)),
-      }
+      return withRows(state.requirements.map((r) => (r.id === action.id ? { ...r, level: action.level } : r)))
     case 'setValue':
-      return {
-        ...state,
-        requirements: state.requirements.map((r) =>
-          r.id === action.id ? ({ ...r, value: action.value } as Requirement) : r,
-        ),
-      }
+      return withRows(
+        state.requirements.map((r) => (r.id === action.id ? ({ ...r, value: action.value } as Requirement) : r)),
+      )
     case 'addRow':
-      return { ...state, requirements: [...state.requirements, action.row] }
+      // One row per single-instance kind: adding it again is a no-op.
+      if (state.requirements.some((r) => r.id === action.row.id)) return state
+      return withRows(normalizeRequirements([...state.requirements, action.row]))
     case 'removeRow':
-      return { ...state, requirements: state.requirements.filter((r) => r.id !== action.id) }
-    case 'applyExtraction':
-      return { ...state, requirements: mergeExtraction(state.requirements, action.extracted, MAX_TAG_ROWS) }
+      return withRows(state.requirements.filter((r) => r.id !== action.id))
+    case 'addSuggestions':
+      return withRows(
+        normalizeRequirements(
+          action.suggestions.reduce((rows, s) => addSuggestion(rows, s, MAX_TAG_ROWS), state.requirements),
+        ),
+      )
     case 'clearSearch':
       return { ...state, search: { ...EMPTY_SEARCH, mode: state.search.mode } }
     case 'hydrate':
@@ -81,21 +76,6 @@ export function requirementsReducer(
     case 'reset':
       return initialRequirementsState()
   }
-}
-
-/** Builds a new addable row (expertise / skill) for addRow. */
-export function makeRow<K extends RequirementKind>(
-  kind: K,
-  value: RequirementValueByKind[K],
-  opts: { level?: Level; source?: Requirement['source'] } = {},
-): Requirement {
-  return {
-    id: newRequirementId(kind),
-    kind,
-    level: opts.level ?? 'none',
-    source: opts.source ?? 'manual',
-    value,
-  } as Requirement
 }
 
 export function useRequirements(init?: () => RequirementsState) {
@@ -106,6 +86,7 @@ export function useRequirements(init?: () => RequirementsState) {
     [],
   )
   const clearMustHavesCb = useCallback(() => dispatch({ type: 'clearMustHaves' }), [])
+  const dropPreferencesCb = useCallback(() => dispatch({ type: 'dropPreferences' }), [])
   const setLevel = useCallback((id: string, level: Level) => dispatch({ type: 'setLevel', id, level }), [])
   const setValue = useCallback(
     (id: string, value: Requirement['value']) => dispatch({ type: 'setValue', id, value }),
@@ -113,8 +94,8 @@ export function useRequirements(init?: () => RequirementsState) {
   )
   const addRow = useCallback((row: Requirement) => dispatch({ type: 'addRow', row }), [])
   const removeRow = useCallback((id: string) => dispatch({ type: 'removeRow', id }), [])
-  const applyExtraction = useCallback(
-    (extracted: ExtractedRequirements) => dispatch({ type: 'applyExtraction', extracted }),
+  const addSuggestions = useCallback(
+    (suggestions: Suggestion[]) => dispatch({ type: 'addSuggestions', suggestions }),
     [],
   )
   const clearSearch = useCallback(() => dispatch({ type: 'clearSearch' }), [])
@@ -126,11 +107,12 @@ export function useRequirements(init?: () => RequirementsState) {
       state,
       fromFilterBar,
       clearMustHaves: clearMustHavesCb,
+      dropPreferences: dropPreferencesCb,
       setLevel,
       setValue,
       addRow,
       removeRow,
-      applyExtraction,
+      addSuggestions,
       clearSearch,
       hydrate,
       reset,
@@ -139,11 +121,12 @@ export function useRequirements(init?: () => RequirementsState) {
       state,
       fromFilterBar,
       clearMustHavesCb,
+      dropPreferencesCb,
       setLevel,
       setValue,
       addRow,
       removeRow,
-      applyExtraction,
+      addSuggestions,
       clearSearch,
       hydrate,
       reset,

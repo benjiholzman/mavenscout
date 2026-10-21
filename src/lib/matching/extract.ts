@@ -1,6 +1,6 @@
 import { EXTRACTION_STRONG_MIN_OCCURRENCES, MAX_TAG_ROWS } from './config'
 import { countTerm as countOccurrences, normalizeText as normalize } from './text'
-import type { ExtractedRequirements, ExtractedTag, ExtractRequirementsFn } from './types'
+import type { ExtractedRequirements, ExtractedTag, ExtractedValue, ExtractRequirementsFn } from './types'
 
 // ============================================================================
 // ⚠ PLACEHOLDER EXTRACTION — Loop8 replaces this with real JD understanding.
@@ -16,9 +16,9 @@ import type { ExtractedRequirements, ExtractedTag, ExtractRequirementsFn } from 
 // not re-send the full JD text per candidate — a 15,000-character JD would
 // multiply cost across hundreds of candidates.
 //
-// Guardrails (spec §2): extraction never suggests Must-have, and the hiring
-// organization (if found) only fills the Org History row's name — that row's
-// level stays No preference.
+// Guardrails (spec §2): extraction only SUGGESTS — the panel shows the
+// results as chips and nothing enters the grid until the manager adds it.
+// It never suggests Required.
 // ============================================================================
 
 export const extractRequirements: ExtractRequirementsFn = async (jdText, ctx) => {
@@ -46,6 +46,7 @@ export const extractRequirements: ExtractRequirementsFn = async (jdText, ctx) =>
         name: n.name,
         level: n.level,
         suggested: count >= EXTRACTION_STRONG_MIN_OCCURRENCES ? 'strong' : 'slight',
+        mentions: count,
         count,
         order,
       })
@@ -53,16 +54,23 @@ export const extractRequirements: ExtractRequirementsFn = async (jdText, ctx) =>
   }
   // Highest frequency first, taxonomy order as the tie-break; cap the total.
   const kept = hits.sort((a, b) => b.count - a.count || a.order - b.order).slice(0, MAX_TAG_ROWS)
-  const strip = ({ name, level, suggested }: Hit): ExtractedTag => ({ name, level, suggested })
+  const strip = ({ name, level, suggested, mentions }: Hit): ExtractedTag => ({ name, level, suggested, mentions })
 
   // Location options are bare countries ("Kenya") or "City, Country". A city
   // is matched by its city part; a country by its name.
-  const locations = ctx.locationOptions.filter((value) => {
-    const comma = value.lastIndexOf(',')
-    const place = comma === -1 ? value : value.slice(0, comma)
-    return countOccurrences(text, place) > 0
-  })
-  const languages = ctx.languageOptions.filter((l) => countOccurrences(text, l) > 0)
+  const byMentions = (a: ExtractedValue, b: ExtractedValue) => b.mentions - a.mentions
+  const locations = ctx.locationOptions
+    .map((value) => {
+      const comma = value.lastIndexOf(',')
+      const place = comma === -1 ? value : value.slice(0, comma)
+      return { value, mentions: countOccurrences(text, place) }
+    })
+    .filter((l) => l.mentions > 0)
+    .sort(byMentions)
+  const languages = ctx.languageOptions
+    .map((value) => ({ value, mentions: countOccurrences(text, value) }))
+    .filter((l) => l.mentions > 0)
+    .sort(byMentions)
 
   const out: ExtractedRequirements = {
     expertise: kept.filter((h) => h.kind === 'expertise').map(strip),

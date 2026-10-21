@@ -1,8 +1,8 @@
 import { EMPTY_FILTERS, type FilterState, type SearchMode } from '../filters'
 import {
   ALWAYS_PRESENT_KINDS,
-  type ExtractedRequirements,
   type ExtractedTag,
+  type ExtractedValue,
   type Level,
   type Requirement,
   type RequirementKind,
@@ -13,21 +13,24 @@ import {
 } from '../matching/types'
 
 // ============================================================================
-// The shared requirements state (docs/MavenScout-match-rework.md §2.1).
+// The shared requirements state (docs/MavenScout-match-rework.md §2.1, §3).
 //
 // One list of Requirement rows is the single source of truth for both the
 // directory filter bar and the ranking panel's grid. The filter bar is just
-// the view of the Must-have rows: mustHavesToFilterState() derives the
+// the view of the Required rows: mustHavesToFilterState() derives the
 // FilterState it renders (and that applyFilters evaluates), and
 // applyFilterStateToRequirements() writes a filter-bar change back as rows.
-// Outside ranking mode only Must-have rows ever exist, so the directory
-// filters exactly as before.
+//
+// A row only exists once it's added — from the grid's add chips, from a JD
+// suggestion, or by setting a filter (which creates a Required row). Removing
+// a row means "no preference". Outside ranking mode only Required rows ever
+// exist, so the directory filters exactly as before.
 //
 // Semantics carried over from the filter bar:
-// - Several Must-have rows of the same kind (expertise, skill) mean "any of"
+// - Several Required rows of the same kind (expertise, skill) mean "any of"
 //   (OR), like selecting several items in one filter dropdown. Different kinds
 //   combine with AND.
-// - Org History has no filter-bar control; its Must-have is evaluated in
+// - Org History has no filter-bar control; its Required row is evaluated in
 //   mustHaves.ts and shown as a chip at the end of the filter bar.
 // ============================================================================
 
@@ -42,8 +45,8 @@ export const EMPTY_SEARCH: SearchState = { term: '', mode: 'names' }
  *  typed expertise/skill row. Usually backed by TaxonomyTree.categoryNames. */
 export type TagLevelOf = (kind: 'expertise' | 'skill', name: string) => TagValue['level']
 
-const TAG_KINDS = ['expertise', 'skill'] as const
-type TagKind = (typeof TAG_KINDS)[number]
+export type TagKind = 'expertise' | 'skill'
+export type SingleKind = (typeof ALWAYS_PRESENT_KINDS)[number]
 
 /** Multi-select kinds and the FilterState field each one is shown in. */
 const VALUES_FIELDS = {
@@ -53,18 +56,19 @@ const VALUES_FIELDS = {
   career_level: 'careerLevels',
   work_arrangement: 'workArrangements',
 } as const satisfies Partial<Record<RequirementKind, keyof FilterState>>
-type ValuesKind = keyof typeof VALUES_FIELDS
 
 const TAG_FIELDS = { expertise: 'expertise', skill: 'skills' } as const satisfies Record<
   TagKind,
   keyof FilterState
 >
 
+const isTagKind = (kind: RequirementKind): kind is TagKind => kind === 'expertise' || kind === 'skill'
+
 // ---- construction ---------------------------------------------------------
 
 let idCounter = 0
-/** Ids for addable rows. Always-present rows use their kind as their id, since
- *  there's exactly one of each. */
+/** Ids for expertise/skill rows. Single-instance rows use their kind as their
+ *  id, since there's at most one of each. */
 export function newRequirementId(kind: RequirementKind): string {
   idCounter += 1
   return `${kind}-${Date.now().toString(36)}-${idCounter.toString(36)}`
@@ -86,23 +90,36 @@ export function defaultValue<K extends RequirementKind>(kind: K): RequirementVal
   return defaults[kind]()
 }
 
-function defaultRow(kind: RequirementKind): Requirement {
-  return { id: kind, kind, level: 'none', source: 'manual', value: defaultValue(kind) } as Requirement
+/** A new row. Single-instance kinds get their kind as id; expertise/skill rows
+ *  get a fresh id. Rows added in the grid start at Nice to have. */
+export function makeRow<K extends RequirementKind>(
+  kind: K,
+  value: RequirementValueByKind[K] = defaultValue(kind),
+  opts: { level?: Level; source?: RequirementSource } = {},
+): Requirement {
+  return {
+    id: isTagKind(kind) ? newRequirementId(kind) : kind,
+    kind,
+    level: opts.level ?? 'slight',
+    source: opts.source ?? 'manual',
+    value,
+  } as Requirement
 }
 
-/** The eight always-present rows, all at No preference (spec §3.1). */
+/** No rows: no preferences, nothing required (spec §3). */
 export function defaultRequirements(): Requirement[] {
-  return ALWAYS_PRESENT_KINDS.map((kind) => defaultRow(kind))
+  return []
 }
 
-/** Ensures every always-present row exists exactly once (in display order,
- *  ahead of addable rows). Used when hydrating persisted requirements. */
+/** Keeps at most one row per single-instance kind and puts rows in display
+ *  order: expertise/skill rows first, then single-instance rows in their
+ *  canonical order. Used when hydrating persisted requirements. */
 export function normalizeRequirements(reqs: Requirement[]): Requirement[] {
-  const always = ALWAYS_PRESENT_KINDS.map(
-    (kind) => reqs.find((r) => r.kind === kind) ?? defaultRow(kind),
+  const tags = reqs.filter((r) => isTagKind(r.kind))
+  const singles = ALWAYS_PRESENT_KINDS.map((k) => reqs.find((r) => r.kind === k)).filter(
+    (r): r is Requirement => !!r,
   )
-  const addable = reqs.filter((r) => r.kind === 'expertise' || r.kind === 'skill')
-  return [...always, ...addable]
+  return [...tags, ...singles]
 }
 
 // ---- reading ----------------------------------------------------------------
@@ -111,7 +128,7 @@ export function isMust(r: Requirement): boolean {
   return r.level === 'must'
 }
 
-/** Must-have rows → the FilterState the filter bar shows and applyFilters
+/** Required rows → the FilterState the filter bar shows and applyFilters
  *  evaluates. Org History is skipped (no filter-bar control; see mustHaves.ts). */
 export function mustHavesToFilterState(reqs: Requirement[], search: SearchState): FilterState {
   const f: FilterState = {
@@ -160,177 +177,14 @@ export function isActiveOrgRow(r: Requirement): r is RequirementOf<'org_history'
   return r.kind === 'org_history' && r.value.org.trim() !== ''
 }
 
-/** Must-have rows the filter bar can't show — today just Org History.
- *  Rendered as "+1 must-have: Org history" chips (spec §2.1). */
+/** Required rows the filter bar can't show — today just Org History.
+ *  Rendered as "+1 required: Org history" chips (spec §2.1). */
 export function gridOnlyMustHaves(reqs: Requirement[]): RequirementOf<'org_history'>[] {
   return reqs.filter((r): r is RequirementOf<'org_history'> => isMust(r) && isActiveOrgRow(r))
 }
 
-// ---- writing from the filter bar -------------------------------------------
-
-function resetRow(r: Requirement): Requirement {
-  return defaultRow(r.kind)
-}
-
-/**
- * Writes a filter-bar change back into the rows:
- * - a filter that's set becomes (or updates) that kind's Must-have row;
- * - a filter that's cleared removes the Must-have: always-present rows reset to
- *   No preference, and addable expertise/skill rows are deleted;
- * - selecting an expertise/skill that already exists as a Slight/Strong row
- *   raises that row to Must-have rather than duplicating it.
- * Rows below Must-have are otherwise untouched (the filter bar never shows
- * them). The 10-row cap on expertise/skill applies to the grid, not here, so
- * the filter bar keeps working exactly as it always has.
- */
-export function applyFilterStateToRequirements(
-  reqs: Requirement[],
-  next: FilterState,
-  tagLevelOf: TagLevelOf,
-): { requirements: Requirement[]; search: SearchState } {
-  let rows = reqs.map((r): Requirement => {
-    switch (r.kind) {
-      case 'location':
-      case 'language':
-      case 'type':
-      case 'career_level':
-      case 'work_arrangement': {
-        const values = next[VALUES_FIELDS[r.kind]]
-        if (values.length > 0) return withMust(r, { values: [...values] })
-        return isMust(r) ? resetRow(r) : r
-      }
-      case 'availability':
-        if (next.availability) return withMust(r, { ...next.availability })
-        return isMust(r) ? resetRow(r) : r
-      case 'verified':
-        if (next.verifiedOnly) return withMust(r, {})
-        return isMust(r) ? resetRow(r) : r
-      default:
-        return r
-    }
-  })
-
-  for (const kind of TAG_KINDS) {
-    const wanted = next[TAG_FIELDS[kind]]
-    // Drop Must-have rows whose selection was removed in the filter bar.
-    rows = rows.filter((r) => !(r.kind === kind && isMust(r) && !wanted.includes(r.value.name)))
-    for (const name of wanted) {
-      const existing = rows.find(
-        (r): r is RequirementOf<TagKind> => r.kind === kind && r.value.name === name,
-      )
-      if (existing) {
-        if (!isMust(existing)) rows = rows.map((r) => (r === existing ? { ...existing, level: 'must' } : r))
-        continue
-      }
-      rows.push({
-        id: newRequirementId(kind),
-        kind,
-        level: 'must',
-        source: 'filter',
-        value: { name, level: tagLevelOf(kind, name) },
-      })
-    }
-  }
-
-  return { requirements: rows, search: { term: next.searchTerm, mode: next.searchMode } }
-}
-
-/** Sets a row to Must-have with a new value. A row that wasn't already a
- *  Must-have arrives "from filters". */
-function withMust<R extends Requirement>(r: R, value: R['value']): R {
-  const source: RequirementSource = isMust(r) ? r.source : 'filter'
-  return { ...r, level: 'must' as Level, source, value }
-}
-
-/** Clear All in the filter bar: drops every Must-have (Org History included)
- *  and the search term, keeping Slight/Strong preference rows (spec §2.2). */
-export function clearMustHaves(reqs: Requirement[]): Requirement[] {
-  return reqs
-    .filter((r) => !((r.kind === 'expertise' || r.kind === 'skill') && isMust(r)))
-    .map((r): Requirement => {
-      if (!isMust(r)) return r
-      // Org History keeps its typed name and scope; it just stops being required.
-      if (r.kind === 'org_history') return { ...r, level: 'none' }
-      return resetRow(r)
-    })
-}
-
-export function isValuesKind(kind: RequirementKind): kind is ValuesKind {
-  return kind in VALUES_FIELDS
-}
-
-// ---- extraction → grid (spec §2 Step 2, §4) --------------------------------
-
-export function tagRowCount(reqs: Requirement[]): number {
-  return reqs.filter((r) => r.kind === 'expertise' || r.kind === 'skill').length
-}
-
-/**
- * Merges "Read job description" output into the grid:
- * - re-reading replaces the previous JD suggestions (JD-sourced rows the
- *   manager hasn't made Must-have);
- * - a suggestion that already exists as a row keeps that row as it is — in
- *   particular an existing Must-have stays a Must-have;
- * - new expertise/skill rows arrive at their suggested Slight/Strong level,
- *   tagged "from JD", up to the combined row cap;
- * - locations and languages fill their row at Slight unless the manager (or
- *   the filter bar) has already set that row;
- * - extraction never sets Must-have, and a found hiring organization only
- *   fills an empty Org History name (its level is left alone).
- */
-export function mergeExtraction(
-  reqs: Requirement[],
-  extracted: ExtractedRequirements,
-  maxTagRows: number,
-): Requirement[] {
-  // Drop earlier JD suggestions the manager hasn't promoted to Must-have.
-  let rows = reqs.filter(
-    (r) => !((r.kind === 'expertise' || r.kind === 'skill') && r.source === 'jd' && !isMust(r)),
-  )
-  rows = rows.map((r) => {
-    if ((r.kind === 'location' || r.kind === 'language') && r.source === 'jd' && !isMust(r))
-      return defaultRow(r.kind)
-    return r
-  })
-
-  const suggestions: { kind: TagKind; tag: ExtractedTag }[] = [
-    ...extracted.expertise.map((tag) => ({ kind: 'expertise' as const, tag })),
-    ...extracted.skills.map((tag) => ({ kind: 'skill' as const, tag })),
-  ]
-  for (const { kind, tag } of suggestions) {
-    const exists = rows.some((r) => r.kind === kind && r.value.name === tag.name)
-    if (exists || tagRowCount(rows) >= maxTagRows) continue
-    rows.push({
-      id: newRequirementId(kind),
-      kind,
-      level: tag.suggested,
-      source: 'jd',
-      value: { name: tag.name, level: tag.level },
-    })
-  }
-
-  const fill = (kind: 'location' | 'language', values: string[]) => {
-    if (values.length === 0) return
-    rows = rows.map((r) =>
-      r.kind === kind && r.level === 'none' && r.value.values.length === 0
-        ? { ...r, level: 'slight', source: 'jd', value: { values: [...values] } }
-        : r,
-    )
-  }
-  fill('location', extracted.locations)
-  fill('language', extracted.languages)
-
-  if (extracted.hiring_organization) {
-    const org = extracted.hiring_organization
-    rows = rows.map((r) =>
-      r.kind === 'org_history' && r.value.org.trim() === '' ? { ...r, value: { ...r.value, org } } : r,
-    )
-  }
-  return rows
-}
-
 /** False for a row that can't constrain or score anything yet (e.g. Location
- *  with no places chosen, Org History with no name, an empty taxonomy pick). */
+ *  with no places chosen, Org History with no name). */
 export function rowHasValue(r: Requirement): boolean {
   switch (r.kind) {
     case 'expertise':
@@ -348,4 +202,165 @@ export function rowHasValue(r: Requirement): boolean {
     case 'verified':
       return true
   }
+}
+
+export function tagRowCount(reqs: Requirement[]): number {
+  return reqs.filter((r) => isTagKind(r.kind)).length
+}
+
+// ---- writing from the filter bar -------------------------------------------
+
+/**
+ * Writes a filter-bar change back into the rows:
+ * - a filter that's set creates that kind's Required row, or makes the
+ *   existing row Required with the filter's value;
+ * - a filter that's cleared deletes its Required row (no row = no preference);
+ * - selecting an expertise/skill that already exists as a Nice to have /
+ *   Important row raises that row to Required rather than duplicating it.
+ * Rows below Required are otherwise untouched (the filter bar never shows
+ * them). The 10-row cap on expertise/skill applies to the grid, not here, so
+ * the filter bar keeps working exactly as it always has.
+ */
+export function applyFilterStateToRequirements(
+  reqs: Requirement[],
+  next: FilterState,
+  tagLevelOf: TagLevelOf,
+): { requirements: Requirement[]; search: SearchState } {
+  let rows = [...reqs]
+
+  const setSingle = (kind: SingleKind, wanted: Requirement['value'] | null) => {
+    const existing = rows.find((r) => r.kind === kind)
+    if (wanted) {
+      if (existing) rows = rows.map((r) => (r === existing ? withMust(r, wanted) : r))
+      else rows.push(makeRow(kind, wanted as never, { level: 'must', source: 'filter' }))
+    } else if (existing && isMust(existing)) {
+      rows = rows.filter((r) => r !== existing)
+    }
+  }
+
+  for (const kind of Object.keys(VALUES_FIELDS) as (keyof typeof VALUES_FIELDS)[]) {
+    const values = next[VALUES_FIELDS[kind]]
+    setSingle(kind, values.length > 0 ? { values: [...values] } : null)
+  }
+  setSingle('availability', next.availability ? { ...next.availability } : null)
+  setSingle('verified', next.verifiedOnly ? {} : null)
+
+  for (const kind of ['expertise', 'skill'] as const) {
+    const wanted = next[TAG_FIELDS[kind]]
+    // Drop Required rows whose selection was removed in the filter bar.
+    rows = rows.filter((r) => !(r.kind === kind && isMust(r) && !wanted.includes(r.value.name)))
+    for (const name of wanted) {
+      const existing = rows.find((r): r is RequirementOf<TagKind> => r.kind === kind && r.value.name === name)
+      if (existing) {
+        if (!isMust(existing)) rows = rows.map((r) => (r === existing ? { ...existing, level: 'must' } : r))
+        continue
+      }
+      rows.push(makeRow(kind, { name, level: tagLevelOf(kind, name) }, { level: 'must', source: 'filter' }))
+    }
+  }
+
+  return { requirements: rows, search: { term: next.searchTerm, mode: next.searchMode } }
+}
+
+/** Sets a row to Required with a new value. A row that wasn't already
+ *  Required arrives "from filters". */
+function withMust(r: Requirement, value: Requirement['value']): Requirement {
+  const source: RequirementSource = isMust(r) ? r.source : 'filter'
+  return { ...r, level: 'must', source, value } as Requirement
+}
+
+/** Clear All in the filter bar: deletes every Required row (Org History
+ *  included) and the search term, keeping Nice to have / Important rows. */
+export function clearMustHaves(reqs: Requirement[]): Requirement[] {
+  return reqs.filter((r) => !isMust(r))
+}
+
+/** Clear in the ranking banner: the preference rows go, the Required rows
+ *  stay on as plain filters (spec §2.2). */
+export function dropPreferences(reqs: Requirement[]): Requirement[] {
+  return reqs.filter(isMust)
+}
+
+// ---- JD suggestions → grid (spec §2 Step 2, §4) ----------------------------
+
+export type Suggestion =
+  | { kind: TagKind; tag: ExtractedTag }
+  | { kind: 'location' | 'language'; item: ExtractedValue }
+
+/** True when the suggestion is already in the grid (in any row, any level). */
+export function isSuggestionAdded(reqs: Requirement[], s: Suggestion): boolean {
+  if ('tag' in s) return reqs.some((r) => isTagKind(r.kind) && r.kind === s.kind && (r.value as TagValue).name === s.tag.name)
+  return reqs.some(
+    (r) => (r.kind === 'location' || r.kind === 'language') && r.kind === s.kind && r.value.values.includes(s.item.value),
+  )
+}
+
+/** A location/language suggestion can't join that kind's row while the row is
+ *  Required: adding a value would silently widen a filter the manager set. */
+export function isSuggestionBlocked(reqs: Requirement[], s: Suggestion): boolean {
+  if ('tag' in s || isSuggestionAdded(reqs, s)) return false
+  return reqs.some((r) => r.kind === s.kind && isMust(r))
+}
+
+/**
+ * Adds one "Found in your JD" suggestion, at Nice to have, tagged "from JD".
+ * Expertise/skill suggestions become their own row (respecting the combined
+ * row cap). A location or language joins that kind's single row — created at
+ * Nice to have if there isn't one; an existing Nice to have / Important row
+ * keeps its level, and a Required row is never changed by a suggestion.
+ */
+export function addSuggestion(reqs: Requirement[], s: Suggestion, maxTagRows: number): Requirement[] {
+  if (isSuggestionAdded(reqs, s) || isSuggestionBlocked(reqs, s)) return reqs
+  if ('tag' in s) {
+    if (tagRowCount(reqs) >= maxTagRows) return reqs
+    return [...reqs, makeRow(s.kind, { name: s.tag.name, level: s.tag.level }, { source: 'jd' })]
+  }
+  const existing = reqs.find((r): r is RequirementOf<'location' | 'language'> => r.kind === s.kind)
+  if (existing)
+    return reqs.map((r) =>
+      r === existing ? { ...existing, value: { values: [...existing.value.values, s.item.value] } } : r,
+    )
+  return [...reqs, makeRow(s.kind, { values: [s.item.value] }, { source: 'jd' })]
+}
+
+// ---- after a run (spec §2.2) ------------------------------------------------
+
+const byId = (a: Requirement, b: Requirement) => a.id.localeCompare(b.id)
+
+/** JSON with object keys sorted. Rows round-trip through Postgres jsonb, which
+ *  reorders keys, so plain JSON.stringify would see changes that aren't there. */
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
+  if (value && typeof value === 'object')
+    return `{${Object.keys(value)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stableJson((value as Record<string, unknown>)[k])}`)
+      .join(',')}}`
+  return JSON.stringify(value)
+}
+
+/** Order-insensitive equality of two row lists. */
+export function sameRows(a: Requirement[], b: Requirement[]): boolean {
+  return stableJson([...a].sort(byId)) === stableJson([...b].sort(byId))
+}
+
+/** A stable key for the rows that adjust the score (Nice to have /
+ *  Important, with a value). If it differs from the run's, the ranking is
+ *  stale and the manager is offered a re-run. */
+export function preferenceKey(reqs: Requirement[]): string {
+  return stableJson(
+    reqs
+      .filter((r) => !isMust(r) && rowHasValue(r))
+      .sort(byId)
+      .map((r) => ({ id: r.id, kind: r.kind, level: r.level, value: r.value })),
+  )
+}
+
+/** What a run stores after Required rows change: the current Required rows
+ *  (so a reload keeps a tightening) plus the preference rows the results were
+ *  scored with (so the stored snapshot still matches the scores). */
+export function withRunPreferences(current: Requirement[], runRows: Requirement[]): Requirement[] {
+  const musts = current.filter(isMust)
+  const mustIds = new Set(musts.map((r) => r.id))
+  return [...musts, ...runRows.filter((r) => !isMust(r) && !mustIds.has(r.id))]
 }

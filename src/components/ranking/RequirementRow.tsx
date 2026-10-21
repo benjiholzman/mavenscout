@@ -9,7 +9,8 @@ import { MultiSelect, type OptionGroup } from '../ui/MultiSelect'
 import { LevelControl } from './LevelControl'
 
 // One row of the requirements grid (match rework spec §3): label · value
-// picker · level control · source tag · remove (addable rows only).
+// picker · level control · source tag · remove. Every row can be removed —
+// no row means no preference.
 //
 // The location and language pickers are the swap point for Branch 2 (Mapbox
 // places, canonical languages): they read and write the row's { values }
@@ -36,19 +37,18 @@ export function RequirementRow({
   options: PickerOptions
   onLevel: (level: Level) => void
   onValue: (value: Requirement['value']) => void
-  onRemove?: () => void
+  onRemove: () => void
   highlighted?: boolean
 }) {
   const isTag = row.kind === 'expertise' || row.kind === 'skill'
   const title = isTag ? row.value.name : KIND_LABELS[row.kind]
-  // Always-present rows only get a tag when something put a value there.
-  const sourceTag = isTag || row.source !== 'manual' ? SOURCE_LABELS[row.source] : null
+  const sourceTag = SOURCE_LABELS[row.source]
 
   return (
     <div
       id={`req-row-${row.id}`}
       className={`scroll-mt-4 rounded-xl border bg-white p-3 transition-shadow ${
-        row.level === 'must' ? 'border-ink/25' : row.level === 'none' ? 'border-line' : 'border-brand-200'
+        row.level === 'must' ? 'border-ink/25' : 'border-brand-200'
       } ${highlighted ? 'ring-2 ring-brand-400 ring-offset-1' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -67,16 +67,14 @@ export function RequirementRow({
               {sourceTag}
             </span>
           )}
-          {onRemove && (
-            <button
-              type="button"
-              onClick={onRemove}
-              aria-label={`Remove ${title}`}
-              className="rounded-full p-1 text-ink-faint hover:bg-paper hover:text-ink"
-            >
-              <X size={14} />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={`Remove ${title}`}
+            className="rounded-full p-1 text-ink-faint hover:bg-paper hover:text-ink"
+          >
+            <X size={14} />
+          </button>
         </div>
       </div>
 
@@ -384,7 +382,7 @@ function Note({ tone = 'info', children }: { tone?: 'info' | 'warn'; children: R
 
 function RowNotes({ row }: { row: Requirement }) {
   const notes: ReactNode[] = []
-  if (row.level !== 'none' && !rowHasValue(row))
+  if (!rowHasValue(row))
     notes.push(
       <Note key="empty" tone="warn">
         {row.kind === 'org_history' ? 'Add an organization name' : 'Choose at least one option'} for
@@ -394,15 +392,15 @@ function RowNotes({ row }: { row: Requirement }) {
   if ((row.kind === 'expertise' || row.kind === 'skill') && row.level === 'must')
     notes.push(
       <Note key="tagcap" tone="warn">
-        Candidates can tag only 6 items, so this may exclude qualified people who didn't tag it.
-        Consider Strong.
+        Candidates can tag only 6 items, so Required may exclude qualified people who didn't tag
+        it. Consider Important.
       </Note>,
     )
   if (row.kind === 'org_history')
     notes.push(
       <Note key="ethics">
-        Off by default on purpose: favoring people who worked where you work can entrench
-        who-you-know hiring.
+        Add this deliberately: favoring people who worked where you work can entrench who-you-know
+        hiring.
       </Note>,
     )
   if (row.kind === 'career_level')

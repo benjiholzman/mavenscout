@@ -2,13 +2,16 @@ import { Info, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { MAX_TAG_ROWS } from '../../lib/matching/config'
 import { ALWAYS_PRESENT_KINDS, type Requirement } from '../../lib/matching/types'
-import { tagRowCount } from '../../lib/requirements/model'
-import { makeRow, type RequirementsStore } from '../../lib/requirements/store'
+import { KIND_LABELS } from '../../lib/requirements/labels'
+import { makeRow, tagRowCount, type SingleKind, type TagKind } from '../../lib/requirements/model'
+import type { RequirementsStore } from '../../lib/requirements/store'
 import type { OptionGroup } from '../ui/MultiSelect'
 import { RequirementRow, type PickerOptions } from './RequirementRow'
 
-// The requirements grid (match rework spec §3): expertise and skill rows
-// (from the JD or added here) first, then the always-present rows.
+// The requirements grid (match rework spec §3). Rows only exist once added:
+// expertise and skills (from JD suggestions or "+ Add"), then "Other
+// requirements", which starts empty with one add chip per kind. Filters set in
+// the filter bar arrive here as Required rows.
 
 export interface GridOptions extends PickerOptions {
   /** Taxonomy for "+ Add expertise" / "+ Add skill": category → items. */
@@ -16,36 +19,81 @@ export interface GridOptions extends PickerOptions {
   skillGroups: OptionGroup[]
 }
 
-type TagKind = 'expertise' | 'skill'
+/** Add-chip order for "Other requirements". */
+const ADD_ORDER: SingleKind[] = [
+  'location',
+  'language',
+  'availability',
+  'org_history',
+  'type',
+  'career_level',
+  'work_arrangement',
+  'verified',
+]
+
+const ADD_LABELS: Record<SingleKind, string> = {
+  location: 'Location',
+  language: 'Language',
+  availability: 'Availability',
+  org_history: 'Org history',
+  type: 'Type',
+  career_level: 'Career level',
+  work_arrangement: 'Work arrangement',
+  verified: 'Verified',
+}
+
+function AddChip({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="inline-flex items-center gap-1 rounded-full border border-dashed border-line bg-white px-2.5 py-1 text-xs font-medium text-ink-soft hover:border-brand-400 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <Plus size={12} aria-hidden /> {label}
+    </button>
+  )
+}
 
 export function RequirementsGrid({
   store,
   options,
   focusId,
+  onFocusRow,
+  orgPrefill,
 }: {
   store: RequirementsStore
   options: GridOptions
   focusId: string | null
+  onFocusRow: (id: string) => void
+  /** The manager's own organization, prefilled when Org history is added. */
+  orgPrefill: string
 }) {
   const { requirements } = store.state
   const tagRows = requirements.filter((r) => r.kind === 'expertise' || r.kind === 'skill')
   const otherRows = ALWAYS_PRESENT_KINDS.map((k) => requirements.find((r) => r.kind === k)).filter(
     (r): r is Requirement => !!r,
   )
+  const missing = ADD_ORDER.filter((k) => !requirements.some((r) => r.kind === k))
   const atCap = tagRowCount(requirements) >= MAX_TAG_ROWS
   const [adding, setAdding] = useState<TagKind | null>(null)
 
   const mustCount = (kind: TagKind) => tagRows.filter((r) => r.kind === kind && r.level === 'must').length
   const anyOfKinds = (['expertise', 'skill'] as const).filter((k) => mustCount(k) >= 2)
 
-  const renderRow = (r: Requirement, removable: boolean) => (
+  const add = (row: Requirement) => {
+    store.addRow(row)
+    onFocusRow(row.id)
+  }
+
+  const renderRow = (r: Requirement) => (
     <RequirementRow
       key={r.id}
       row={r}
       options={options}
       onLevel={(level) => store.setLevel(r.id, level)}
       onValue={(value) => store.setValue(r.id, value)}
-      onRemove={removable ? () => store.removeRow(r.id) : undefined}
+      onRemove={() => store.removeRow(r.id)}
       highlighted={focusId === r.id}
     />
   )
@@ -60,49 +108,31 @@ export function RequirementsGrid({
           <p className="mb-2 flex gap-1.5 rounded-lg bg-paper px-2.5 py-2 text-[11.5px] leading-snug text-ink-soft">
             <Info size={13} className="mt-px shrink-0" aria-hidden />
             <span>
-              Several Must-have {anyOfKinds.map((k) => (k === 'expertise' ? 'expertise' : 'skill')).join(' and ')}{' '}
-              rows count as <b className="font-semibold">any of</b>: a candidate needs at least one of
-              them, like selecting several in the filter bar.
+              Several Required {anyOfKinds.join(' and ')} rows count as{' '}
+              <b className="font-semibold">any of</b>: a candidate needs at least one of them, like
+              selecting several in the filter bar.
             </span>
           </p>
         )}
-        <div className="space-y-2">
-          {tagRows.map((r) => renderRow(r, true))}
-          {tagRows.length === 0 && (
-            <p className="rounded-xl border border-dashed border-line px-3 py-3 text-xs text-ink-faint">
-              Read the job description to pull out expertise and skills, or add them yourself.
-            </p>
-          )}
-        </div>
+        <div className="space-y-2">{tagRows.map(renderRow)}</div>
 
         {adding ? (
           <AddTagPicker
             kind={adding}
             groups={adding === 'expertise' ? options.expertiseGroups : options.skillGroups}
-            taken={tagRows.filter((r) => r.kind === adding).map((r) => (r.kind === adding ? r.value.name : ''))}
+            taken={tagRows.flatMap((r) => (r.kind === adding ? [r.value.name] : []))}
             onCancel={() => setAdding(null)}
             onPick={(name, level) => {
-              store.addRow(makeRow(adding, { name, level }, { level: 'strong', source: 'manual' }))
+              add(makeRow(adding, { name, level }))
               setAdding(null)
             }}
           />
         ) : (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {(['expertise', 'skill'] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                disabled={atCap}
-                onClick={() => setAdding(k)}
-                className="inline-flex items-center gap-1 rounded-full border border-line bg-white px-3 py-1 text-xs font-medium text-ink-soft hover:border-ink-faint disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Plus size={13} /> Add {k === 'expertise' ? 'expertise' : 'skill'}
-              </button>
-            ))}
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <AddChip label="Expertise" disabled={atCap} onClick={() => setAdding('expertise')} />
+            <AddChip label="Skill" disabled={atCap} onClick={() => setAdding('skill')} />
             {atCap && (
-              <span className="text-[11.5px] text-ink-faint">
-                Up to {MAX_TAG_ROWS} expertise and skill rows.
-              </span>
+              <span className="text-[11.5px] text-ink-faint">Up to {MAX_TAG_ROWS} expertise and skill rows.</span>
             )}
           </div>
         )}
@@ -112,7 +142,24 @@ export function RequirementsGrid({
         <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
           Other requirements
         </h3>
-        <div className="space-y-2">{otherRows.map((r) => renderRow(r, false))}</div>
+        <div className="space-y-2">{otherRows.map(renderRow)}</div>
+        {missing.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {missing.map((kind) => (
+              <AddChip
+                key={kind}
+                label={ADD_LABELS[kind]}
+                onClick={() =>
+                  add(
+                    kind === 'org_history'
+                      ? makeRow(kind, { org: orgPrefill, scope: 'ever', peers: [] })
+                      : makeRow(kind),
+                  )
+                }
+              />
+            ))}
+          </div>
+        )}
       </section>
     </div>
   )
@@ -138,7 +185,7 @@ function AddTagPicker({
       <select
         autoFocus
         defaultValue=""
-        aria-label={kind === 'expertise' ? 'Add domain expertise' : 'Add technical skill'}
+        aria-label={`Add ${KIND_LABELS[kind].toLowerCase()}`}
         onChange={(e) => {
           const [level, name] = e.target.value.split('|')
           if (name) onPick(name, level as 'category' | 'item')

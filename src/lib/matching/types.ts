@@ -11,9 +11,11 @@ import type { Profile, TaxonomyCategory, TaxonomyItem } from '../../types/db'
 
 // ---- Requirements (the grid rows) --------------------------------------------
 
-/** How much a row matters. 'must' rows pre-filter the pool and add no points;
- *  'slight'/'strong' rows adjust the score; 'none' rows are ignored. */
-export type Level = 'none' | 'slight' | 'strong' | 'must'
+/** How much a row matters. Shown to managers as Nice to have / Important /
+ *  Required. 'must' rows pre-filter the pool and add no points; 'slight' and
+ *  'strong' rows adjust the score. There is no "no preference" level: a row
+ *  only exists once it's added, and removing it means no preference. */
+export type Level = 'slight' | 'strong' | 'must'
 export type PreferenceLevel = 'slight' | 'strong'
 
 export type RequirementKind =
@@ -86,7 +88,9 @@ export type Requirement = {
 
 export type RequirementOf<K extends RequirementKind> = Extract<Requirement, { kind: K }>
 
-/** Rows that are always in the grid, in display order (spec §3.1). */
+/** Single-instance rows ("Other requirements"), in display order (spec §3.1).
+ *  None exist until the manager adds one (or sets its filter); there's at most
+ *  one of each. */
 export const ALWAYS_PRESENT_KINDS = [
   'org_history',
   'location',
@@ -104,17 +108,26 @@ export const ADDABLE_KINDS = ['expertise', 'skill'] as const satisfies readonly 
 // ---- Extraction (spec §4) -----------------------------------------------------
 
 export interface ExtractedTag extends TagValue {
+  /** How strongly the JD leans on it (feeds the placeholder Fit). The grid
+   *  always adds a suggestion at Nice to have; the manager adjusts. */
   suggested: PreferenceLevel
+  /** How many times the JD mentions it — shown on the suggestion chip. */
+  mentions: number
 }
 
-/** What the engine read from the JD. Extraction never suggests 'must', and
- *  hiring_organization only fills the Org History row's name (its level stays
- *  'none'). Persisted on job_descriptions.extracted. */
+export interface ExtractedValue {
+  value: string // a location filter value or a language
+  mentions: number
+}
+
+/** What the engine read from the JD. These are SUGGESTIONS: nothing is added
+ *  to the grid until the manager adds it, and extraction never suggests
+ *  Required. Persisted on job_descriptions.extracted. */
 export interface ExtractedRequirements {
   expertise: ExtractedTag[]
   skills: ExtractedTag[]
-  locations: string[] // suggested at 'slight'
-  languages: string[] // suggested at 'slight'
+  locations: ExtractedValue[]
+  languages: ExtractedValue[]
   hiring_organization: string | null
 }
 
