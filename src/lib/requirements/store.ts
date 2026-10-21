@@ -1,9 +1,17 @@
 import { useCallback, useMemo, useReducer } from 'react'
 import type { FilterState } from '../filters'
-import type { Level, Requirement, RequirementKind, RequirementValueByKind } from '../matching/types'
+import { MAX_TAG_ROWS } from '../matching/config'
+import type {
+  ExtractedRequirements,
+  Level,
+  Requirement,
+  RequirementKind,
+  RequirementValueByKind,
+} from '../matching/types'
 import {
   applyFilterStateToRequirements,
   clearMustHaves,
+  mergeExtraction,
   defaultRequirements,
   EMPTY_SEARCH,
   newRequirementId,
@@ -29,6 +37,8 @@ export type RequirementsAction =
   | { type: 'setValue'; id: string; value: Requirement['value'] }
   | { type: 'addRow'; row: Requirement }
   | { type: 'removeRow'; id: string }
+  | { type: 'applyExtraction'; extracted: ExtractedRequirements }
+  | { type: 'clearSearch' }
   | { type: 'hydrate'; state: RequirementsState }
   | { type: 'reset' }
 
@@ -62,6 +72,10 @@ export function requirementsReducer(
       return { ...state, requirements: [...state.requirements, action.row] }
     case 'removeRow':
       return { ...state, requirements: state.requirements.filter((r) => r.id !== action.id) }
+    case 'applyExtraction':
+      return { ...state, requirements: mergeExtraction(state.requirements, action.extracted, MAX_TAG_ROWS) }
+    case 'clearSearch':
+      return { ...state, search: { ...EMPTY_SEARCH, mode: state.search.mode } }
     case 'hydrate':
       return { requirements: normalizeRequirements(action.state.requirements), search: action.state.search }
     case 'reset':
@@ -99,6 +113,11 @@ export function useRequirements(init?: () => RequirementsState) {
   )
   const addRow = useCallback((row: Requirement) => dispatch({ type: 'addRow', row }), [])
   const removeRow = useCallback((id: string) => dispatch({ type: 'removeRow', id }), [])
+  const applyExtraction = useCallback(
+    (extracted: ExtractedRequirements) => dispatch({ type: 'applyExtraction', extracted }),
+    [],
+  )
+  const clearSearch = useCallback(() => dispatch({ type: 'clearSearch' }), [])
   const hydrate = useCallback((s: RequirementsState) => dispatch({ type: 'hydrate', state: s }), [])
   const reset = useCallback(() => dispatch({ type: 'reset' }), [])
 
@@ -111,9 +130,25 @@ export function useRequirements(init?: () => RequirementsState) {
       setValue,
       addRow,
       removeRow,
+      applyExtraction,
+      clearSearch,
       hydrate,
       reset,
     }),
-    [state, fromFilterBar, clearMustHavesCb, setLevel, setValue, addRow, removeRow, hydrate, reset],
+    [
+      state,
+      fromFilterBar,
+      clearMustHavesCb,
+      setLevel,
+      setValue,
+      addRow,
+      removeRow,
+      applyExtraction,
+      clearSearch,
+      hydrate,
+      reset,
+    ],
   )
 }
+
+export type RequirementsStore = ReturnType<typeof useRequirements>

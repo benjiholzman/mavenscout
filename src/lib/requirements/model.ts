@@ -1,6 +1,8 @@
 import { EMPTY_FILTERS, type FilterState, type SearchMode } from '../filters'
 import {
   ALWAYS_PRESENT_KINDS,
+  type ExtractedRequirements,
+  type ExtractedTag,
   type Level,
   type Requirement,
   type RequirementKind,
@@ -255,4 +257,95 @@ export function clearMustHaves(reqs: Requirement[]): Requirement[] {
 
 export function isValuesKind(kind: RequirementKind): kind is ValuesKind {
   return kind in VALUES_FIELDS
+}
+
+// ---- extraction → grid (spec §2 Step 2, §4) --------------------------------
+
+export function tagRowCount(reqs: Requirement[]): number {
+  return reqs.filter((r) => r.kind === 'expertise' || r.kind === 'skill').length
+}
+
+/**
+ * Merges "Read job description" output into the grid:
+ * - re-reading replaces the previous JD suggestions (JD-sourced rows the
+ *   manager hasn't made Must-have);
+ * - a suggestion that already exists as a row keeps that row as it is — in
+ *   particular an existing Must-have stays a Must-have;
+ * - new expertise/skill rows arrive at their suggested Slight/Strong level,
+ *   tagged "from JD", up to the combined row cap;
+ * - locations and languages fill their row at Slight unless the manager (or
+ *   the filter bar) has already set that row;
+ * - extraction never sets Must-have, and a found hiring organization only
+ *   fills an empty Org History name (its level is left alone).
+ */
+export function mergeExtraction(
+  reqs: Requirement[],
+  extracted: ExtractedRequirements,
+  maxTagRows: number,
+): Requirement[] {
+  // Drop earlier JD suggestions the manager hasn't promoted to Must-have.
+  let rows = reqs.filter(
+    (r) => !((r.kind === 'expertise' || r.kind === 'skill') && r.source === 'jd' && !isMust(r)),
+  )
+  rows = rows.map((r) => {
+    if ((r.kind === 'location' || r.kind === 'language') && r.source === 'jd' && !isMust(r))
+      return defaultRow(r.kind)
+    return r
+  })
+
+  const suggestions: { kind: TagKind; tag: ExtractedTag }[] = [
+    ...extracted.expertise.map((tag) => ({ kind: 'expertise' as const, tag })),
+    ...extracted.skills.map((tag) => ({ kind: 'skill' as const, tag })),
+  ]
+  for (const { kind, tag } of suggestions) {
+    const exists = rows.some((r) => r.kind === kind && r.value.name === tag.name)
+    if (exists || tagRowCount(rows) >= maxTagRows) continue
+    rows.push({
+      id: newRequirementId(kind),
+      kind,
+      level: tag.suggested,
+      source: 'jd',
+      value: { name: tag.name, level: tag.level },
+    })
+  }
+
+  const fill = (kind: 'location' | 'language', values: string[]) => {
+    if (values.length === 0) return
+    rows = rows.map((r) =>
+      r.kind === kind && r.level === 'none' && r.value.values.length === 0
+        ? { ...r, level: 'slight', source: 'jd', value: { values: [...values] } }
+        : r,
+    )
+  }
+  fill('location', extracted.locations)
+  fill('language', extracted.languages)
+
+  if (extracted.hiring_organization) {
+    const org = extracted.hiring_organization
+    rows = rows.map((r) =>
+      r.kind === 'org_history' && r.value.org.trim() === '' ? { ...r, value: { ...r.value, org } } : r,
+    )
+  }
+  return rows
+}
+
+/** False for a row that can't constrain or score anything yet (e.g. Location
+ *  with no places chosen, Org History with no name, an empty taxonomy pick). */
+export function rowHasValue(r: Requirement): boolean {
+  switch (r.kind) {
+    case 'expertise':
+    case 'skill':
+      return r.value.name !== ''
+    case 'org_history':
+      return r.value.org.trim() !== ''
+    case 'location':
+    case 'language':
+    case 'type':
+    case 'career_level':
+    case 'work_arrangement':
+      return r.value.values.length > 0
+    case 'availability':
+    case 'verified':
+      return true
+  }
 }
