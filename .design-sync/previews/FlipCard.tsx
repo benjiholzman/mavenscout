@@ -25,11 +25,9 @@ function baseProfile(overrides: Partial<Profile>): Profile {
     resume_path: null,
     resume_url: null,
     detailed_bio: null,
-    expertise: [],
-    skills: [],
     tiered_expertise: [],
     accreditations: [],
-    languages: [],
+    spoken_languages: [],
     work_history: [],
     education_history: [],
     additional_experience: [],
@@ -59,14 +57,6 @@ const amara = baseProfile({
   full_time_availability: { status: 'available_from', from: '2026-08-01', until: null },
   photo_url: 'https://i.pravatar.cc/150?u=amara-diallo',
   cover_image_url: 'https://picsum.photos/seed/amara-diallo/800/200',
-  expertise: [
-    { name: 'Gender Mainstreaming', tier: 'primary', level: 'item' },
-    { name: 'Gender-Based Violence', tier: 'primary', level: 'item' },
-  ],
-  skills: [
-    { name: 'Monitoring & Evaluation', tier: 'primary', level: 'item' },
-    { name: 'Qualitative Research', tier: 'primary', level: 'item' },
-  ],
   tiered_expertise: [
     { name: 'Gender Mainstreaming', tier: 'core' },
     { name: 'Gender-Based Violence', tier: 'core' },
@@ -138,14 +128,6 @@ const ifeoma = baseProfile({
   full_time_availability: { status: 'available_now', from: null, until: '2027-03-01' },
   photo_url: 'https://i.pravatar.cc/150?u=ifeoma-obi',
   cover_image_url: 'https://picsum.photos/seed/ifeoma-obi/800/200',
-  expertise: [
-    { name: 'Food Security', tier: 'primary', level: 'item' },
-    { name: 'Agribusiness', tier: 'primary', level: 'item' },
-  ],
-  skills: [
-    { name: 'Qualitative Research', tier: 'primary', level: 'item' },
-    { name: 'Survey Design', tier: 'primary', level: 'item' },
-  ],
   tiered_expertise: [
     { name: 'Food Security', tier: 'core' },
     { name: 'Agribusiness & Value Chains', tier: 'core' },
@@ -197,8 +179,6 @@ const rohan = baseProfile({
   full_time_availability: { status: 'available_from', from: '2026-11-01', until: null },
   photo_url: 'https://i.pravatar.cc/150?u=rohan-mehta',
   cover_image_url: 'https://picsum.photos/seed/rohan-mehta/800/200',
-  expertise: [{ name: 'WASH', tier: 'primary', level: 'item' }],
-  skills: [{ name: 'Project Management', tier: 'primary', level: 'item' }],
   tiered_expertise: [
     { name: 'WASH', tier: 'core' },
     { name: 'Project Management', tier: 'core' },

@@ -75,7 +75,7 @@ export function buildExpertiseIndex(categories: TaxonomyCategory[], items: Taxon
   }
 }
 
-/** A profile's tags (absent only on a database that hasn't run 011). */
+/** A profile's tags on the unified list (011). */
 export function expertiseTags(p: Pick<Profile, 'tiered_expertise'>): ExpertiseTag[] {
   return p.tiered_expertise ?? []
 }
