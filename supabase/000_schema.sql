@@ -348,16 +348,18 @@ CREATE POLICY "dev_read_opening_reviewers"  ON opening_reviewers FOR SELECT USIN
 CREATE POLICY "dev_write_opening_reviewers" ON opening_reviewers FOR ALL USING (true) WITH CHECK (true);
 
 -- ---------------------------------------------------------------------------
--- job_descriptions — a ranking run (PRD 7.7). opening_id NULL = transient
--- ad-hoc directory ranking (not persisted to an opening unless saved).
+-- job_descriptions — a ranking run (match rework spec §6.3). opening_id NULL =
+-- transient ad-hoc directory ranking (not kept unless saved to an opening).
 -- ---------------------------------------------------------------------------
 CREATE TABLE job_descriptions (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   hiring_manager_id   uuid NOT NULL REFERENCES hiring_managers(id) ON DELETE CASCADE,
   opening_id          uuid REFERENCES openings(id) ON DELETE CASCADE,
   raw_text            text NOT NULL,
-  hiring_organization text,           -- matched by the Organizational History component
-  weights             jsonb NOT NULL DEFAULT '{}',  -- {component: {active, value 0-5}} — stable contract for Loop8
+  requirements        jsonb,          -- Requirement[]: grid rows the run was scored against (must-haves included)
+  extracted           jsonb,          -- ExtractedRequirements: what extractRequirements read from the JD
+  hiring_organization text,           -- legacy (pre-rework); the org now lives in the Org History row
+  weights             jsonb DEFAULT '{}',  -- legacy (pre-rework slider weights); no longer written
   created_at          timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE job_descriptions ENABLE ROW LEVEL SECURITY;
@@ -366,16 +368,22 @@ CREATE POLICY "dev_read_job_descriptions"  ON job_descriptions FOR SELECT USING 
 CREATE POLICY "dev_write_job_descriptions" ON job_descriptions FOR ALL USING (true) WITH CHECK (true);
 
 -- ---------------------------------------------------------------------------
--- match_results — per-candidate output of a ranking run (PRD 7.7)
--- sub_scores: one entry per active scoring component; narrative: ~100 words
--- (templated placeholder this build — real text comes with Loop8's engine).
+-- match_results — per-candidate output of a ranking run (match rework spec
+-- §6.1): total = clamp(fit_score + capped adjustments, 0, 100). narrative:
+-- ~100 words (templated placeholder this build — real text comes with Loop8).
 -- ---------------------------------------------------------------------------
 CREATE TABLE match_results (
   id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   job_description_id uuid NOT NULL REFERENCES job_descriptions(id) ON DELETE CASCADE,
   profile_id         uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   total_score        int NOT NULL,    -- 0–100
-  sub_scores         jsonb NOT NULL DEFAULT '[]',
+  rank               int,             -- rank at run time
+  band               text,            -- 'strong' | 'good' | 'partial' | 'weak'
+  fit_score          int,             -- 0–100, the engine's holistic fit
+  adjustments        jsonb,           -- Adjustment[]: one per Slight/Strong row
+  adjustments_capped bool,            -- positive adjustments hit the cap
+  must_haves_passed  jsonb,           -- [{requirement_id, label}]
+  sub_scores         jsonb DEFAULT '[]',  -- legacy (pre-rework component scores)
   narrative          text,
   created_at         timestamptz NOT NULL DEFAULT now(),
   UNIQUE (job_description_id, profile_id)

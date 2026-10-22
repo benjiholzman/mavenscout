@@ -1,28 +1,30 @@
 import { Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { createOpening } from '../../lib/openings'
-import { saveRankingToOpening, type RankingRun } from '../../lib/matching/run'
+import { attachToOpening } from '../../lib/matching/persist'
 import { DEMO_HIRING_MANAGER_ID } from '../../lib/session'
 import { supabase } from '../../lib/supabase'
 import type { Opening } from '../../types/db'
 import { Modal } from '../ui/Modal'
 
-/** Persist an ad-hoc directory ranking to an opening — the single action
- *  that turns a transient ranking into a durable one (PRD 7.7). */
+/** "Save ranking to opening…" — the single action that turns a transient
+ *  ad-hoc ranking into that opening's durable ranking (match rework spec §1).
+ *  It replaces any ranking the opening already had. */
 export function SaveRankingModal({
-  run,
+  jobDescriptionId,
   open,
   onClose,
   onSaved,
 }: {
-  run: RankingRun
+  jobDescriptionId: string
   open: boolean
   onClose: () => void
-  onSaved: (openingName: string) => void
+  onSaved: (opening: Opening) => void
 }) {
   const [openings, setOpenings] = useState<Opening[] | null>(null)
   const [newName, setNewName] = useState('')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -37,10 +39,13 @@ export function SaveRankingModal({
 
   const saveTo = async (opening: Opening) => {
     setBusy(true)
+    setError(null)
     try {
-      await saveRankingToOpening(opening.id, run)
-      onSaved(opening.name)
+      await attachToOpening(jobDescriptionId, opening.id)
+      onSaved(opening)
       onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
     } finally {
       setBusy(false)
     }
@@ -49,8 +54,9 @@ export function SaveRankingModal({
   return (
     <Modal open={open} onClose={onClose} title="Save ranking to an opening">
       <p className="mb-3 text-xs text-ink-faint">
-        The JD, weights, and every candidate's score and narrative are stored with the opening —
-        they'll be there when you come back. Re-running later replaces them.
+        The JD, your requirements, and every candidate's score and breakdown are stored with the
+        opening — they'll be there when you come back. If the opening already has a ranking, this
+        replaces it.
       </p>
       <div className="space-y-1.5">
         {openings === null && <p className="text-sm text-ink-faint">Loading…</p>}
@@ -88,6 +94,7 @@ export function SaveRankingModal({
             <Plus size={14} /> Create
           </button>
         </form>
+        {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
     </Modal>
   )

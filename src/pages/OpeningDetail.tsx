@@ -1,23 +1,17 @@
-import { CalendarDays, Sparkles } from 'lucide-react'
+import { ArrowRight, CalendarDays, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { RankByJDModal } from '../components/match/RankByJDModal'
 import { CandidateRow } from '../components/openings/CandidateRow'
 import { ReviewersPanel, SharePanel } from '../components/openings/SharePanels'
 import { VideoRequestsPanel } from '../components/openings/VideoRequestsPanel'
 import { RowsSkeleton } from '../components/ui/Skeletons'
 import { useOpeningDetail } from '../hooks/useOpeningData'
 import { fmtDate } from '../lib/dates'
-import {
-  loadRankingForOpening,
-  rankPool,
-  saveRankingToOpening,
-  type SavedRanking,
-} from '../lib/matching/run'
+import { BAND_LABELS } from '../lib/matching/config'
+import { loadLatestForOpening, type RankingRecord } from '../lib/matching/persist'
 import { computeTeamStats } from '../lib/openings'
 import { DEMO_HIRING_MANAGER_ID, useSession } from '../lib/session'
 import { supabase } from '../lib/supabase'
-import type { MatchWeights, Profile } from '../types/db'
 import NotFound from './NotFound'
 
 // /openings/:id — a single opening workspace (PRD 7.4): short list + long
@@ -28,31 +22,15 @@ export default function OpeningDetail() {
   const { role } = useSession()
   const { data, notFound, reload } = useOpeningDetail(id)
 
-  // The opening's persisted ranking (PRD 7.7): loads on entry — the manager
-  // who returns days later finds the last ranking right here. Re-running
-  // replaces it, but re-running is a choice, not a requirement.
-  const [saved, setSaved] = useState<SavedRanking | null>(null)
-  const [rankModalOpen, setRankModalOpen] = useState(false)
-
+  // The opening's persisted ranking: loads on entry — the manager who returns
+  // days later finds the last ranking right here. Ranking itself happens in
+  // the directory, linked to this opening (match rework spec §2): runs there
+  // save here automatically, and re-running replaces this ranking.
+  const [saved, setSaved] = useState<RankingRecord | null>(null)
   useEffect(() => {
-    if (id) loadRankingForOpening(id).then(setSaved)
+    if (id) loadLatestForOpening(id).then(setSaved)
   }, [id])
-
-  const runRanking = async (
-    jd: { raw_text: string; hiring_organization: string | null },
-    weights: MatchWeights,
-  ) => {
-    // From inside an opening the whole approved pool is ranked (no filter
-    // bar here); results persist to this opening immediately.
-    const { data: pool } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('approval_status', 'approved')
-      .eq('subscription_status', 'active')
-    const results = await rankPool((pool as Profile[]) ?? [], jd, weights)
-    await saveRankingToOpening(id!, { jd, weights, results })
-    setSaved(await loadRankingForOpening(id!))
-  }
+  const resultByProfile = new Map((saved?.results ?? []).map((r) => [r.profile_id, r]))
 
   if (notFound) return <NotFound />
   if (role !== 'hiring_manager')
@@ -91,7 +69,7 @@ export default function OpeningDetail() {
           currentAuthorId={DEMO_HIRING_MANAGER_ID}
           canParticipate
           onChanged={reload}
-          match={saved?.results.get(entry.profile_id) ?? null}
+          match={resultByProfile.get(entry.profile_id) ?? null}
         />
       )
     })
@@ -111,13 +89,13 @@ export default function OpeningDetail() {
             </p>
           )}
         </div>
-        <button
-          onClick={() => setRankModalOpen(true)}
+        <Link
+          to={`/?opening=${opening.id}&rank=1`}
           className="flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-ink/85"
         >
           <Sparkles size={16} className="text-gold-300" />
-          {saved ? 'Re-run ranking' : 'Rank by Job Description'}
-        </button>
+          Rank candidates
+        </Link>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr,290px]">
@@ -157,8 +135,7 @@ export default function OpeningDetail() {
                 <Sparkles size={14} className="text-gold-500" /> Saved AI ranking
               </h3>
               <p className="mt-1.5 text-xs text-ink-faint">
-                Run {fmtDate(saved.jd.created_at.slice(0, 10))}
-                {saved.jd.hiring_organization && ` · for ${saved.jd.hiring_organization}`}
+                Run {fmtDate(saved.jd.created_at.slice(0, 10))} · {saved.results.length} candidates ranked
               </p>
               <p className="mt-1.5 line-clamp-3 rounded-lg bg-paper px-2.5 py-2 text-xs text-ink-soft">
                 {saved.jd.raw_text}
@@ -167,21 +144,26 @@ export default function OpeningDetail() {
                 Top matches across the whole pool:
               </p>
               <ol className="mt-1 space-y-1">
-                {[...saved.results.values()]
-                  .sort((a, b) => b.total_score - a.total_score)
-                  .slice(0, 5)
-                  .map((r, i) => {
-                    const p = profiles.get(r.profile_id)
-                    return (
-                      <li key={r.profile_id} className="flex items-center justify-between text-xs">
-                        <span className="truncate">
-                          {i + 1}. {p?.name ?? <TopMatchName profileId={r.profile_id} />}
-                        </span>
-                        <span className="font-semibold text-ink-soft">{r.total_score}</span>
-                      </li>
-                    )
-                  })}
+                {saved.results.slice(0, 5).map((r) => {
+                  const p = profiles.get(r.profile_id)
+                  return (
+                    <li key={r.profile_id} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="truncate">
+                        {r.rank}. {p?.name ?? <TopMatchName profileId={r.profile_id} />}
+                      </span>
+                      <span className="shrink-0 text-ink-faint">
+                        <span className="font-semibold text-ink-soft">{r.total_score}</span> · {BAND_LABELS[r.band]}
+                      </span>
+                    </li>
+                  )
+                })}
               </ol>
+              <Link
+                to={`/?opening=${opening.id}&ranking=${saved.jd.id}`}
+                className="mt-2.5 inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:text-brand-800"
+              >
+                Open ranked view <ArrowRight size={12} aria-hidden />
+              </Link>
             </div>
           )}
           <VideoRequestsPanel
@@ -194,22 +176,6 @@ export default function OpeningDetail() {
           <ReviewersPanel opening={opening} reviewers={reviewers} managers={managers} onChanged={reload} />
         </aside>
       </div>
-
-      <RankByJDModal
-        open={rankModalOpen}
-        onClose={() => setRankModalOpen(false)}
-        onRun={runRanking}
-        initial={
-          saved
-            ? {
-                raw_text: saved.jd.raw_text,
-                hiring_organization: saved.jd.hiring_organization,
-                weights: saved.jd.weights,
-              }
-            : undefined
-        }
-        poolLabel="the full directory pool, saved to this opening"
-      />
     </div>
   )
 }

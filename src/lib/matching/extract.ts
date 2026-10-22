@@ -1,0 +1,85 @@
+import { EXTRACTION_STRONG_MIN_OCCURRENCES, MAX_TAG_ROWS } from './config'
+import { countTerm as countOccurrences, normalizeText as normalize } from './text'
+import type { ExtractedRequirements, ExtractedTag, ExtractedValue, ExtractRequirementsFn } from './types'
+
+// ============================================================================
+// ⚠ PLACEHOLDER EXTRACTION — Loop8 replaces this with real JD understanding.
+// (docs/MavenScout-match-rework.md §4)
+//
+// Finds taxonomy, location, and language names that literally appear in the
+// pasted JD. Deterministic and deliberately simple: it exists so the
+// requirements grid is demoable end to end.
+//
+// CONTRACT FOR LOOP8: the JD is read ONCE, here. The output is persisted with
+// the job description (job_descriptions.extracted); scoring then receives the
+// extracted requirements plus the stored JD *reference* (its id). Scoring must
+// not re-send the full JD text per candidate — a 15,000-character JD would
+// multiply cost across hundreds of candidates.
+//
+// Guardrails (spec §2): extraction only SUGGESTS — the panel shows the
+// results as chips and nothing enters the grid until the manager adds it.
+// It never suggests Required.
+// ============================================================================
+
+export const extractRequirements: ExtractRequirementsFn = async (jdText, ctx) => {
+  const text = normalize(jdText)
+
+  // Taxonomy terms (categories and items), counted in the JD.
+  type Hit = ExtractedTag & { kind: 'expertise' | 'skills'; count: number; order: number }
+  const hits: Hit[] = []
+  let order = 0
+  for (const cat of ctx.taxonomy.categories) {
+    if (cat.type !== 'domain_expertise' && cat.type !== 'technical_skills') continue
+    const kind = cat.type === 'domain_expertise' ? 'expertise' : 'skills'
+    const names: { name: string; level: 'category' | 'item' }[] = [
+      { name: cat.name, level: 'category' },
+      ...ctx.taxonomy.items
+        .filter((i) => i.category_id === cat.id)
+        .map((i) => ({ name: i.name, level: 'item' as const })),
+    ]
+    for (const n of names) {
+      order += 1
+      const count = countOccurrences(text, n.name)
+      if (count === 0) continue
+      hits.push({
+        kind,
+        name: n.name,
+        level: n.level,
+        suggested: count >= EXTRACTION_STRONG_MIN_OCCURRENCES ? 'strong' : 'slight',
+        mentions: count,
+        count,
+        order,
+      })
+    }
+  }
+  // Highest frequency first, taxonomy order as the tie-break; cap the total.
+  const kept = hits.sort((a, b) => b.count - a.count || a.order - b.order).slice(0, MAX_TAG_ROWS)
+  const strip = ({ name, level, suggested, mentions }: Hit): ExtractedTag => ({ name, level, suggested, mentions })
+
+  // Location options are bare countries ("Kenya") or "City, Country". A city
+  // is matched by its city part; a country by its name.
+  const byMentions = (a: ExtractedValue, b: ExtractedValue) => b.mentions - a.mentions
+  const locations = ctx.locationOptions
+    .map((value) => {
+      const comma = value.lastIndexOf(',')
+      const place = comma === -1 ? value : value.slice(0, comma)
+      return { value, mentions: countOccurrences(text, place) }
+    })
+    .filter((l) => l.mentions > 0)
+    .sort(byMentions)
+  const languages = ctx.languageOptions
+    .map((value) => ({ value, mentions: countOccurrences(text, value) }))
+    .filter((l) => l.mentions > 0)
+    .sort(byMentions)
+
+  const out: ExtractedRequirements = {
+    expertise: kept.filter((h) => h.kind === 'expertise').map(strip),
+    skills: kept.filter((h) => h.kind === 'skills').map(strip),
+    locations,
+    languages,
+    // The placeholder doesn't try to find the hiring organization; the Org
+    // History row is prefilled from the manager's own organization instead.
+    hiring_organization: null,
+  }
+  return out
+}

@@ -1,50 +1,119 @@
-import { SearchX, Sparkles, X } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { SearchX, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { FilterBar } from '../components/directory/FilterBar'
 import { FlipCard } from '../components/directory/FlipCard'
 import { SortDropdown } from '../components/directory/SortDropdown'
-import { MatchBreakdown, MatchScoreBadge } from '../components/match/MatchBreakdown'
-import { RankByJDModal } from '../components/match/RankByJDModal'
+import { AboutResultModal } from '../components/match/AboutResultModal'
 import { SaveRankingModal } from '../components/match/SaveRankingModal'
 import { useSaveCandidate } from '../components/openings/SaveCandidateFlow'
+import type { CountFn } from '../components/ranking/LiveCount'
+import { RankingBanner } from '../components/ranking/RankingBanner'
+import { RankingPanel } from '../components/ranking/RankingPanel'
+import type { GridOptions } from '../components/ranking/RequirementsGrid'
 import { SignupPrompt } from '../components/ui/SignupPrompt'
 import { DirectorySkeleton } from '../components/ui/Skeletons'
-import { rankPool, type RankingRun } from '../lib/matching/run'
 import { useDirectoryData } from '../hooks/useDirectoryData'
+import { buildTaxonomyTree, deriveOptions, facetCounts, type FacetKey, type FilterState } from '../lib/filters'
+import { extractRequirements } from '../lib/matching/extract'
 import {
-  applyFilters,
-  buildTaxonomyTree,
-  deriveOptions,
-  facetCounts,
-  type FacetKey,
-  EMPTY_FILTERS,
-  type FilterState,
-} from '../lib/filters'
-import { useSession } from '../lib/session'
+  loadLatestForOpening,
+  loadRanking,
+  runRanking,
+  scoreNewcomers,
+  updateRunRequirements,
+  type RankingRecord,
+} from '../lib/matching/persist'
+import type { ExtractedRequirements } from '../lib/matching/types'
+import {
+  gridOnlyMustHaves,
+  mustHavesToFilterState,
+  preferenceKey,
+  sameRows,
+  withRunPreferences,
+  type TagLevelOf,
+} from '../lib/requirements/model'
+import { clearDraft, readDraft, writeDraft } from '../lib/requirements/draft'
+import { applyMustHaves, applyOrgMustHaves } from '../lib/requirements/mustHaves'
+import { useRequirements } from '../lib/requirements/store'
+import { DEMO_HIRING_MANAGER_ID, useSession } from '../lib/session'
 import { sortProfiles, type SortMode } from '../lib/sort'
+import { supabase } from '../lib/supabase'
+
+// Directory + ranking mode (match rework spec §2, §8).
+//
+// URL state: ?rank=1 opens the ranking drawer; ?ranking=<job_description_id>
+// shows that ranking (reload and back restore it); ?opening=<id> links the run
+// to an opening (its runs save automatically); ?q / ?qm carry the search term
+// while ranked, so the pool restores with it.
 
 export default function Directory() {
   const { data, error } = useDirectoryData()
-  const { isLoggedIn } = useSession()
+  const { isLoggedIn, role } = useSession()
+  const [params, setParams] = useSearchParams()
+  const rankingId = params.get('ranking')
+  const openingId = params.get('opening')
+  const rankParam = params.get('rank') === '1'
 
-  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
+  // One requirements store behind the filter bar and the ranking drawer —
+  // spec §2.1. The filter bar renders the Required rows as a FilterState and
+  // writes changes back as rows.
+  const reqs = useRequirements()
+  const { requirements, search } = reqs.state
+  const filters = useMemo(() => mustHavesToFilterState(requirements, search), [requirements, search])
   const [sort, setSort] = useState<SortMode>('shuffle')
-  // Bumped on every filter change so card flip state resets (PRD 7.1).
+  // Bumped whenever the result set changes so card flip state resets (PRD 7.1).
   const [epoch, setEpoch] = useState(0)
   const [gatedFeature, setGatedFeature] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const { save, ui: saveUi } = useSaveCandidate()
 
-  // AI ranking (PRD 7.7) — ad-hoc directory rankings are TRANSIENT: they live
-  // in state for the session and vanish unless saved to an opening.
-  const [rankModalOpen, setRankModalOpen] = useState(false)
-  const [saveRankingOpen, setSaveRankingOpen] = useState(false)
-  const [ranking, setRanking] = useState<RankingRun | null>(null)
+  // Ranking drawer: the JD and its suggestions live here so closing the
+  // drawer loses nothing; the rows live in the shared store.
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [focusId, setFocusId] = useState<string | null>(null)
+  const [jdText, setJdText] = useState('')
+  const [jdCollapsed, setJdCollapsed] = useState(false)
+  const [extracted, setExtracted] = useState<ExtractedRequirements | null>(null)
+  const [reading, setReading] = useState(false)
+  const [orgPrefill, setOrgPrefill] = useState('')
 
-  const handleFilterChange = (next: FilterState) => {
-    setFilters(next)
-    setEpoch((e) => e + 1)
-  }
+  // The active ranking (loaded from, and mirrored in, the URL).
+  const [ranking, setRanking] = useState<RankingRecord | null>(null)
+  const [running, setRunning] = useState(false)
+  const [scoring, setScoring] = useState(false)
+  const [saveOpen, setSaveOpen] = useState(false)
+  const [openingName, setOpeningName] = useState<string | null>(null)
+  /** "About this result": the profile id whose build-up is open. */
+  const [aboutId, setAboutId] = useState<string | null>(null)
+
+  const canRank = role === 'hiring_manager'
+
+  const updateParams = useCallback(
+    (patch: Record<string, string | null>, opts: { push?: boolean } = {}) =>
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          for (const [k, v] of Object.entries(patch)) {
+            if (v === null) next.delete(k)
+            else next.set(k, v)
+          }
+          return next
+        },
+        { replace: !opts.push },
+      ),
+    [setParams],
+  )
+
+  /** Ranking needs a hiring account (spec §1 "Unchanged": login gating). */
+  const gateRanking = useCallback((): boolean => {
+    if (canRank) return true
+    if (!isLoggedIn) setGatedFeature('Ranking candidates against a job description')
+    else setNotice('Ranking is part of the hiring toolkit — switch to a hiring account to use it.')
+    return false
+  }, [canRank, isLoggedIn])
+
+  // ---- data ------------------------------------------------------------------
 
   const trees = useMemo(() => {
     if (!data) return null
@@ -54,55 +123,345 @@ export default function Directory() {
     }
   }, [data])
 
-  const options = useMemo(() => (data ? deriveOptions(data.profiles) : null), [data])
+  const tagLevelOf = useCallback<TagLevelOf>(
+    (kind, name) =>
+      (kind === 'expertise' ? trees?.expertise : trees?.skills)?.categoryNames.has(name) ? 'category' : 'item',
+    [trees],
+  )
 
+  const handleFilterChange = (next: FilterState) => {
+    reqs.fromFilterBar(next, tagLevelOf)
+    setEpoch((e) => e + 1)
+  }
+  const handleClearAll = () => {
+    reqs.clearMustHaves()
+    setEpoch((e) => e + 1)
+  }
+
+  const options = useMemo(() => (data ? deriveOptions(data.profiles) : null), [data])
+  const profilesById = useMemo(() => new Map((data?.profiles ?? []).map((p) => [p.id, p])), [data])
+
+  /** Picker options for the requirements grid. */
+  const gridOptions = useMemo<GridOptions | null>(() => {
+    if (!data || !options) return null
+    const typeOf = (id: string) => data.taxonomyCategories.find((c) => c.id === id)?.type
+    const groupsFor = (type: 'domain_expertise' | 'technical_skills') =>
+      data.taxonomyCategories
+        .filter((c) => c.type === type)
+        .map((c) => ({
+          label: c.name,
+          items: data.taxonomyItems.filter((i) => i.category_id === c.id).map((i) => i.name),
+        }))
+    return {
+      locations: options.locations,
+      languages: options.languages,
+      types: ['Individual', 'Small Firm', 'Large Firm'],
+      workArrangements: data.taxonomyItems
+        .filter((i) => typeOf(i.category_id) === 'work_arrangement')
+        .map((i) => i.name),
+      expertiseGroups: groupsFor('domain_expertise'),
+      skillGroups: groupsFor('technical_skills'),
+    }
+  }, [data, options])
+
+  /** Candidates meeting every Required row and the search term. */
   const filtered = useMemo(() => {
     if (!data || !trees) return []
-    return applyFilters(
-      data.profiles,
-      data.portfolioByProfile,
-      filters,
-      trees.expertise,
-      trees.skills,
-    )
-  }, [data, trees, filters])
+    return applyMustHaves(data.profiles, data.portfolioByProfile, requirements, search, trees)
+  }, [data, trees, requirements, search])
 
   const countFor = useCallback(
     (key: FacetKey, values: string[]) =>
       data && trees
-        ? facetCounts(data.profiles, data.portfolioByProfile, filters, trees.expertise, trees.skills, key, values)
+        ? facetCounts(
+            // Org History Required rows have no filter-bar control, so apply them first.
+            applyOrgMustHaves(data.profiles, requirements),
+            data.portfolioByProfile,
+            filters,
+            trees.expertise,
+            trees.skills,
+            key,
+            values,
+          )
         : new Map<string, number>(),
-    [data, trees, filters],
+    [data, trees, requirements, filters],
   )
 
-  const scoreMap = useMemo(
-    () => new Map(ranking?.results.map((r) => [r.profile_id, r.total_score]) ?? []),
-    [ranking],
+  const gridOnlyChips = useMemo(
+    () => gridOnlyMustHaves(requirements).map((r) => ({ id: r.id, label: 'Org history' })),
+    [requirements],
   )
-  const resultByProfile = useMemo(
-    () => new Map(ranking?.results.map((r) => [r.profile_id, r]) ?? []),
-    [ranking],
+
+  // ---- ranking mode: derived --------------------------------------------------
+
+  /** Ranked results still meeting every Required row, renumbered by position
+   *  (tightening hides failures instantly — spec §2.2). */
+  const ranked = useMemo(() => {
+    if (!ranking) return null
+    const eligible = new Set(filtered.map((p) => p.id))
+    return ranking.results
+      .filter((r) => eligible.has(r.profile_id) && profilesById.has(r.profile_id))
+      .map((result, i) => ({ result, profile: profilesById.get(result.profile_id)!, position: i + 1 }))
+  }, [ranking, filtered, profilesById])
+
+  /** Eligible but never scored — they appear after a Required row is loosened. */
+  const newcomers = useMemo(() => {
+    if (!ranking) return []
+    const scored = new Set(ranking.results.map((r) => r.profile_id))
+    return filtered.filter((p) => !scored.has(p.id))
+  }, [ranking, filtered])
+
+  const excludedCount = useMemo(() => {
+    if (!ranking || !data || !trees) return 0
+    const searchPool = applyMustHaves(data.profiles, data.portfolioByProfile, [], search, trees)
+    return searchPool.length - filtered.length
+  }, [ranking, data, trees, search, filtered])
+
+  /** Requirements as stored for this run: the current Required rows plus the
+   *  preference rows the run was scored with. */
+  const persistable = useMemo(
+    () => (ranking ? withRunPreferences(requirements, ranking.jd.requirements ?? []) : null),
+    [ranking, requirements],
+  )
+
+  /** Preference rows or the JD differ from what was scored → Re-run prompt. */
+  const requirementsChanged = useMemo(
+    () =>
+      !!ranking &&
+      (preferenceKey(requirements) !== preferenceKey(ranking.jd.requirements ?? []) ||
+        jdText.trim() !== ranking.jd.raw_text.trim()),
+    [ranking, requirements, jdText],
   )
 
   const results = useMemo(
-    () => sortProfiles(filtered, sort, scoreMap),
-    [filtered, sort, scoreMap],
+    () => (ranked ? ranked.map((r) => r.profile) : sortProfiles(filtered, sort)),
+    [ranked, filtered, sort],
+  )
+  const rankedById = useMemo(() => new Map((ranked ?? []).map((r) => [r.profile.id, r])), [ranked])
+  const about = aboutId ? rankedById.get(aboutId) ?? null : null
+
+  // ---- ranking mode: URL → state --------------------------------------------
+
+  // ?rank=1 opens the drawer once (the /match redirect and openings land here).
+  useEffect(() => {
+    if (!rankParam) return
+    updateParams({ rank: null })
+    if (gateRanking()) setDrawerOpen(true)
+  }, [rankParam, updateParams, gateRanking])
+
+  useEffect(() => {
+    if (!openingId) {
+      setOpeningName(null)
+      return
+    }
+    supabase
+      .from('openings')
+      .select('name')
+      .eq('id', openingId)
+      .maybeSingle()
+      .then(({ data: o }) => setOpeningName(o?.name ?? null))
+  }, [openingId])
+
+  // ?opening=<id> without a ranking: show the opening's saved ranking, if any.
+  useEffect(() => {
+    if (!openingId || rankingId || !canRank) return
+    let cancelled = false
+    loadLatestForOpening(openingId).then((rec) => {
+      if (!cancelled && rec) updateParams({ ranking: rec.jd.id })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [openingId, rankingId, canRank, updateParams])
+
+  // ?ranking=<id>: load it and restore the JD, rows (so the filter bar shows the
+  // Required rows), search and results. Removing the param exits ranking mode.
+  const loadedFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (!rankingId) {
+      loadedFor.current = null
+      setRanking(null)
+      return
+    }
+    if (loadedFor.current === rankingId) return
+    if (!gateRanking()) return
+    // Marked loaded only once the load lands, so a cancelled first attempt
+    // (StrictMode runs effects twice in development) doesn't block the retry.
+    let cancelled = false
+    loadRanking(rankingId).then((rec) => {
+      if (cancelled) return
+      if (!rec) {
+        setNotice('This ranking is no longer available.')
+        updateParams({ ranking: null, q: null, qm: null })
+        return
+      }
+      loadedFor.current = rankingId
+      setRanking(rec)
+      // Unsaved preference / JD edits made before leaving come back as a
+      // draft (the stored ranking itself is unchanged until a re-run).
+      const draft = readDraft(rankingId)
+      reqs.hydrate({
+        requirements: draft?.requirements ?? rec.jd.requirements ?? [],
+        search: { term: params.get('q') ?? '', mode: params.get('qm') === 'full' ? 'full' : 'names' },
+      })
+      setJdText(draft?.jdText ?? rec.jd.raw_text)
+      setExtracted(draft ? draft.extracted : rec.jd.extracted)
+      setJdCollapsed(true)
+      setEpoch((e) => e + 1)
+    })
+    return () => {
+      cancelled = true
+    }
+    // Runs per ranking id; the other values are read at load time on purpose.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rankingId])
+
+  // While ranked, the search term rides in the URL so a reload restores the pool.
+  useEffect(() => {
+    if (!ranking) return
+    updateParams({ q: search.term || null, qm: search.mode === 'full' ? 'full' : null })
+  }, [ranking, search.term, search.mode, updateParams])
+
+  // Unsaved edits (preference rows, JD) are kept as a per-tab draft so they
+  // survive leaving and returning; matching the run again discards it.
+  useEffect(() => {
+    if (!ranking) return
+    if (requirementsChanged) writeDraft(ranking.jd.id, { requirements, jdText, extracted })
+    else clearDraft(ranking.jd.id)
+  }, [ranking, requirementsChanged, requirements, jdText, extracted])
+
+  // Tightening (or loosening) a Required row after a run is written back to
+  // the run — without re-scoring — so a reload keeps it.
+  useEffect(() => {
+    if (!ranking || !persistable || sameRows(persistable, ranking.jd.requirements ?? [])) return
+    const id = ranking.jd.id
+    const t = setTimeout(() => {
+      updateRunRequirements(id, persistable)
+        .then(() =>
+          setRanking((r) => (r && r.jd.id === id ? { ...r, jd: { ...r.jd, requirements: persistable } } : r)),
+        )
+        .catch((e) => setNotice(`Couldn't save the change: ${e instanceof Error ? e.message : e}`))
+    }, 600)
+    return () => clearTimeout(t)
+  }, [ranking, persistable])
+
+  // The manager's organization, prefilled when Org history is added.
+  useEffect(() => {
+    if (!drawerOpen || orgPrefill) return
+    supabase
+      .from('hiring_managers')
+      .select('organization')
+      .eq('id', DEMO_HIRING_MANAGER_ID)
+      .maybeSingle()
+      .then(({ data: hm }) => {
+        if (hm?.organization) setOrgPrefill(hm.organization)
+      })
+  }, [drawerOpen, orgPrefill])
+
+  // A row opened from a chip or "loosen" link flashes, then settles.
+  useEffect(() => {
+    if (!focusId) return
+    const t = setTimeout(() => setFocusId(null), 2500)
+    return () => clearTimeout(t)
+  }, [focusId])
+
+  // ---- ranking mode: actions ------------------------------------------------
+
+  const openDrawer = (focus?: string) => {
+    if (!gateRanking()) return
+    setDrawerOpen(true)
+    setFocusId(focus ?? null)
+  }
+  const closeDrawer = useCallback(() => setDrawerOpen(false), [])
+
+  const readJd = async () => {
+    if (!data || !options) return
+    setReading(true)
+    try {
+      setExtracted(
+        await extractRequirements(jdText, {
+          taxonomy: { categories: data.taxonomyCategories, items: data.taxonomyItems },
+          locationOptions: options.locations.flatMap((g) => [g.label, ...g.items]),
+          languageOptions: options.languages,
+        }),
+      )
+      setJdCollapsed(true)
+    } finally {
+      setReading(false)
+    }
+  }
+
+  const countFn = useCallback<CountFn>(
+    (reqRows, s) =>
+      data && trees ? applyMustHaves(data.profiles, data.portfolioByProfile, reqRows, s, trees).length : 0,
+    [data, trees],
   )
 
-  const runRanking = async (
-    jd: { raw_text: string; hiring_organization: string | null },
-    weights: RankingRun['weights'],
-  ) => {
-    // Operates on the currently filtered/searched pool only (PRD 7.7).
-    const ranked = await rankPool(filtered, jd, weights)
-    setRanking({ jd, weights, results: ranked })
-    setSort('best_match')
+  /** Run: Required rows pre-filter the pool, the survivors are scored, the
+   *  grid turns into the ranked list and the drawer closes. */
+  const run = async () => {
+    if (!extracted || filtered.length === 0) return
+    setRunning(true)
+    try {
+      const rec = await runRanking({ openingId, rawText: jdText, extracted, requirements, pool: filtered })
+      if (ranking) clearDraft(ranking.jd.id) // the edits are now scored
+      loadedFor.current = rec.jd.id
+      setRanking(rec)
+      updateParams(
+        { ranking: rec.jd.id, q: search.term || null, qm: search.mode === 'full' ? 'full' : null },
+        { push: !ranking },
+      )
+      setDrawerOpen(false)
+      setEpoch((e) => e + 1)
+    } catch (e) {
+      setNotice(`Ranking failed: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setRunning(false)
+    }
   }
 
-  const requireAccount = (feature: string, action: () => void) => {
-    if (!isLoggedIn) setGatedFeature(feature)
-    else action()
+  /** Loosening: score only the newly eligible candidates and merge them in. */
+  const scoreThem = async () => {
+    if (!ranking || !persistable || newcomers.length === 0) return
+    setScoring(true)
+    try {
+      const merged = await scoreNewcomers({
+        jobDescriptionId: ranking.jd.id,
+        requirements: persistable,
+        newcomers,
+        existing: ranking.results,
+        profilesById,
+      })
+      setRanking({ jd: { ...ranking.jd, requirements: persistable }, results: merged })
+      setEpoch((e) => e + 1)
+    } catch (e) {
+      setNotice(`Scoring failed: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setScoring(false)
+    }
   }
+
+  /** Clear exits ranking mode: the JD, preference rows and ranking go;
+   *  Required rows stay on as plain filters (spec §2.2). */
+  const clearRanking = () => {
+    if (ranking) clearDraft(ranking.jd.id)
+    reqs.dropPreferences()
+    setRanking(null)
+    loadedFor.current = null
+    setJdText('')
+    setExtracted(null)
+    setJdCollapsed(false)
+    updateParams({ ranking: null, opening: null, q: null, qm: null })
+    setEpoch((e) => e + 1)
+  }
+
+  const runBlocker = !extracted
+    ? 'Read the job description first.'
+    : filtered.length === 0
+      ? 'No candidates meet everything marked Required.'
+      : null
+
+  // ---- render ------------------------------------------------------------------
 
   if (error)
     return (
@@ -122,11 +481,7 @@ export default function Directory() {
         </div>
         {/* Rank by JD — deliberately separate from the filter bar (PRD 7.1). */}
         <button
-          onClick={() =>
-            requireAccount('Ranking candidates against a job description', () =>
-              setRankModalOpen(true),
-            )
-          }
+          onClick={() => openDrawer()}
           className="flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-ink/85"
         >
           <Sparkles size={16} className="text-gold-300" />
@@ -144,82 +499,62 @@ export default function Directory() {
             taxonomyCategories={data.taxonomyCategories}
             taxonomyItems={data.taxonomyItems}
             countFor={countFor}
+            onClearAll={handleClearAll}
+            gridOnlyMustHaves={gridOnlyChips}
+            onOpenRequirement={(id) => openDrawer(id)}
           />
         )}
       </div>
 
-      {ranking && (
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-ink/15 bg-ink px-4 py-3 text-sm text-white">
-          <p>
-            <Sparkles size={14} className="mr-1.5 inline text-gold-300" />
-            Ranked {ranking.results.length} candidate{ranking.results.length === 1 ? '' : 's'} against
-            your JD
-            {ranking.jd.hiring_organization && ` for ${ranking.jd.hiring_organization}`}
-            <span className="ml-2 text-white/50">placeholder scorer — real engine drops in later</span>
-          </p>
-          <span className="flex items-center gap-2">
-            <button
-              onClick={() => setSaveRankingOpen(true)}
-              className="rounded-full bg-white px-3.5 py-1.5 text-xs font-medium text-ink hover:bg-white/90"
-            >
-              Save ranking to opening…
-            </button>
-            <button
-              onClick={() => {
-                setRanking(null)
-                setSort('shuffle')
-              }}
-              className="flex items-center gap-1 text-xs text-white/70 hover:text-white"
-            >
-              <X size={13} /> Clear
-            </button>
-          </span>
-        </div>
+      {ranking && ranked && (
+        <RankingBanner
+          rankedCount={ranked.length}
+          excludedCount={excludedCount}
+          linkedOpeningName={ranking.jd.opening_id ? openingName : null}
+          onEdit={() => openDrawer()}
+          onSave={ranking.jd.opening_id ? undefined : () => setSaveOpen(true)}
+          onClear={clearRanking}
+          newcomerCount={newcomers.length}
+          onScoreNewcomers={scoreThem}
+          scoringNewcomers={scoring}
+          requirementsChanged={requirementsChanged}
+          onRerun={run}
+          rerunning={running}
+          rerunBlocker={runBlocker}
+        />
       )}
 
       <div className="mt-6 flex items-center justify-between gap-4">
         <p className="text-sm text-ink-soft" aria-live="polite">
           {data ? `${results.length} result${results.length === 1 ? '' : 's'}` : 'Loading…'}
         </p>
-        <SortDropdown value={sort} onChange={setSort} bestMatchAvailable={ranking !== null} />
+        <SortDropdown value={sort} onChange={setSort} ranked={!!ranking} />
       </div>
 
       {!data && <DirectorySkeleton />}
 
       <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         {data &&
-          results.map((p, index) => {
-            const match = resultByProfile.get(p.id)
-            const showMatch = match && sort === 'best_match'
-            return (
-              <div key={`${p.id}-${epoch}`} className="flex flex-col gap-2">
-                {showMatch && (
-                  <div className="rounded-card border border-line bg-white px-3.5 py-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-ink-faint">
-                        Match #{index + 1}
-                      </span>
-                      {/* The top 15 get the prominent score treatment (PRD 7.7). */}
-                      <MatchScoreBadge score={match.total_score} prominent={index < 15} />
-                    </div>
-                    {index < 15 && (
-                      <div className="mt-1.5">
-                        <MatchBreakdown subScores={match.sub_scores} narrative={match.narrative} />
-                      </div>
-                    )}
-                  </div>
-                )}
-                <FlipCard
-                  profile={p}
-                  portfolio={data.portfolioByProfile.get(p.id) ?? []}
-                  intro={data.introByProfile.get(p.id) ?? null}
-                  audioCount={data.audioCountByProfile.get(p.id) ?? 0}
-                  onFavorite={(p) => save(p, 'favorite')}
-                  onTopPick={(p) => save(p, 'top_pick')}
-                />
-              </div>
-            )
-          })}
+          results.map((p) => (
+            <FlipCard
+              key={`${p.id}-${epoch}`}
+              profile={p}
+              portfolio={data.portfolioByProfile.get(p.id) ?? []}
+              intro={data.introByProfile.get(p.id) ?? null}
+              audioCount={data.audioCountByProfile.get(p.id) ?? 0}
+              onFavorite={(p) => save(p, 'favorite')}
+              onTopPick={(p) => save(p, 'top_pick')}
+              ranked={
+                rankedById.has(p.id)
+                  ? {
+                      position: rankedById.get(p.id)!.position,
+                      result: rankedById.get(p.id)!.result,
+                      onAbout: () => setAboutId(p.id),
+                    }
+                  : undefined
+              }
+            />
+          ))}
       </div>
 
       {data && results.length === 0 && (
@@ -231,7 +566,7 @@ export default function Directory() {
             search to full profiles.
           </p>
           <button
-            onClick={() => handleFilterChange(EMPTY_FILTERS)}
+            onClick={handleClearAll}
             className="mt-4 rounded-full border border-line bg-white px-4 py-1.5 text-sm font-medium text-ink-soft hover:border-ink-faint"
           >
             Clear all filters
@@ -239,33 +574,70 @@ export default function Directory() {
         </div>
       )}
 
-      <SignupPrompt
-        open={gatedFeature !== null}
-        onClose={() => setGatedFeature(null)}
-        feature={gatedFeature ?? ''}
-      />
-      {saveUi}
+      {/* Phones: a sticky way back into the requirements while ranked. */}
+      {ranking && !drawerOpen && (
+        <button
+          onClick={() => openDrawer()}
+          className="fixed bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-ink px-4 py-2.5 text-sm font-medium text-white shadow-lg md:hidden"
+        >
+          <SlidersHorizontal size={14} aria-hidden /> Edit requirements
+        </button>
+      )}
 
-      <RankByJDModal
-        open={rankModalOpen}
-        onClose={() => setRankModalOpen(false)}
-        onRun={runRanking}
-        poolLabel={`the ${filtered.length} currently filtered candidate${filtered.length === 1 ? '' : 's'}`}
+      {gridOptions && (
+        <RankingPanel
+          open={drawerOpen}
+          onClose={closeDrawer}
+          jd={{
+            text: jdText,
+            setText: setJdText,
+            collapsed: jdCollapsed,
+            setCollapsed: setJdCollapsed,
+            reading,
+            onRead: readJd,
+            extracted,
+          }}
+          store={reqs}
+          options={gridOptions}
+          countFn={countFn}
+          poolSize={data?.profiles.length ?? 0}
+          focusId={focusId}
+          onFocusRow={setFocusId}
+          orgPrefill={orgPrefill}
+          onRun={run}
+          running={running}
+          runLabel={ranking ? 'Re-run ranking' : 'Run ranking'}
+          linkedOpeningName={openingId ? openingName : null}
+        />
+      )}
+
+      <AboutResultModal
+        open={!!about}
+        onClose={() => setAboutId(null)}
+        profile={about?.profile ?? null}
+        result={about?.result ?? null}
+        rank={about?.position ?? 0}
       />
+
+      <SignupPrompt open={gatedFeature !== null} onClose={() => setGatedFeature(null)} feature={gatedFeature ?? ''} />
+      {saveUi}
       {ranking && (
         <SaveRankingModal
-          run={ranking}
-          open={saveRankingOpen}
-          onClose={() => setSaveRankingOpen(false)}
-          onSaved={(name) => setNotice(`Ranking saved to "${name}" — it'll be there when you return.`)}
+          jobDescriptionId={ranking.jd.id}
+          open={saveOpen}
+          onClose={() => setSaveOpen(false)}
+          onSaved={(opening) => {
+            setRanking((r) => (r ? { ...r, jd: { ...r.jd, opening_id: opening.id } } : r))
+            updateParams({ opening: opening.id })
+            setNotice(`Ranking saved to "${opening.name}" — it'll be there when you return.`)
+          }}
         />
       )}
 
       {notice && (
         <div
-          className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-ink px-4 py-2 text-sm text-white shadow-lg"
+          className="fixed bottom-4 left-1/2 z-[55] -translate-x-1/2 rounded-full bg-ink px-4 py-2 text-sm text-white shadow-lg"
           role="status"
-          onAnimationEnd={() => setNotice(null)}
         >
           {notice}
           <button className="ml-3 text-white/60 hover:text-white" onClick={() => setNotice(null)}>

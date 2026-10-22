@@ -16,6 +16,11 @@ import { Link } from 'react-router-dom'
 import { logoIconUrl } from '../../lib/brandfetch'
 import { fmtPortfolioMeta } from '../../lib/dates'
 import { resolveVideo } from '../../lib/media'
+import { scoreBreakdown } from '../../lib/matching/display'
+import { ADJUSTMENT_CAP } from '../../lib/matching/config'
+import type { MatchResult } from '../../lib/matching/types'
+import { OutcomeIcon, pointsLabel } from '../match/outcome'
+import { RankStrip } from '../match/RankStrip'
 import { PRIMARY_CAP, SECONDARY_CAP } from '../../lib/validation'
 import type { PortfolioItem, Profile, TagSelection, VideoResponse } from '../../types/db'
 import { AvailabilityChip } from '../ui/AvailabilityChip'
@@ -25,12 +30,15 @@ import { Tooltip } from '../ui/Tooltip'
 import { CAREER_LEVEL_LABELS, FeaturedRibbon, VerifiedBadge } from '../ui/badges'
 
 // Flip card (PRD 7.1): cycles through Front → Expertise & Skills → one face
-// per portfolio item (up to 3) → Video Intro. Faces change only via the
+// per portfolio item (up to 3) → Video Intro. In ranking mode (match rework
+// spec §7) the card also gets a fixed-height rank strip in the top of its
+// frame and a "Match" face inserted right after Front. Faces change only via the
 // ‹ dots › row or a horizontal swipe — no click-anywhere flip, so links and
 // chips on a face behave normally. The bottom bar never animates with the card.
 
 type Face =
   | { kind: 'front' }
+  | { kind: 'match'; result: MatchResult }
   | { kind: 'tags'; sections: { title: string; tags: TagSelection[] }[] }
   | { kind: 'portfolio'; item: PortfolioItem; n: number; of: number }
   | { kind: 'video'; video: VideoResponse }
@@ -69,6 +77,7 @@ export function FlipCard({
   audioCount,
   onFavorite,
   onTopPick,
+  ranked,
 }: {
   profile: Profile
   portfolio: PortfolioItem[]
@@ -76,6 +85,8 @@ export function FlipCard({
   audioCount: number
   onFavorite: (profile: Profile) => void
   onTopPick: (profile: Profile) => void
+  /** Ranking mode: rank as displayed, the result, and "About this result". */
+  ranked?: { position: number; result: MatchResult; onAbout: () => void }
 }) {
   const [{ index, direction }, setNav] = useState({ index: 0, direction: 1 })
   const reduceMotion = useReducedMotion()
@@ -83,6 +94,7 @@ export function FlipCard({
 
   const faces = useMemo<Face[]>(() => {
     const f: Face[] = [{ kind: 'front' }]
+    if (ranked) f.push({ kind: 'match', result: ranked.result })
     const sections = [
       { title: 'Domain Expertise', tags: profile.expertise },
       { title: 'Technical Skills', tags: profile.skills },
@@ -92,7 +104,7 @@ export function FlipCard({
     items.forEach((item, i) => f.push({ kind: 'portfolio', item, n: i + 1, of: items.length }))
     if (intro) f.push({ kind: 'video', video: intro })
     return f
-  }, [profile, portfolio, intro])
+  }, [profile, portfolio, intro, ranked])
 
   const go = (delta: number) =>
     setNav(({ index: i }) => ({
@@ -112,6 +124,14 @@ export function FlipCard({
         profile.is_premium ? 'border-gold-500 ring-[0.5px] ring-gold-500' : 'border-line'
       }`}
     >
+      {ranked && (
+        <RankStrip
+          rank={ranked.position}
+          total={ranked.result.total_score}
+          band={ranked.result.band}
+          onAbout={ranked.onAbout}
+        />
+      )}
       {/* Flip area — fixed height so every card in the grid lines up */}
       <div
         className="relative h-[444px] [perspective:1200px] [touch-action:pan-y]"
@@ -144,10 +164,17 @@ export function FlipCard({
             className="h-full"
           >
             {face.kind === 'front' ? (
-              <FrontFace profile={profile} isFirm={isFirm} hasVideo={!!intro} audioCount={audioCount} />
+              <FrontFace
+                profile={profile}
+                isFirm={isFirm}
+                hasVideo={!!intro}
+                audioCount={audioCount}
+                squareTop={!!ranked}
+              />
             ) : (
               <div className="flex h-full flex-col">
                 <BackHeader profile={profile} isFirm={isFirm} />
+                {face.kind === 'match' && <MatchFace result={face.result} onMore={ranked?.onAbout} />}
                 {face.kind === 'tags' && <TagsFace sections={face.sections} />}
                 {face.kind === 'portfolio' && <PortfolioFace face={face} href={profileHref} />}
                 {face.kind === 'video' && <VideoFace video={face.video} name={profile.name} />}
@@ -275,11 +302,14 @@ function FrontFace({
   isFirm,
   hasVideo,
   audioCount,
+  squareTop = false,
 }: {
   profile: Profile
   isFirm: boolean
   hasVideo: boolean
   audioCount: number
+  /** The rank strip sits above, so the cover's top corners stay square. */
+  squareTop?: boolean
 }) {
   const yearsInBusiness = profile.year_founded
     ? new Date().getFullYear() - profile.year_founded
@@ -292,7 +322,7 @@ function FrontFace({
   return (
     <div className="flex h-full flex-col">
       <div
-        className="relative h-[120px] shrink-0 rounded-t-[13px] bg-brand-100 bg-cover bg-center"
+        className={`relative h-[120px] shrink-0 bg-brand-100 bg-cover bg-center ${squareTop ? '' : 'rounded-t-[13px]'}`}
         style={profile.cover_image_url ? { backgroundImage: `url(${profile.cover_image_url})` } : undefined}
       >
         {profile.is_premium && <FeaturedRibbon />}
@@ -403,6 +433,78 @@ function BackHeader({ profile, isFirm }: { profile: Profile; isFirm: boolean }) 
             <span className="truncate">{profile.location}</span>
           </p>
         )}
+      </div>
+    </div>
+  )
+}
+
+const MATCH_FACE_MAX_ROWS = 6
+
+/** "Match" face (spec §7.2): Fit bar, the largest adjustments, the Required
+ *  line and the equation — all from the displayed build-up, so it adds up.
+ *  Fits the face without scrolling; overflow goes to "About this result". */
+function MatchFace({ result, onMore }: { result: MatchResult; onMore?: () => void }) {
+  const b = scoreBreakdown(result)
+  const rows = [...b.rows].sort(
+    (x, y) => Math.abs(y.points) - Math.abs(x.points) || Math.abs(y.adjustment.points) - Math.abs(x.adjustment.points),
+  )
+  const shown = rows.slice(0, MATCH_FACE_MAX_ROWS)
+  const hidden = rows.length - shown.length
+  const musts = result.must_haves_passed.length
+  return (
+    <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3.5">
+      <div className="shrink-0">
+        <div className="flex items-baseline justify-between text-[13px]">
+          <span className="font-medium text-ink">Fit to the JD</span>
+          <span className="font-semibold tabular-nums text-ink">{b.fit}</span>
+        </div>
+        <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-line-soft">
+          <div className="h-full rounded-full bg-brand-500" style={{ width: `${b.fit}%` }} />
+        </div>
+      </div>
+
+      <div className="mt-3.5 shrink-0">
+        <SectionLabel>Your preferences</SectionLabel>
+        {shown.length === 0 ? (
+          <p className="text-[13px] text-ink-faint">No Nice to have or Important rows.</p>
+        ) : (
+          <ul className="space-y-1">
+            {shown.map(({ adjustment: a, points }) => (
+              <li key={a.requirement_id} className="flex items-center gap-2 text-[13px] leading-5">
+                <OutcomeIcon outcome={a.outcome} />
+                <span className="min-w-0 flex-1 truncate text-ink-soft" title={`${a.label} — ${a.detail}`}>
+                  {a.label}
+                </span>
+                <span className="shrink-0 tabular-nums text-ink-soft">{pointsLabel(points)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {hidden > 0 && (
+          <button
+            type="button"
+            onClick={onMore}
+            className="mt-1 text-xs font-medium text-brand-700 underline decoration-brand-300 underline-offset-2 hover:decoration-brand-600"
+          >
+            +{hidden} more
+          </button>
+        )}
+      </div>
+
+      <div className="mt-auto shrink-0 space-y-1.5 border-t border-line-soft pt-2.5">
+        {musts > 0 && (
+          <p className="flex items-center gap-1.5 text-xs text-ink-soft">
+            <span className="text-brand-600" aria-hidden>✓</span>
+            Meets {musts === 1 ? 'the Required row' : `all ${musts} Required rows`}
+          </p>
+        )}
+        <p className="text-[13px] text-ink">
+          <span className="font-semibold tabular-nums">
+            Fit {b.fit} {b.bonus >= 0 ? '+' : '−'} {Math.abs(b.bonus)} = {b.total}
+          </span>
+          {b.capRow !== null && <span className="text-ink-faint"> · bonus capped at +{ADJUSTMENT_CAP}</span>}
+          {b.clampRow !== null && <span className="text-ink-faint"> · capped at 100</span>}
+        </p>
       </div>
     </div>
   )

@@ -3,8 +3,10 @@ import type { Profile } from '../types/db'
 // Default directory sort (PRD 7.1): randomized with a per-session seed —
 // stable while the visitor filters/paginates within a visit, reshuffled next
 // visit — with Premium always floating to the top regardless of sort.
+// Ranked results don't go through here: in ranking mode the order is always
+// rank order and the Premium float is suspended (match rework spec §2.2, §5.5).
 
-export type SortMode = 'shuffle' | 'newly_added' | 'location' | 'career_level' | 'best_match'
+export type SortMode = 'shuffle' | 'newly_added' | 'location' | 'career_level'
 
 const SEED_KEY = 'ms_shuffle_seed'
 
@@ -40,7 +42,7 @@ function seededShuffle<T>(items: T[], seed: number): T[] {
 
 const CAREER_RANK: Record<string, number> = { senior: 0, mid_career: 1, early_career: 2 }
 
-function sortWithin(profiles: Profile[], mode: SortMode, matchScores?: Map<string, number>): Profile[] {
+function sortWithin(profiles: Profile[], mode: SortMode): Profile[] {
   switch (mode) {
     case 'shuffle':
       return seededShuffle(profiles, sessionSeed())
@@ -56,24 +58,12 @@ function sortWithin(profiles: Profile[], mode: SortMode, matchScores?: Map<strin
         if (ra !== rb) return ra - rb
         return (a.year_founded ?? 9999) - (b.year_founded ?? 9999)
       })
-    case 'best_match':
-      return [...profiles].sort(
-        (a, b) => (matchScores?.get(b.id) ?? -1) - (matchScores?.get(a.id) ?? -1),
-      )
   }
 }
 
-/** Premium first (a paid benefit, PRD 7.8), the chosen sort within each tier.
- *  Exception: Best Match sorts purely by score — PRD 7.7 specifies ranked
- *  results ordered by match score, and letting the paid tier jump an AI
- *  ranking would distort the feature it exists for. */
-export function sortProfiles(
-  profiles: Profile[],
-  mode: SortMode,
-  matchScores?: Map<string, number>,
-): Profile[] {
-  if (mode === 'best_match') return sortWithin(profiles, mode, matchScores)
+/** Premium first (a paid benefit, PRD 7.8), the chosen sort within each tier. */
+export function sortProfiles(profiles: Profile[], mode: SortMode): Profile[] {
   const premium = profiles.filter((p) => p.is_premium)
   const standard = profiles.filter((p) => !p.is_premium)
-  return [...sortWithin(premium, mode, matchScores), ...sortWithin(standard, mode, matchScores)]
+  return [...sortWithin(premium, mode), ...sortWithin(standard, mode)]
 }

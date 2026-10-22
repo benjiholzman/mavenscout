@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import About from './pages/About'
 import Account from './pages/Account'
@@ -6,7 +6,6 @@ import Admin from './pages/Admin'
 import Billing from './pages/Billing'
 import Directory from './pages/Directory'
 import Login from './pages/Login'
-import Match from './pages/Match'
 import NotFound from './pages/NotFound'
 import Onboarding from './pages/Onboarding'
 import OpeningDetail from './pages/OpeningDetail'
@@ -30,7 +29,8 @@ export default function App() {
           <Route path="/shortlists/:token" element={<SharedShortlist />} />
           <Route path="/openings" element={<Openings />} />
           <Route path="/openings/:id" element={<OpeningDetail />} />
-          <Route path="/match" element={<Match />} />
+          {/* Ranking is a mode of the directory now (match rework spec §2). */}
+          <Route path="/match" element={<Navigate to="/?rank=1" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/onboarding" element={<Onboarding />} />

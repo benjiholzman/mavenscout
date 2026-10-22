@@ -1,4 +1,4 @@
-import { Check, ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, Info } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
 export interface OptionGroup {
@@ -17,10 +17,13 @@ export function MultiSelect({
   selectableGroup = false,
   formatValue = (v) => v,
   counts,
+  disabledValues,
+  disabledLabel,
   selected,
   onChange,
   disabled = false,
   disabledNote,
+  note,
   open,
   onToggle,
 }: {
@@ -32,10 +35,16 @@ export function MultiSelect({
   formatValue?: (value: string) => string
   /** Optional per-value result counts, shown right-aligned on each row. */
   counts?: Map<string, number>
+  /** Values that can't be picked here, labelled with `disabledLabel`
+   *  (e.g. "already required" in a preference row). */
+  disabledValues?: string[]
+  disabledLabel?: string
   selected: string[]
   onChange: (next: string[]) => void
   disabled?: boolean
   disabledNote?: string
+  /** Short explanatory line shown at the bottom of the open panel. */
+  note?: string
   open: boolean
   onToggle: (open: boolean) => void
 }) {
@@ -57,11 +66,13 @@ export function MultiSelect({
 
   const Row = ({ value, indent = false }: { value: string; indent?: boolean }) => {
     const checked = selected.includes(value)
+    const off = disabledValues?.includes(value) ?? false
     return (
       <button
         type="button"
+        disabled={off}
         onClick={() => toggleValue(value)}
-        className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-paper ${
+        className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-paper disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:bg-transparent ${
           indent ? 'pl-7' : 'font-medium'
         }`}
       >
@@ -73,10 +84,14 @@ export function MultiSelect({
           {checked && <Check size={12} strokeWidth={3} />}
         </span>
         <span className="min-w-0 truncate">{formatValue(value)}</span>
-        {counts && (
-          <span className="ml-auto shrink-0 pl-2 text-xs font-normal tabular-nums text-ink-faint">
-            {counts.get(value) ?? 0}
-          </span>
+        {off ? (
+          <span className="ml-auto shrink-0 pl-2 text-[11px] font-normal italic text-ink-faint">{disabledLabel}</span>
+        ) : (
+          counts && (
+            <span className="ml-auto shrink-0 pl-2 text-xs font-normal tabular-nums text-ink-faint">
+              {counts.get(value) ?? 0}
+            </span>
+          )
         )}
       </button>
     )
@@ -129,6 +144,12 @@ export function MultiSelect({
               ))}
             </div>
           ))}
+          {note && (
+            <p className="mt-1 flex gap-1.5 border-t border-line px-2 pb-1 pt-2 text-xs leading-snug text-ink-faint">
+              <Info size={13} className="mt-px shrink-0" aria-hidden />
+              {note}
+            </p>
+          )}
         </div>
       )}
     </div>

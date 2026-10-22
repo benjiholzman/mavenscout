@@ -2,6 +2,8 @@
 // 001/002/003 seed files). Keep in sync with the SQL — this is the contract
 // the later real-auth/Stripe/Loop8 passes inherit.
 
+import type { Adjustment, Band, ExtractedRequirements, Requirement } from '../lib/matching/types'
+
 export type ConsultantType = 'Individual' | 'Small Firm' | 'Large Firm'
 export type CareerLevel = 'early_career' | 'mid_career' | 'senior'
 export type VerificationStatus = 'unverified' | 'pending' | 'verified'
@@ -239,7 +241,11 @@ export interface OpeningReviewer {
   granted_at: string
 }
 
-// ---- AI matching (PRD 7.7) — the stable contract Loop8's engine inherits ----
+// ---- AI matching rows -------------------------------------------------------
+// The engine contract (requirements, adjustments, results) lives in
+// src/lib/matching/types.ts. MatchComponent / MatchWeights / MatchSubScore are
+// the pre-rework slider model (PRD 7.7); they only type the legacy nullable
+// columns (job_descriptions.weights, match_results.sub_scores).
 
 export type MatchComponent =
   | 'demonstrated_experience'
@@ -267,17 +273,26 @@ export interface JobDescription {
   hiring_manager_id: string
   opening_id: string | null // null = transient ad-hoc ranking
   raw_text: string
-  hiring_organization: string | null
-  weights: MatchWeights
+  requirements: Requirement[] | null // grid rows the run was scored against; null on legacy rows
+  extracted: ExtractedRequirements | null // what extraction read from the JD
+  hiring_organization: string | null // legacy — the org now lives in the Org History row
+  weights: MatchWeights | null // legacy — pre-rework slider weights, no longer written
   created_at: string
 }
 
-export interface MatchResult {
+/** A match_results row. Engine-facing shape: MatchResult in src/lib/matching/types.ts. */
+export interface MatchResultRow {
   id: string
   job_description_id: string
   profile_id: string
-  total_score: number // 0–100
-  sub_scores: MatchSubScore[]
+  total_score: number // 0–100, after cap and clamp
+  rank: number | null // rank at run time
+  band: Band | null
+  fit_score: number | null
+  adjustments: Adjustment[] | null
+  adjustments_capped: boolean | null
+  must_haves_passed: { requirement_id: string; label: string }[] | null
+  sub_scores: MatchSubScore[] | null // legacy
   narrative: string | null // ~100 words; templated placeholder this build
   created_at: string
 }

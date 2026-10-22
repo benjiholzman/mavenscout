@@ -12,8 +12,8 @@ RLS notes) — the PRD defines *what* was intended; this defines *where the seam
 |---|---|
 | Stack | React 18 + TypeScript + Vite, Tailwind 3, Framer Motion, React Router 6, Supabase (Postgres + Storage) |
 | Run | `npm install && npm run dev` — needs `.env` with `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (see `.env.example`) |
-| Database | `supabase/000_schema.sql` → `001` → `002` → `003` → `004`, run in order in the Supabase SQL editor. 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data; 004 fills portfolio organization/years and work-history logo links on the seeded rows. A fresh project bootstraps from just these five files. An existing database that already ran 000–003 only needs 004 (its `ADD COLUMN IF NOT EXISTS` is a no-op on fresh projects, where 000 already creates the columns). |
-| Verification baseline | Every PRD Definition-of-Done item (Section 13) was verified in-browser at desktop and 375px before handoff. The Playwright scripts lived in a temp scratchpad and are **not** committed — if you want a regression suite, the DoD checklist is the spec to automate against. |
+| Database | `supabase/000_schema.sql` → `001` → `002` → `003` → `004` → `005`, run in order in the Supabase SQL editor. 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data; 004 fills portfolio organization/years and work-history logo links on the seeded rows; 005 adds the match-rework columns (`job_descriptions.requirements/extracted`; `match_results.rank/band/fit_score/adjustments/adjustments_capped/must_haves_passed`) and deletes pre-rework rankings. A fresh project bootstraps from just these six files. An existing database only needs the migrations it hasn't run — 004 and 005 use `ADD COLUMN IF NOT EXISTS`, so they're no-ops on fresh projects, where 000 already creates the columns. |
+| Verification baseline | Every PRD Definition-of-Done item (Section 13) was verified in-browser at desktop and 375px before handoff. The Playwright scripts lived in a temp scratchpad and are **not** committed — if you want a regression suite, the DoD checklist is the spec to automate against. The match rework's acceptance criteria (`docs/MavenScout-match-rework.md` §10) were verified the same way at desktop (1280px) and 375px in October 2026, plus scripted checks of the filter-bar ↔ requirements round-trip (22 filter combinations matched the pre-rework directory except the intended career-level change), the scoring math, and the largest-remainder rounding (20,000 random cases); those scripts are not committed either. |
 
 ## What is mocked vs. real (the load-bearing distinction)
 
@@ -29,7 +29,7 @@ tier logic driven by `is_premium`/`subscription_status`, the visibility rules
 | Billing | Admin-settable `subscription_status`; Subscribe disabled | `src/pages/Billing.tsx`, admin Tier tab |
 | Outbound email | ALL of it is stubbed: contact relay, testimonial request emails (copy-paste template instead), async video-request notifications, "email this list" (mailto:) | `ContactModal.tsx`, `TestimonialsSection.tsx`, `VideoRequestsPanel.tsx`, `SharePanels.tsx` |
 | Verification evidence | Upload UI exists; **no file is persisted** — `file_path` holds a `STUB/…` placeholder | `TierSection.tsx`, `verification_evidence` table |
-| AI scoring | Deterministic keyword placeholder | `src/lib/matching/` (see Loop8 section) |
+| AI matching | Placeholder JD extraction + placeholder Fit and preference adjustments (deterministic keyword matching) behind the real contract | `src/lib/matching/` (see Loop8 section; spec `docs/MavenScout-match-rework.md`) |
 | Account ops | Email/password change forms render disabled | `src/pages/Account.tsx` |
 | Brandfetch | Fully built, dormant until a client id exists | `src/lib/brandfetch.ts` (env var or localStorage `ms_brandfetch_client_id`) |
 | Custom domains | `profiles.custom_domain` reserved, no DNS integration (PRD Decisions) | — |
@@ -110,23 +110,48 @@ tier logic driven by `is_premium`/`subscription_status`, the visibility rules
 
 ## Loop8 — swapping in the real matching engine
 
-Everything lives in `src/lib/matching/`; replacing the engine touches nothing else.
+The contract is **§4 (extraction) and §6 (types, persistence) of
+`docs/MavenScout-match-rework.md`**, which supersedes PRD §7.7. It's typed in
+`src/lib/matching/types.ts`; replacing the engine touches nothing outside
+`src/lib/matching/`.
 
-- **The contract** (consumed by the UI and persisted in `job_descriptions` /
-  `match_results`):
-  - In: `{ profile, portfolio, transcripts }`, `{ raw_text, hiring_organization }`,
-    `weights: { [component]: { active: boolean, value: 0–5 } }`
-  - Out: `{ total_score: 0–100, sub_scores: MatchSubScore[], narrative: string }`
-  - `sub_scores[].org_tier` must be `'same' | 'peer' | 'none'` — the placeholder only
-    computes `same`; **peer-group reasoning is the engine's job** (PRD 7.7).
-- Components: 3 merit (always active, defaults 5/3/3) + 5 preferences (off by default,
-  2 when added). Slider *ratios* are what matter. Organizational History stays
-  off-by-default — that's an ethics guardrail (PRD 7.7), not a UX accident.
-- `computeMatchScore.ts` is sync/local; a remote Loop8 call slots into `rankPool()` in
-  `run.ts` (already async, already batches candidate evidence).
-- Narratives are templated placeholders (~100 words); the engine supplies real ones.
-- Percentile normalization across the candidate pool is noted in the PRD as an
-  engine-side option — not implemented in the placeholder.
+- **Two entry points, both placeholders today:**
+  - `extractRequirements(jdText, ctx) → ExtractedRequirements` (`extract.ts`) — reads
+    the JD **once** and returns *suggestions* (expertise / skills with mention
+    counts and a slight/strong lean, locations, languages, optional hiring org).
+    The UI shows them as chips; nothing enters the grid until the manager adds it,
+    and nothing is ever suggested as Required. Output is stored on
+    `job_descriptions.extracted`.
+  - `rankPool(jobDescriptionId, requirements, pool) → MatchResult[]` (`score.ts`) —
+    receives the stored JD by id (never the full text per candidate) plus the
+    requirement rows, and a pool that has **already passed the Required rows**.
+    Returns ranked results: `fit_score`, one `Adjustment` per Nice to have /
+    Important row (`met | partial | not_met | not_applicable`, signed points),
+    `adjustments_capped`, `must_haves_passed`, `band`, `rank`, `narrative`.
+- **Scoring rule the UI explains to managers** (spec §5): `total = clamp(Fit +
+  min(Σ positive adjustments, +20), 0, 100)`. Nice to have = +3 when met, Important
+  = +8, partials × credit. Every tunable number is in `config.ts`. Ties: Fit → more
+  recent `availability_updated_at` → id. Premium never affects rank.
+- **What stays app-side** (don't move it into the engine):
+  - The requirements grid / filter-bar state (`src/lib/requirements/`). Required
+    rows are evaluated by `applyMustHaves()` (`mustHaves.ts`), which reuses the
+    directory filter logic exactly. It runs in the browser on the loaded pool
+    today; it's the one place to turn into a database query when the pool grows.
+  - Displayed rounding (`display.ts`, largest-remainder) and persistence
+    (`persist.ts`).
+- **Org History:** the tiered `met` / `partial` (peer org) / `not_met` shape is the
+  contract. The placeholder matches names only, and peers only if the manager types
+  them; **suggesting peer organizations is the engine's job**. The row is only ever
+  added deliberately (ethics note in the spec).
+- **Loosening after a run** scores only the newly eligible candidates
+  (`scoreNewcomers` in `persist.ts`). If the engine normalizes scores across the
+  pool (e.g. percentile scaling), that has to become a full re-run — see the comment
+  there.
+- The placeholder Fit is calibrated in `config.ts` (`FIT_CALIBRATION`) against the
+  sample ToR in `docs/samples/` — on-topic profiles ~75, related ~55, unrelated
+  13–37. Real calibration is the engine's job.
+- Narratives are templated (~100 words, grounded in the shown numbers); the engine
+  supplies real ones.
 
 ## Demo data & placeholders to replace
 
@@ -137,6 +162,18 @@ Everything lives in `src/lib/matching/`; replacing the engine touches nothing el
   ("Jean-Baptiste Kouassi"), a submitted async video response (YouTube URL), and the
   Sahel opening holds a persisted full-pool AI ranking. All are safe to replace/delete;
   they exist so every feature demos without setup.
+- **The Sahel ranking is not in the seed files** — the app created it, and
+  `005_match_rework.sql` deletes any pre-rework ranking. To re-create it (or on a
+  fresh project): log in as the hiring manager (dev switcher) → My openings →
+  *Senior M&E Consultant — Sahel Resilience Program* → **Rank candidates** → paste
+  `docs/samples/sahel-me-tor.txt` → **Read job description** → **Add all** → set
+  *Monitoring & Evaluation* and *Impact Evaluation* to **Important** → **Run ranking**.
+  The run saves to the opening automatically.
+- **Ad-hoc rankings** (run from the directory without an opening) are
+  `job_descriptions` rows with `opening_id` null. Starting a new ad-hoc run deletes
+  that manager's previous unsaved ones, so they don't accumulate; an old ad-hoc URL
+  then shows "This ranking is no longer available". With real auth, scope that
+  delete to the signed-in manager (it already filters by `hiring_manager_id`).
 - The owner plans to upload licensed stock clips for videos (PRD Decisions table).
 
 ## Known deliberate non-goals (don't "fix" these)

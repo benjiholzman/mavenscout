@@ -1,0 +1,185 @@
+import { supabase } from '../supabase'
+import { computeAdjustments, mustHavesPassed, type TaxonomyIndex } from './adjustments'
+import { ADJUSTMENT_CAP, bandFor } from './config'
+import { scoreBreakdown } from './display'
+import { buildJdSignature, computeFit, tagCredit, type CandidateInput, type TagIndex } from './fit'
+import { buildNarrative } from './narrative'
+import type { ExtractedRequirements, MatchResult, RankPoolFn, Requirement } from './types'
+import type {
+  AudioTestimonial,
+  PortfolioItem,
+  Profile,
+  TaxonomyCategory,
+  TaxonomyItem,
+  VideoResponse,
+} from '../../types/db'
+
+// ============================================================================
+// ⚠ PLACEHOLDER SCORING ENGINE (docs/MavenScout-match-rework.md §5, §6).
+// Loop8 replaces this file's internals; rankPool's signature is the contract.
+//
+// Pipeline (§5.1): the caller has already applied the Must-have pre-filter
+// (src/lib/requirements/mustHaves.ts) — candidates failing a Must-have never
+// reach this function. For each survivor:
+//   total = clamp(Fit + min(Σ positive adjustments, +20), 0, 100)
+// then rank (total ↓, Fit ↓, availability freshness ↓, id ↑) and band.
+//
+// Rounding (§5.3): everything is computed in floats; only the stored/displayed
+// total and Fit are rounded here. Displayed adjustment points come from
+// display.ts (largest-remainder rounding), so the build-up always adds up.
+// ============================================================================
+
+function tagIndex(cats: TaxonomyCategory[], items: TaxonomyItem[], type: TaxonomyCategory['type']): TagIndex {
+  const parentOf = new Map<string, string>()
+  const childrenOf = new Map<string, string[]>()
+  for (const c of cats.filter((c) => c.type === type)) {
+    const children = items.filter((i) => i.category_id === c.id).map((i) => i.name)
+    childrenOf.set(c.name, children)
+    children.forEach((n) => parentOf.set(n, c.name))
+  }
+  return { parentOf, childrenOf }
+}
+
+export function buildTaxonomyIndex(cats: TaxonomyCategory[], items: TaxonomyItem[]): TaxonomyIndex {
+  return {
+    expertise: tagIndex(cats, items, 'domain_expertise'),
+    skills: tagIndex(cats, items, 'technical_skills'),
+  }
+}
+
+interface Scored extends Omit<MatchResult, 'rank'> {
+  fitFloat: number
+}
+
+/** Total order for ranked results (§5.5). Premium never enters into it. */
+export function compareResults(
+  a: { total_score: number; fit: number; profile: Pick<Profile, 'id' | 'availability_updated_at'> },
+  b: { total_score: number; fit: number; profile: Pick<Profile, 'id' | 'availability_updated_at'> },
+): number {
+  return (
+    b.total_score - a.total_score ||
+    b.fit - a.fit ||
+    (b.profile.availability_updated_at ?? '').localeCompare(a.profile.availability_updated_at ?? '') ||
+    a.profile.id.localeCompare(b.profile.id)
+  )
+}
+
+/** Sorts results and assigns ranks 1..n. Used for a fresh run and when newly
+ *  eligible candidates are merged into an existing ranking. */
+export function orderResults<T extends { profile_id: string; total_score: number; fit_score: number }>(
+  results: (T & { fitFloat?: number })[],
+  profilesById: Map<string, Pick<Profile, 'id' | 'availability_updated_at'>>,
+): (T & { rank: number })[] {
+  const keyed = results.map((r) => ({
+    r,
+    total_score: r.total_score,
+    fit: r.fitFloat ?? r.fit_score,
+    profile: profilesById.get(r.profile_id) ?? { id: r.profile_id, availability_updated_at: null },
+  }))
+  keyed.sort(compareResults)
+  return keyed.map((k, i) => {
+    const { fitFloat: _drop, ...rest } = k.r
+    void _drop
+    return { ...(rest as T), rank: i + 1 }
+  })
+}
+
+/** Pure scoring for one pool: no I/O, so it can be tested and calibrated. */
+export function scorePool(args: {
+  rawText: string
+  extracted: ExtractedRequirements | null
+  requirements: Requirement[]
+  candidates: CandidateInput[]
+  taxonomy: TaxonomyIndex
+}): MatchResult[] {
+  const { rawText, extracted, requirements, candidates, taxonomy } = args
+  // The JD is read once per run, here — never per candidate.
+  const sig = buildJdSignature(rawText, extracted)
+
+  const scored: Scored[] = candidates.map((c) => {
+    const fb = computeFit(c, sig, taxonomy, rawText)
+    const adjustments = computeAdjustments(c, requirements, taxonomy)
+    const positive = adjustments.reduce((s, a) => s + Math.max(0, a.points), 0)
+    const negative = adjustments.reduce((s, a) => s + Math.min(0, a.points), 0)
+    const capped = positive > ADJUSTMENT_CAP
+    const bonus = Math.min(positive, ADJUSTMENT_CAP) + negative
+    const total_score = Math.round(Math.max(0, Math.min(100, fb.fit + bonus)))
+    const fit_score = Math.round(fb.fit)
+    const band = bandFor(total_score)
+    const coveredTerms = [...sig.expertise.map((t) => ({ t, idx: taxonomy.expertise, tags: c.profile.expertise })), ...sig.skills.map((t) => ({ t, idx: taxonomy.skills, tags: c.profile.skills }))]
+      .map(({ t, idx, tags }) => ({ name: t.name, credit: tagCredit(tags, t, idx).credit }))
+      .filter((x) => x.credit > 0)
+      .sort((a, b) => b.credit - a.credit)
+      .map((x) => x.name)
+    return {
+      profile_id: c.profile.id,
+      total_score,
+      band,
+      fit_score,
+      fitFloat: fb.fit,
+      adjustments,
+      adjustments_capped: capped,
+      must_haves_passed: mustHavesPassed(c, requirements, taxonomy),
+      narrative: buildNarrative({
+        profile: c.profile,
+        total: total_score,
+        band,
+        fit: fit_score,
+        capped,
+        breakdown: scoreBreakdown({ fit_score, total_score, adjustments, adjustments_capped: capped }),
+        coveredTerms,
+      }),
+    }
+  })
+
+  return orderResults(scored, new Map(candidates.map((c) => [c.profile.id, c.profile])))
+}
+
+/** Loads portfolio + transcripts (video Q&As and published testimonials) for
+ *  the pool in three queries. */
+async function loadEvidence(pool: Profile[]): Promise<CandidateInput[]> {
+  const ids = pool.map((p) => p.id)
+  const [portfolioRes, videosRes, audioRes] = await Promise.all([
+    supabase.from('portfolio_items').select('*').in('profile_id', ids).order('sort_order'),
+    supabase.from('video_responses').select('profile_id,transcript').in('profile_id', ids),
+    supabase.from('audio_testimonials').select('profile_id,transcript').eq('status', 'published').in('profile_id', ids),
+  ])
+  const portfolioBy = new Map<string, PortfolioItem[]>()
+  for (const item of (portfolioRes.data as PortfolioItem[]) ?? [])
+    portfolioBy.set(item.profile_id, [...(portfolioBy.get(item.profile_id) ?? []), item])
+  const transcriptsBy = new Map<string, string[]>()
+  const rows = [
+    ...((videosRes.data as Pick<VideoResponse, 'profile_id' | 'transcript'>[]) ?? []),
+    ...((audioRes.data as Pick<AudioTestimonial, 'profile_id' | 'transcript'>[]) ?? []),
+  ]
+  for (const r of rows)
+    if (r.transcript) transcriptsBy.set(r.profile_id, [...(transcriptsBy.get(r.profile_id) ?? []), r.transcript])
+  return pool.map((profile) => ({
+    profile,
+    portfolio: portfolioBy.get(profile.id) ?? [],
+    transcripts: transcriptsBy.get(profile.id) ?? [],
+  }))
+}
+
+/**
+ * Engine entry point (spec §6.1). Receives the stored JD by id — it reads the
+ * JD text and extraction once per call — plus the requirements and a pool that
+ * has already passed the Must-haves. Returns results ranked best-first.
+ */
+export const rankPool: RankPoolFn = async (jobDescriptionId, requirements, pool) => {
+  if (pool.length === 0) return []
+  const [jdRes, catsRes, itemsRes, candidates] = await Promise.all([
+    supabase.from('job_descriptions').select('raw_text, extracted').eq('id', jobDescriptionId).single(),
+    supabase.from('taxonomy_categories').select('*'),
+    supabase.from('taxonomy_items').select('*'),
+    loadEvidence(pool),
+  ])
+  if (jdRes.error) throw new Error(jdRes.error.message)
+  return scorePool({
+    rawText: jdRes.data.raw_text,
+    extracted: jdRes.data.extracted as ExtractedRequirements | null,
+    requirements,
+    candidates,
+    taxonomy: buildTaxonomyIndex((catsRes.data as TaxonomyCategory[]) ?? [], (itemsRes.data as TaxonomyItem[]) ?? []),
+  })
+}
