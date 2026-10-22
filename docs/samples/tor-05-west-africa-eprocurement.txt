@@ -1,0 +1,26 @@
+Termes de Référence / Terms of Reference — Design and Implementation Support for an E-Procurement and Digital Public Services Platform, Senegal and Côte d'Ivoire
+
+Background
+The governments of Senegal and Côte d'Ivoire are modernizing public procurement as part of wider digital governance reforms supported by a multilateral development bank. Both countries have adopted e-procurement strategies but still run most tenders on paper, with fragmented supplier registries and limited interoperability between procurement, treasury and tax systems. The programme also funds a shared digital public services layer (identity verification, e-payments and document exchange) that the e-procurement platform must use.
+
+Objective
+A firm is sought to provide technical design and implementation support for the national e-procurement platforms in both countries and to integrate them with the digital public services layer.
+
+Scope of work
+- Review the current public procurement process and legal framework, and define functional and non-functional requirements for e-procurement (e-tendering, e-evaluation, e-contract management, supplier registry).
+- Prepare the solution architecture: cloud architecture options (government data centre vs. sovereign cloud), database management, interoperability with treasury and tax systems, and cybersecurity requirements.
+- Support procurement of the software platform and oversee web development and configuration by the selected vendor.
+- Lead change management for procurement officers and suppliers, including a training of trainers programme and user support materials in French.
+- Design open data publication of procurement information to support transparency and anti-corruption objectives.
+
+Deliverables
+1. Diagnostic and requirements report.
+2. Solution architecture and cybersecurity plan.
+3. Platform go-live in two pilot ministries per country.
+4. Change management and training plan; trained national trainers.
+
+Qualifications
+- A consulting firm (small or large) with at least 10 years of experience in digital governance and e-procurement in Francophone Africa.
+- Key experts in public procurement, solution architecture, database management and web development, and change management.
+- Working language is French; all deliverables in French with English summaries. Fluency in French is required for all key experts.
+- Presence in Dakar or Abidjan is an advantage.
