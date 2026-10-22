@@ -12,7 +12,7 @@ First baseline for Loop8. Five sample ToRs (`docs/samples/tor-0*.txt`) are score
 
 ## Summary
 
-**Fixed requirements:** 20/20 expected in top 10, 18/20 in top 5, checks 14/15. **End to end:** 20/20 in top 10, 18/20 in top 5, checks 12/15. **Extraction recall:** 51/63 (81%). **Org History scopes:** 2/2. **Ties at the top:** 5/5 ToRs (fixed), 4/5 (end to end). **One Nice to have row:** moves a total by at most 3 points. **What-ifs:** tor-05 firm preferred (Type: Small or Large Firm, Important): no effect on the top 10.
+**Fixed requirements:** 20/20 expected in top 10, 18/20 in top 5, checks 14/15. **End to end:** 20/20 in top 10, 19/20 in top 5, checks 12/15. **Extraction recall:** 51/63 (81%). **Org History scopes:** 2/2. **Ties at the top:** 0/5 ToRs (fixed), 0/5 (end to end). **One Nice to have row:** moves a total by at most 3 points. **What-ifs:** tor-05 firm preferred (Type: Small or Large Firm, Important): 4 of 10 positions change.
 
 Run 2026-10-22. Availability-based scores depend on the run date only through availability rows, which these requirements don't use.
 
@@ -26,35 +26,35 @@ Rows: expertise Nutrition (Important); expertise Health Systems (Nice); skill Im
 
 Pool after Required rows: **114** of 115.
 
-Ties: **5** candidates share the top total (100); 4 tied adjacent pairs in the top 10. Bands (whole pool): 9 strong, 4 good, 3 partial, 98 weak.
+Ties: none at the top (95); 0 tied adjacent pairs in the top 10. Bands (whole pool): 4 strong, 4 good, 4 partial, 102 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
-| Hanna Tesfaye (`demo-hanna-tesfaye`) | 1 | 100 | 94 | ✓ | ✓ |
-| Meridian Health Analytics (`demo-meridian-health-analytics`) | 3 | 100 | 89 | ✓ | ✓ |
-| Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | 8 | 94 | 74 | ✗ | ✓ |
-| Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | 2 | 100 | 90 | ✓ | ✓ |
+| Hanna Tesfaye (`demo-hanna-tesfaye`) | 1 | 95 | 94 | ✓ | ✓ |
+| Meridian Health Analytics (`demo-meridian-health-analytics`) | 2 | 89 | 89 | ✓ | ✓ |
+| Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | 8 | 70 | 74 | ✗ | ✓ |
+| Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | 3 | 86 | 90 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| wrong location strong fit | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | top10 | #2 (100/90) | ✓ |
-| right location wrong fit | Dawit Kebede Abate (`demo-dawit-kebede-abate`) | not top10 | #52 (28/14) | ✓ |
-| specialist over generalist | Yonas Alemu (`demo-yonas-alemu`) vs Selamawit Girma (`demo-selamawit-girma`) | above | #4 (100/81) vs #9 (85/65) | ✓ |
+| wrong location strong fit | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | top10 | #3 (86/90) | ✓ |
+| right location wrong fit | Dawit Kebede Abate (`demo-dawit-kebede-abate`) | not top10 | #57 (18/14) | ✓ |
+| specialist over generalist | Yonas Alemu (`demo-yonas-alemu`) vs Selamawit Girma (`demo-selamawit-girma`) | above | #4 (82/81) vs #9 (64/65) | ✓ |
 
 <details><summary>Top 10</summary>
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
-| 1 | Hanna Tesfaye (`demo-hanna-tesfaye`) | Individual | Addis Ababa, Ethiopia | 100 | 94 | strong |
-| 2 | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | Individual | Dhaka, Bangladesh | 100 | 90 | strong |
-| 3 | Meridian Health Analytics (`demo-meridian-health-analytics`) | Small Firm | Nairobi, Kenya | 100 | 89 | strong |
-| 4 | Yonas Alemu (`demo-yonas-alemu`) | Individual | Addis Ababa, Ethiopia | 100 | 81 | strong |
-| 5 | Hartwell & Crane Consulting (`demo-hartwell-crane-consulting`) | Large Firm | London, United Kingdom | 100 | 81 | strong |
-| 6 | Indus Development Advisory (`demo-indus-development-advisory`) | Large Firm | New Delhi, India | 99 | 79 | strong |
-| 7 | Dr. Sunita Patel (`dr-sunita-patel`) | Individual | Manila, Philippines | 96 | 76 | strong |
-| 8 | Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | Individual | Hargeisa, Somalia | 94 | 74 | strong |
-| 9 | Selamawit Girma (`demo-selamawit-girma`) | Individual | Addis Ababa, Ethiopia | 85 | 65 | strong |
-| 10 | Beatriz Nogueira Lima (`demo-beatriz-nogueira-lima`) | Individual | Brasília, Brazil | 78 | 59 | good |
+| 1 | Hanna Tesfaye (`demo-hanna-tesfaye`) | Individual | Addis Ababa, Ethiopia | 95 | 94 | strong |
+| 2 | Meridian Health Analytics (`demo-meridian-health-analytics`) | Small Firm | Nairobi, Kenya | 89 | 89 | strong |
+| 3 | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | Individual | Dhaka, Bangladesh | 86 | 90 | strong |
+| 4 | Yonas Alemu (`demo-yonas-alemu`) | Individual | Addis Ababa, Ethiopia | 82 | 81 | strong |
+| 5 | Hartwell & Crane Consulting (`demo-hartwell-crane-consulting`) | Large Firm | London, United Kingdom | 77 | 81 | good |
+| 6 | Indus Development Advisory (`demo-indus-development-advisory`) | Large Firm | New Delhi, India | 76 | 79 | good |
+| 7 | Dr. Sunita Patel (`dr-sunita-patel`) | Individual | Manila, Philippines | 73 | 76 | good |
+| 8 | Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | Individual | Hargeisa, Somalia | 70 | 74 | good |
+| 9 | Selamawit Girma (`demo-selamawit-girma`) | Individual | Addis Ababa, Ethiopia | 64 | 65 | partial |
+| 10 | Beatriz Nogueira Lima (`demo-beatriz-nogueira-lima`) | Individual | Brasília, Brazil | 57 | 59 | partial |
 
 </details>
 
@@ -64,41 +64,41 @@ Rows added by Add all (8): expertise Nutrition (Nice); expertise Health Systems 
 
 Pool after Required rows: **115** of 115.
 
-Ties: **4** candidates share the top total (100); 3 tied adjacent pairs in the top 10. Bands (whole pool): 8 strong, 3 good, 7 partial, 97 weak.
+Ties: none at the top (92); 1 tied adjacent pair in the top 10. Bands (whole pool): 4 strong, 4 good, 6 partial, 101 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
-| Hanna Tesfaye (`demo-hanna-tesfaye`) | 1 | 100 | 94 | ✓ | ✓ |
-| Meridian Health Analytics (`demo-meridian-health-analytics`) | 3 | 100 | 89 | ✓ | ✓ |
-| Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | 8 | 86 | 74 | ✗ | ✓ |
-| Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | 2 | 100 | 90 | ✓ | ✓ |
+| Hanna Tesfaye (`demo-hanna-tesfaye`) | 1 | 92 | 94 | ✓ | ✓ |
+| Meridian Health Analytics (`demo-meridian-health-analytics`) | 3 | 86 | 89 | ✓ | ✓ |
+| Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | 8 | 69 | 74 | ✗ | ✓ |
+| Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | 2 | 86 | 90 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| wrong location strong fit | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | top10 | #2 (100/90) | ✓ |
-| right location wrong fit | Dawit Kebede Abate (`demo-dawit-kebede-abate`) | not top10 | #62 (20/14) | ✓ |
-| specialist over generalist | Yonas Alemu (`demo-yonas-alemu`) vs Selamawit Girma (`demo-selamawit-girma`) | above | #4 (100/81) vs #9 (78/65) | ✓ |
+| wrong location strong fit | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | top10 | #2 (86/90) | ✓ |
+| right location wrong fit | Dawit Kebede Abate (`demo-dawit-kebede-abate`) | not top10 | #62 (16/14) | ✓ |
+| specialist over generalist | Yonas Alemu (`demo-yonas-alemu`) vs Selamawit Girma (`demo-selamawit-girma`) | above | #4 (80/81) vs #9 (63/65) | ✓ |
 
 <details><summary>Top 10</summary>
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
-| 1 | Hanna Tesfaye (`demo-hanna-tesfaye`) | Individual | Addis Ababa, Ethiopia | 100 | 94 | strong |
-| 2 | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | Individual | Dhaka, Bangladesh | 100 | 90 | strong |
-| 3 | Meridian Health Analytics (`demo-meridian-health-analytics`) | Small Firm | Nairobi, Kenya | 100 | 89 | strong |
-| 4 | Yonas Alemu (`demo-yonas-alemu`) | Individual | Addis Ababa, Ethiopia | 100 | 81 | strong |
-| 5 | Hartwell & Crane Consulting (`demo-hartwell-crane-consulting`) | Large Firm | London, United Kingdom | 96 | 81 | strong |
-| 6 | Indus Development Advisory (`demo-indus-development-advisory`) | Large Firm | New Delhi, India | 95 | 79 | strong |
-| 7 | Dr. Sunita Patel (`dr-sunita-patel`) | Individual | Manila, Philippines | 91 | 76 | strong |
-| 8 | Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | Individual | Hargeisa, Somalia | 86 | 74 | strong |
-| 9 | Selamawit Girma (`demo-selamawit-girma`) | Individual | Addis Ababa, Ethiopia | 78 | 65 | good |
-| 10 | Beatriz Nogueira Lima (`demo-beatriz-nogueira-lima`) | Individual | Brasília, Brazil | 69 | 59 | good |
+| 1 | Hanna Tesfaye (`demo-hanna-tesfaye`) | Individual | Addis Ababa, Ethiopia | 92 | 94 | strong |
+| 2 | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | Individual | Dhaka, Bangladesh | 86 | 90 | strong |
+| 3 | Meridian Health Analytics (`demo-meridian-health-analytics`) | Small Firm | Nairobi, Kenya | 86 | 89 | strong |
+| 4 | Yonas Alemu (`demo-yonas-alemu`) | Individual | Addis Ababa, Ethiopia | 80 | 81 | strong |
+| 5 | Hartwell & Crane Consulting (`demo-hartwell-crane-consulting`) | Large Firm | London, United Kingdom | 78 | 81 | good |
+| 6 | Indus Development Advisory (`demo-indus-development-advisory`) | Large Firm | New Delhi, India | 77 | 79 | good |
+| 7 | Dr. Sunita Patel (`dr-sunita-patel`) | Individual | Manila, Philippines | 73 | 76 | good |
+| 8 | Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | Individual | Hargeisa, Somalia | 69 | 74 | good |
+| 9 | Selamawit Girma (`demo-selamawit-girma`) | Individual | Addis Ababa, Ethiopia | 63 | 65 | partial |
+| 10 | Beatriz Nogueira Lima (`demo-beatriz-nogueira-lima`) | Individual | Brasília, Brazil | 56 | 59 | partial |
 
 </details>
 
 ### One Nice to have row
 
-Largest change to any candidate's total from a single Nice to have row: **3** points (expertise Nutrition (Nice), Hanna Tesfaye (`demo-hanna-tesfaye`)). ✓ expected at most about 3.
+Largest change to any candidate's total from a single Nice to have row: **3** points (language Amharic/Somali (Nice), Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`)). ✓ expected at most about 3.
 
 ### Extraction
 
@@ -119,34 +119,34 @@ Rows: expertise Anti-Corruption (Important); expertise Public Procurement (Impor
 
 Pool after Required rows: **25** of 115.
 
-Ties: **2** candidates share the top total (100); 2 tied adjacent pairs in the top 10. Bands (whole pool): 4 strong, 2 good, 2 partial, 17 weak.
+Ties: none at the top (85); 2 tied adjacent pairs in the top 10. Bands (whole pool): 2 strong, 2 good, 2 partial, 19 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
-| Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`) | 1 | 100 | 84 | ✓ | ✓ |
-| Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | 3 | 96 | 76 | ✓ | ✓ |
-| Integra Gobernanza (`demo-integra-gobernanza`) | 2 | 100 | 82 | ✓ | ✓ |
-| NorthStar Advisory Group (`northstar-advisory-group`) | 4 | 89 | 69 | ✓ | ✓ |
+| Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`) | 1 | 85 | 84 | ✓ | ✓ |
+| Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | 3 | 75 | 76 | ✓ | ✓ |
+| Integra Gobernanza (`demo-integra-gobernanza`) | 2 | 80 | 82 | ✓ | ✓ |
+| NorthStar Advisory Group (`northstar-advisory-group`) | 4 | 70 | 69 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| untagged text evidence | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | top10 | #6 (67/58) | ✓ |
+| untagged text evidence | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | top10 | #5 (53/58) | ✓ |
 | decoy | Saad Ahmed Malik (`demo-saad-ahmed-malik`) | not top10 | filtered | ✓ |
 
 <details><summary>Top 10</summary>
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
-| 1 | Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`) | Individual | Guatemala City, Guatemala | 100 | 84 | strong |
-| 2 | Integra Gobernanza (`demo-integra-gobernanza`) | Small Firm | Mexico City, Mexico | 100 | 82 | strong |
-| 3 | Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | Individual | Tegucigalpa, Honduras | 96 | 76 | strong |
-| 4 | NorthStar Advisory Group (`northstar-advisory-group`) | Small Firm | Washington DC, United States | 89 | 69 | strong |
-| 5 | Andina Consultores Asociados (`demo-andina-consultores-asociados`) | Large Firm | Lima, Peru | 68 | 56 | good |
-| 6 | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | Individual | San José, Costa Rica | 67 | 58 | good |
-| 7 | Rebecca Thornton Hale (`demo-rebecca-thornton-hale`) | Individual | Washington DC, United States | 61 | 51 | partial |
-| 8 | Caldera Development Group (`demo-caldera-development-group`) | Large Firm | Washington DC, United States | 61 | 50 | partial |
-| 9 | Hartwell & Crane Consulting (`demo-hartwell-crane-consulting`) | Large Firm | London, United Kingdom | 37 | 35 | weak |
-| 10 | Sofia Reyes (`sofia-reyes`) | Individual | Bogotá, Colombia | 36 | 33 | weak |
+| 1 | Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`) | Individual | Guatemala City, Guatemala | 85 | 84 | strong |
+| 2 | Integra Gobernanza (`demo-integra-gobernanza`) | Small Firm | Mexico City, Mexico | 80 | 82 | strong |
+| 3 | Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | Individual | Tegucigalpa, Honduras | 75 | 76 | good |
+| 4 | NorthStar Advisory Group (`northstar-advisory-group`) | Small Firm | Washington DC, United States | 70 | 69 | good |
+| 5 | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | Individual | San José, Costa Rica | 53 | 58 | partial |
+| 6 | Andina Consultores Asociados (`demo-andina-consultores-asociados`) | Large Firm | Lima, Peru | 53 | 56 | partial |
+| 7 | Rebecca Thornton Hale (`demo-rebecca-thornton-hale`) | Individual | Washington DC, United States | 48 | 51 | weak |
+| 8 | Caldera Development Group (`demo-caldera-development-group`) | Large Firm | Washington DC, United States | 48 | 50 | weak |
+| 9 | Hartwell & Crane Consulting (`demo-hartwell-crane-consulting`) | Large Firm | London, United Kingdom | 30 | 35 | weak |
+| 10 | Mariana Ospina Restrepo (`demo-mariana-ospina-restrepo`) | Individual | Medellín, Colombia | 29 | 32 | weak |
 
 </details>
 
@@ -156,40 +156,40 @@ Rows added by Add all (7): expertise Public Procurement (Nice); expertise Anti-C
 
 Pool after Required rows: **115** of 115.
 
-Ties: none at the top (100); 1 tied adjacent pair in the top 10. Bands (whole pool): 6 strong, 2 good, 7 partial, 100 weak.
+Ties: none at the top (84); 1 tied adjacent pair in the top 10. Bands (whole pool): 1 strong, 5 good, 5 partial, 104 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
-| Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`) | 1 | 100 | 84 | ✓ | ✓ |
-| Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | 4 | 90 | 76 | ✓ | ✓ |
-| Integra Gobernanza (`demo-integra-gobernanza`) | 2 | 96 | 82 | ✓ | ✓ |
-| NorthStar Advisory Group (`northstar-advisory-group`) | 5 | 84 | 69 | ✓ | ✓ |
+| Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`) | 1 | 84 | 84 | ✓ | ✓ |
+| Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | 4 | 74 | 76 | ✓ | ✓ |
+| Integra Gobernanza (`demo-integra-gobernanza`) | 2 | 79 | 82 | ✓ | ✓ |
+| NorthStar Advisory Group (`northstar-advisory-group`) | 5 | 69 | 69 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| untagged text evidence | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | top10 | #7 (68/58) | ✓ |
-| decoy | Saad Ahmed Malik (`demo-saad-ahmed-malik`) | not top10 | #3 (94/81) | ✗ |
+| untagged text evidence | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | top10 | #7 (56/58) | ✓ |
+| decoy | Saad Ahmed Malik (`demo-saad-ahmed-malik`) | not top10 | #3 (78/81) | ✗ |
 
 <details><summary>Top 10</summary>
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
-| 1 | Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`) | Individual | Guatemala City, Guatemala | 100 | 84 | strong |
-| 2 | Integra Gobernanza (`demo-integra-gobernanza`) | Small Firm | Mexico City, Mexico | 96 | 82 | strong |
-| 3 | Saad Ahmed Malik (`demo-saad-ahmed-malik`) | Individual | Islamabad, Pakistan | 94 | 81 | strong |
-| 4 | Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | Individual | Tegucigalpa, Honduras | 90 | 76 | strong |
-| 5 | NorthStar Advisory Group (`northstar-advisory-group`) | Small Firm | Washington DC, United States | 84 | 69 | strong |
-| 6 | Lena Hoffmann (`lena-hoffmann`) | Individual | Berlin, Germany | 80 | 68 | strong |
-| 7 | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | Individual | San José, Costa Rica | 68 | 58 | good |
-| 8 | Andina Consultores Asociados (`demo-andina-consultores-asociados`) | Large Firm | Lima, Peru | 66 | 56 | good |
-| 9 | Akwaba GovTech Partners (`demo-akwaba-govtech-partners`) | Large Firm | Abidjan, Côte d'Ivoire | 64 | 56 | partial |
-| 10 | Dr. Priya Nair (`dr-priya-nair`) | Individual | Geneva, Switzerland | 64 | 55 | partial |
+| 1 | Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`) | Individual | Guatemala City, Guatemala | 84 | 84 | strong |
+| 2 | Integra Gobernanza (`demo-integra-gobernanza`) | Small Firm | Mexico City, Mexico | 79 | 82 | good |
+| 3 | Saad Ahmed Malik (`demo-saad-ahmed-malik`) | Individual | Islamabad, Pakistan | 78 | 81 | good |
+| 4 | Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | Individual | Tegucigalpa, Honduras | 74 | 76 | good |
+| 5 | NorthStar Advisory Group (`northstar-advisory-group`) | Small Firm | Washington DC, United States | 69 | 69 | good |
+| 6 | Lena Hoffmann (`lena-hoffmann`) | Individual | Berlin, Germany | 65 | 68 | good |
+| 7 | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | Individual | San José, Costa Rica | 56 | 58 | partial |
+| 8 | Andina Consultores Asociados (`demo-andina-consultores-asociados`) | Large Firm | Lima, Peru | 54 | 56 | partial |
+| 9 | Akwaba GovTech Partners (`demo-akwaba-govtech-partners`) | Large Firm | Abidjan, Côte d'Ivoire | 53 | 56 | partial |
+| 10 | Dr. Priya Nair (`dr-priya-nair`) | Individual | Geneva, Switzerland | 53 | 55 | partial |
 
 </details>
 
 ### One Nice to have row
 
-Largest change to any candidate's total from a single Nice to have row: **3** points (expertise Anti-Corruption (Nice), Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`)). ✓ expected at most about 3.
+Largest change to any candidate's total from a single Nice to have row: **3** points (skill Data Science (Nice), Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`)). ✓ expected at most about 3.
 
 ### Extraction
 
@@ -210,18 +210,18 @@ Rows: expertise Refugee Support (Important); expertise Social Cohesion (Importan
 
 Pool after Required rows: **20** of 115.
 
-Ties: **3** candidates share the top total (100); 2 tied adjacent pairs in the top 10. Bands (whole pool): 5 strong, 0 good, 0 partial, 15 weak.
+Ties: none at the top (88); 0 tied adjacent pairs in the top 10. Bands (whole pool): 3 strong, 2 good, 0 partial, 15 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
-| Rania Haddad (`demo-rania-haddad`) | 4 | 99 | 79 | ✓ | ✓ |
-| Omar Khalil Mansour (`demo-omar-khalil-mansour`) | 3 | 100 | 80 | ✓ | ✓ |
-| Levant Field Research Collective (`demo-levant-field-research-collective`) | 2 | 100 | 87 | ✓ | ✓ |
-| Fatima Al-Rashid (`fatima-al-rashid`) | 5 | 85 | 65 | ✓ | ✓ |
+| Rania Haddad (`demo-rania-haddad`) | 4 | 78 | 79 | ✓ | ✓ |
+| Omar Khalil Mansour (`demo-omar-khalil-mansour`) | 3 | 81 | 80 | ✓ | ✓ |
+| Levant Field Research Collective (`demo-levant-field-research-collective`) | 2 | 87 | 87 | ✓ | ✓ |
+| Fatima Al-Rashid (`fatima-al-rashid`) | 5 | 67 | 65 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| top10 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | top10 | #1 (100/87) | ✓ |
+| top10 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | top10 | #1 (88/87) | ✓ |
 | decoy | Dilini Wickramasinghe (`demo-dilini-wickramasinghe`) | not top10 | filtered | ✓ |
 | decoy | Joseph Ssemakula (`demo-joseph-ssemakula`) | not top10 | filtered | ✓ |
 
@@ -229,16 +229,16 @@ Ties: **3** candidates share the top total (100); 2 tied adjacent pairs in the t
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
-| 1 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | Individual | Amman, Jordan | 100 | 87 | strong |
-| 2 | Levant Field Research Collective (`demo-levant-field-research-collective`) | Small Firm | Amman, Jordan | 100 | 87 | strong |
-| 3 | Omar Khalil Mansour (`demo-omar-khalil-mansour`) | Individual | Amman, Jordan | 100 | 80 | strong |
-| 4 | Rania Haddad (`demo-rania-haddad`) | Individual | Beirut, Lebanon | 99 | 79 | strong |
-| 5 | Fatima Al-Rashid (`fatima-al-rashid`) | Individual | Amman, Jordan | 85 | 65 | strong |
-| 6 | Caldera Development Group (`demo-caldera-development-group`) | Large Firm | Washington DC, United States | 48 | 42 | weak |
-| 7 | Mai Abdel-Aziz Fawzy (`demo-mai-abdel-aziz-fawzy`) | Individual | Cairo, Egypt | 41 | 36 | weak |
-| 8 | Achta Mahamat Saleh (`demo-achta-mahamat-saleh`) | Individual | N'Djamena, Chad | 36 | 25 | weak |
-| 9 | Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | Individual | Hargeisa, Somalia | 35 | 30 | weak |
-| 10 | Hiba Osman Elfaki (`demo-hiba-osman-elfaki`) | Individual | Port Sudan, Sudan | 30 | 22 | weak |
+| 1 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | Individual | Amman, Jordan | 88 | 87 | strong |
+| 2 | Levant Field Research Collective (`demo-levant-field-research-collective`) | Small Firm | Amman, Jordan | 87 | 87 | strong |
+| 3 | Omar Khalil Mansour (`demo-omar-khalil-mansour`) | Individual | Amman, Jordan | 81 | 80 | strong |
+| 4 | Rania Haddad (`demo-rania-haddad`) | Individual | Beirut, Lebanon | 78 | 79 | good |
+| 5 | Fatima Al-Rashid (`fatima-al-rashid`) | Individual | Amman, Jordan | 67 | 65 | good |
+| 6 | Caldera Development Group (`demo-caldera-development-group`) | Large Firm | Washington DC, United States | 37 | 42 | weak |
+| 7 | Mai Abdel-Aziz Fawzy (`demo-mai-abdel-aziz-fawzy`) | Individual | Cairo, Egypt | 32 | 36 | weak |
+| 8 | Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | Individual | Hargeisa, Somalia | 27 | 30 | weak |
+| 9 | Achta Mahamat Saleh (`demo-achta-mahamat-saleh`) | Individual | N'Djamena, Chad | 26 | 25 | weak |
+| 10 | Hiba Osman Elfaki (`demo-hiba-osman-elfaki`) | Individual | Port Sudan, Sudan | 22 | 22 | weak |
 
 </details>
 
@@ -248,35 +248,35 @@ Rows added by Add all (7): expertise Social Cohesion (Nice); expertise SME Suppo
 
 Pool after Required rows: **115** of 115.
 
-Ties: **2** candidates share the top total (100); 1 tied adjacent pair in the top 10. Bands (whole pool): 4 strong, 5 good, 6 partial, 100 weak.
+Ties: none at the top (88); 1 tied adjacent pair in the top 10. Bands (whole pool): 3 strong, 2 good, 6 partial, 104 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
-| Rania Haddad (`demo-rania-haddad`) | 4 | 94 | 79 | ✓ | ✓ |
-| Omar Khalil Mansour (`demo-omar-khalil-mansour`) | 3 | 96 | 80 | ✓ | ✓ |
-| Levant Field Research Collective (`demo-levant-field-research-collective`) | 2 | 100 | 87 | ✓ | ✓ |
-| Fatima Al-Rashid (`fatima-al-rashid`) | 5 | 79 | 65 | ✓ | ✓ |
+| Rania Haddad (`demo-rania-haddad`) | 4 | 77 | 79 | ✓ | ✓ |
+| Omar Khalil Mansour (`demo-omar-khalil-mansour`) | 3 | 80 | 80 | ✓ | ✓ |
+| Levant Field Research Collective (`demo-levant-field-research-collective`) | 1 | 88 | 87 | ✓ | ✓ |
+| Fatima Al-Rashid (`fatima-al-rashid`) | 5 | 66 | 65 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| top10 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | top10 | #1 (100/87) | ✓ |
-| decoy | Dilini Wickramasinghe (`demo-dilini-wickramasinghe`) | not top10 | #8 (69/60) | ✗ |
-| decoy | Joseph Ssemakula (`demo-joseph-ssemakula`) | not top10 | #48 (22/19) | ✓ |
+| top10 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | top10 | #2 (87/87) | ✓ |
+| decoy | Dilini Wickramasinghe (`demo-dilini-wickramasinghe`) | not top10 | #8 (57/60) | ✗ |
+| decoy | Joseph Ssemakula (`demo-joseph-ssemakula`) | not top10 | #50 (18/19) | ✓ |
 
 <details><summary>Top 10</summary>
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
-| 1 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | Individual | Amman, Jordan | 100 | 87 | strong |
-| 2 | Levant Field Research Collective (`demo-levant-field-research-collective`) | Small Firm | Amman, Jordan | 100 | 87 | strong |
-| 3 | Omar Khalil Mansour (`demo-omar-khalil-mansour`) | Individual | Amman, Jordan | 96 | 80 | strong |
-| 4 | Rania Haddad (`demo-rania-haddad`) | Individual | Beirut, Lebanon | 94 | 79 | strong |
-| 5 | Fatima Al-Rashid (`fatima-al-rashid`) | Individual | Amman, Jordan | 79 | 65 | good |
-| 6 | Gabriela Andrade Paredes (`demo-gabriela-andrade-paredes`) | Individual | Quito, Ecuador | 77 | 67 | good |
-| 7 | Thiri Aung Khin (`demo-thiri-aung-khin`) | Individual | Yangon, Myanmar | 70 | 61 | good |
-| 8 | Dilini Wickramasinghe (`demo-dilini-wickramasinghe`) | Individual | Colombo, Sri Lanka | 69 | 60 | good |
-| 9 | Sofia Reyes (`sofia-reyes`) | Individual | Bogotá, Colombia | 65 | 56 | good |
-| 10 | Sana Rizvi Hussain (`demo-sana-rizvi-hussain`) | Individual | Karachi, Pakistan | 62 | 50 | partial |
+| 1 | Levant Field Research Collective (`demo-levant-field-research-collective`) | Small Firm | Amman, Jordan | 88 | 87 | strong |
+| 2 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | Individual | Amman, Jordan | 87 | 87 | strong |
+| 3 | Omar Khalil Mansour (`demo-omar-khalil-mansour`) | Individual | Amman, Jordan | 80 | 80 | strong |
+| 4 | Rania Haddad (`demo-rania-haddad`) | Individual | Beirut, Lebanon | 77 | 79 | good |
+| 5 | Fatima Al-Rashid (`fatima-al-rashid`) | Individual | Amman, Jordan | 66 | 65 | good |
+| 6 | Gabriela Andrade Paredes (`demo-gabriela-andrade-paredes`) | Individual | Quito, Ecuador | 64 | 67 | partial |
+| 7 | Thiri Aung Khin (`demo-thiri-aung-khin`) | Individual | Yangon, Myanmar | 57 | 61 | partial |
+| 8 | Dilini Wickramasinghe (`demo-dilini-wickramasinghe`) | Individual | Colombo, Sri Lanka | 57 | 60 | partial |
+| 9 | Sofia Reyes (`sofia-reyes`) | Individual | Bogotá, Colombia | 53 | 56 | partial |
+| 10 | Sana Rizvi Hussain (`demo-sana-rizvi-hussain`) | Individual | Karachi, Pakistan | 51 | 50 | partial |
 
 </details>
 
@@ -291,7 +291,7 @@ Ties: **2** candidates share the top total (100); 1 tied adjacent pair in the to
 
 ### One Nice to have row
 
-Largest change to any candidate's total from a single Nice to have row: **3** points (expertise Refugee Support (Nice), Layla Nasser Odeh (`demo-layla-nasser-odeh`)). ✓ expected at most about 3.
+Largest change to any candidate's total from a single Nice to have row: **3** points (org_history ever at UNHCR (Nice), Levant Field Research Collective (`demo-levant-field-research-collective`)). ✓ expected at most about 3.
 
 ### Extraction
 
@@ -312,35 +312,35 @@ Rows: expertise Financial Inclusion (Important); expertise Agribusiness (Importa
 
 Pool after Required rows: **115** of 115.
 
-Ties: **7** candidates share the top total (100); 6 tied adjacent pairs in the top 10. Bands (whole pool): 8 strong, 2 good, 6 partial, 99 weak.
+Ties: none at the top (93); 1 tied adjacent pair in the top 10. Bands (whole pool): 6 strong, 2 good, 2 partial, 105 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
-| Rowena Bautista Lacson (`demo-rowena-bautista-lacson`) | 1 | 100 | 94 | ✓ | ✓ |
-| Joaquin Reyes Manalo (`demo-joaquin-reyes-manalo`) | 4 | 100 | 83 | ✓ | ✓ |
-| Siti Rahmawati Nugroho (`demo-siti-rahmawati-nugroho`) | 3 | 100 | 86 | ✓ | ✓ |
-| Archipelago Rural Finance Partners (`demo-archipelago-rural-finance-partners`) | 2 | 100 | 91 | ✓ | ✓ |
+| Rowena Bautista Lacson (`demo-rowena-bautista-lacson`) | 1 | 93 | 94 | ✓ | ✓ |
+| Joaquin Reyes Manalo (`demo-joaquin-reyes-manalo`) | 4 | 82 | 83 | ✓ | ✓ |
+| Siti Rahmawati Nugroho (`demo-siti-rahmawati-nugroho`) | 3 | 87 | 86 | ✓ | ✓ |
+| Archipelago Rural Finance Partners (`demo-archipelago-rural-finance-partners`) | 2 | 88 | 91 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| tie pair | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) vs Dimas Arya Saputra (`demo-dimas-arya-saputra`) | adjacent fresher first | #5 (100/83) vs #6 (100/83), tied on total and Fit | ✓ |
-| untagged text evidence | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | top10 | #9 (73/54) | ✓ |
-| decoy | Neema Mwakyusa (`demo-neema-mwakyusa`) | not top10 | #10 (68/54) | ✗ |
+| tie pair | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) vs Dimas Arya Saputra (`demo-dimas-arya-saputra`) | adjacent fresher first | #5 (81/83) vs #6 (81/83), tied on total and Fit | ✓ |
+| untagged text evidence | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | top10 | #9 (53/54) | ✓ |
+| decoy | Neema Mwakyusa (`demo-neema-mwakyusa`) | not top10 | #10 (50/54) | ✗ |
 
 <details><summary>Top 10</summary>
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
-| 1 | Rowena Bautista Lacson (`demo-rowena-bautista-lacson`) | Individual | Davao City, Philippines | 100 | 94 | strong |
-| 2 | Archipelago Rural Finance Partners (`demo-archipelago-rural-finance-partners`) | Large Firm | Singapore, Singapore | 100 | 91 | strong |
-| 3 | Siti Rahmawati Nugroho (`demo-siti-rahmawati-nugroho`) | Individual | Jakarta, Indonesia | 100 | 86 | strong |
-| 4 | Joaquin Reyes Manalo (`demo-joaquin-reyes-manalo`) | Individual | Manila, Philippines | 100 | 83 | strong |
-| 5 | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) | Individual | Jakarta, Indonesia | 100 | 83 | strong |
-| 6 | Dimas Arya Saputra (`demo-dimas-arya-saputra`) | Individual | Jakarta, Indonesia | 100 | 83 | strong |
-| 7 | Ifeoma Obi & Associates (`ifeoma-obi-and-associates`) | Small Firm | Abuja, Nigeria | 100 | 81 | strong |
-| 8 | Sana Rizvi Hussain (`demo-sana-rizvi-hussain`) | Individual | Karachi, Pakistan | 94 | 74 | strong |
-| 9 | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | Individual | Hanoi, Vietnam | 73 | 54 | good |
-| 10 | Neema Mwakyusa (`demo-neema-mwakyusa`) | Individual | Dar es Salaam, Tanzania | 68 | 54 | good |
+| 1 | Rowena Bautista Lacson (`demo-rowena-bautista-lacson`) | Individual | Davao City, Philippines | 93 | 94 | strong |
+| 2 | Archipelago Rural Finance Partners (`demo-archipelago-rural-finance-partners`) | Large Firm | Singapore, Singapore | 88 | 91 | strong |
+| 3 | Siti Rahmawati Nugroho (`demo-siti-rahmawati-nugroho`) | Individual | Jakarta, Indonesia | 87 | 86 | strong |
+| 4 | Joaquin Reyes Manalo (`demo-joaquin-reyes-manalo`) | Individual | Manila, Philippines | 82 | 83 | strong |
+| 5 | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) | Individual | Jakarta, Indonesia | 81 | 83 | strong |
+| 6 | Dimas Arya Saputra (`demo-dimas-arya-saputra`) | Individual | Jakarta, Indonesia | 81 | 83 | strong |
+| 7 | Ifeoma Obi & Associates (`ifeoma-obi-and-associates`) | Small Firm | Abuja, Nigeria | 75 | 81 | good |
+| 8 | Sana Rizvi Hussain (`demo-sana-rizvi-hussain`) | Individual | Karachi, Pakistan | 69 | 74 | good |
+| 9 | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | Individual | Hanoi, Vietnam | 53 | 54 | partial |
+| 10 | Neema Mwakyusa (`demo-neema-mwakyusa`) | Individual | Dar es Salaam, Tanzania | 50 | 54 | partial |
 
 </details>
 
@@ -350,35 +350,35 @@ Rows added by Add all (9): expertise Financial Inclusion (Nice); expertise Agrib
 
 Pool after Required rows: **115** of 115.
 
-Ties: **4** candidates share the top total (100); 4 tied adjacent pairs in the top 10. Bands (whole pool): 8 strong, 0 good, 8 partial, 99 weak.
+Ties: none at the top (92); 1 tied adjacent pair in the top 10. Bands (whole pool): 4 strong, 4 good, 1 partial, 106 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
-| Rowena Bautista Lacson (`demo-rowena-bautista-lacson`) | 1 | 100 | 94 | ✓ | ✓ |
-| Joaquin Reyes Manalo (`demo-joaquin-reyes-manalo`) | 4 | 100 | 83 | ✓ | ✓ |
-| Siti Rahmawati Nugroho (`demo-siti-rahmawati-nugroho`) | 3 | 100 | 86 | ✓ | ✓ |
-| Archipelago Rural Finance Partners (`demo-archipelago-rural-finance-partners`) | 2 | 100 | 91 | ✓ | ✓ |
+| Rowena Bautista Lacson (`demo-rowena-bautista-lacson`) | 1 | 92 | 94 | ✓ | ✓ |
+| Joaquin Reyes Manalo (`demo-joaquin-reyes-manalo`) | 4 | 81 | 83 | ✓ | ✓ |
+| Siti Rahmawati Nugroho (`demo-siti-rahmawati-nugroho`) | 3 | 84 | 86 | ✓ | ✓ |
+| Archipelago Rural Finance Partners (`demo-archipelago-rural-finance-partners`) | 2 | 87 | 91 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| tie pair | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) vs Dimas Arya Saputra (`demo-dimas-arya-saputra`) | adjacent fresher first | #5 (99/83) vs #6 (99/83), tied on total and Fit | ✓ |
-| untagged text evidence | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | top10 | #9 (63/54) | ✓ |
-| decoy | Neema Mwakyusa (`demo-neema-mwakyusa`) | not top10 | #10 (59/54) | ✗ |
+| tie pair | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) vs Dimas Arya Saputra (`demo-dimas-arya-saputra`) | adjacent fresher first | #5 (79/83) vs #6 (79/83), tied on total and Fit | ✓ |
+| untagged text evidence | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | top10 | #9 (50/54) | ✓ |
+| decoy | Neema Mwakyusa (`demo-neema-mwakyusa`) | not top10 | #10 (47/54) | ✗ |
 
 <details><summary>Top 10</summary>
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
-| 1 | Rowena Bautista Lacson (`demo-rowena-bautista-lacson`) | Individual | Davao City, Philippines | 100 | 94 | strong |
-| 2 | Archipelago Rural Finance Partners (`demo-archipelago-rural-finance-partners`) | Large Firm | Singapore, Singapore | 100 | 91 | strong |
-| 3 | Siti Rahmawati Nugroho (`demo-siti-rahmawati-nugroho`) | Individual | Jakarta, Indonesia | 100 | 86 | strong |
-| 4 | Joaquin Reyes Manalo (`demo-joaquin-reyes-manalo`) | Individual | Manila, Philippines | 100 | 83 | strong |
-| 5 | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) | Individual | Jakarta, Indonesia | 99 | 83 | strong |
-| 6 | Dimas Arya Saputra (`demo-dimas-arya-saputra`) | Individual | Jakarta, Indonesia | 99 | 83 | strong |
-| 7 | Ifeoma Obi & Associates (`ifeoma-obi-and-associates`) | Small Firm | Abuja, Nigeria | 94 | 81 | strong |
-| 8 | Sana Rizvi Hussain (`demo-sana-rizvi-hussain`) | Individual | Karachi, Pakistan | 85 | 74 | strong |
-| 9 | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | Individual | Hanoi, Vietnam | 63 | 54 | partial |
-| 10 | Neema Mwakyusa (`demo-neema-mwakyusa`) | Individual | Dar es Salaam, Tanzania | 59 | 54 | partial |
+| 1 | Rowena Bautista Lacson (`demo-rowena-bautista-lacson`) | Individual | Davao City, Philippines | 92 | 94 | strong |
+| 2 | Archipelago Rural Finance Partners (`demo-archipelago-rural-finance-partners`) | Large Firm | Singapore, Singapore | 87 | 91 | strong |
+| 3 | Siti Rahmawati Nugroho (`demo-siti-rahmawati-nugroho`) | Individual | Jakarta, Indonesia | 84 | 86 | strong |
+| 4 | Joaquin Reyes Manalo (`demo-joaquin-reyes-manalo`) | Individual | Manila, Philippines | 81 | 83 | strong |
+| 5 | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) | Individual | Jakarta, Indonesia | 79 | 83 | good |
+| 6 | Dimas Arya Saputra (`demo-dimas-arya-saputra`) | Individual | Jakarta, Indonesia | 79 | 83 | good |
+| 7 | Ifeoma Obi & Associates (`ifeoma-obi-and-associates`) | Small Firm | Abuja, Nigeria | 74 | 81 | good |
+| 8 | Sana Rizvi Hussain (`demo-sana-rizvi-hussain`) | Individual | Karachi, Pakistan | 67 | 74 | good |
+| 9 | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | Individual | Hanoi, Vietnam | 50 | 54 | partial |
+| 10 | Neema Mwakyusa (`demo-neema-mwakyusa`) | Individual | Dar es Salaam, Tanzania | 47 | 54 | weak |
 
 </details>
 
@@ -393,7 +393,7 @@ Ties: **4** candidates share the top total (100); 4 tied adjacent pairs in the t
 
 ### One Nice to have row
 
-Largest change to any candidate's total from a single Nice to have row: **3** points (expertise Financial Inclusion (Nice), Rowena Bautista Lacson (`demo-rowena-bautista-lacson`)). ✓ expected at most about 3.
+Largest change to any candidate's total from a single Nice to have row: **3** points (expertise Rural Development (Nice), Archipelago Rural Finance Partners (`demo-archipelago-rural-finance-partners`)). ✓ expected at most about 3.
 
 ### Extraction
 
@@ -414,36 +414,36 @@ Rows: expertise Digital Governance (Important); expertise Public Procurement (Im
 
 Pool after Required rows: **36** of 115.
 
-Ties: **6** candidates share the top total (100); 5 tied adjacent pairs in the top 10. Bands (whole pool): 7 strong, 3 good, 0 partial, 26 weak.
+Ties: none at the top (93); 3 tied adjacent pairs in the top 10. Bands (whole pool): 6 strong, 1 good, 3 partial, 26 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
-| Akwaba GovTech Partners (`demo-akwaba-govtech-partners`) | 2 | 100 | 92 | ✓ | ✓ |
-| Teranga Digital Conseil (`demo-teranga-digital-conseil`) | 6 | 100 | 86 | ✗ | ✓ |
-| Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | 3 | 100 | 90 | ✓ | ✓ |
-| Kivi Digital Government Advisory (`demo-kivi-digital-government-advisory`) | 1 | 100 | 92 | ✓ | ✓ |
+| Akwaba GovTech Partners (`demo-akwaba-govtech-partners`) | 1 | 93 | 92 | ✓ | ✓ |
+| Teranga Digital Conseil (`demo-teranga-digital-conseil`) | 5 | 87 | 86 | ✓ | ✓ |
+| Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | 6 | 86 | 90 | ✗ | ✓ |
+| Kivi Digital Government Advisory (`demo-kivi-digital-government-advisory`) | 2 | 91 | 92 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| wrong location strong fit | Kivi Digital Government Advisory (`demo-kivi-digital-government-advisory`) | top10 | #1 (100/92) | ✓ |
-| right location wrong fit | Ndèye Astou Faye (`demo-ndeye-astou-faye`) | not top10 | #14 (27/24) | ✓ |
-| specialist over generalist | Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) vs Boureima Ouédraogo (`demo-boureima-ouedraogo`) | above | #3 (100/90) vs #7 (96/82) | ✓ |
-| tie pair | Lagune Data Services (`demo-lagune-data-services`) vs Plateau Digital Solutions (`demo-plateau-digital-solutions`) | adjacent fresher first | #4 (100/87) vs #5 (100/87), tied on total and Fit | ✓ |
+| wrong location strong fit | Kivi Digital Government Advisory (`demo-kivi-digital-government-advisory`) | top10 | #2 (91/92) | ✓ |
+| right location wrong fit | Ndèye Astou Faye (`demo-ndeye-astou-faye`) | not top10 | #14 (21/24) | ✓ |
+| specialist over generalist | Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) vs Boureima Ouédraogo (`demo-boureima-ouedraogo`) | above | #6 (86/90) vs #7 (73/82) | ✓ |
+| tie pair | Lagune Data Services (`demo-lagune-data-services`) vs Plateau Digital Solutions (`demo-plateau-digital-solutions`) | adjacent fresher first | #3 (87/87) vs #4 (87/87), tied on total and Fit | ✓ |
 
 <details><summary>Top 10</summary>
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
-| 1 | Kivi Digital Government Advisory (`demo-kivi-digital-government-advisory`) | Small Firm | Tallinn, Estonia | 100 | 92 | strong |
-| 2 | Akwaba GovTech Partners (`demo-akwaba-govtech-partners`) | Large Firm | Abidjan, Côte d'Ivoire | 100 | 92 | strong |
-| 3 | Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | Individual | Dakar, Senegal | 100 | 90 | strong |
-| 4 | Lagune Data Services (`demo-lagune-data-services`) | Small Firm | Abidjan, Côte d'Ivoire | 100 | 87 | strong |
-| 5 | Plateau Digital Solutions (`demo-plateau-digital-solutions`) | Small Firm | Abidjan, Côte d'Ivoire | 100 | 87 | strong |
-| 6 | Teranga Digital Conseil (`demo-teranga-digital-conseil`) | Small Firm | Dakar, Senegal | 100 | 86 | strong |
-| 7 | Boureima Ouédraogo (`demo-boureima-ouedraogo`) | Individual | Ouagadougou, Burkina Faso | 96 | 82 | strong |
-| 8 | Lena Hoffmann (`lena-hoffmann`) | Individual | Berlin, Germany | 77 | 66 | good |
-| 9 | Caldera Development Group (`demo-caldera-development-group`) | Large Firm | Washington DC, United States | 73 | 55 | good |
-| 10 | NorthStar Advisory Group (`northstar-advisory-group`) | Small Firm | Washington DC, United States | 72 | 56 | good |
+| 1 | Akwaba GovTech Partners (`demo-akwaba-govtech-partners`) | Large Firm | Abidjan, Côte d'Ivoire | 93 | 92 | strong |
+| 2 | Kivi Digital Government Advisory (`demo-kivi-digital-government-advisory`) | Small Firm | Tallinn, Estonia | 91 | 92 | strong |
+| 3 | Lagune Data Services (`demo-lagune-data-services`) | Small Firm | Abidjan, Côte d'Ivoire | 87 | 87 | strong |
+| 4 | Plateau Digital Solutions (`demo-plateau-digital-solutions`) | Small Firm | Abidjan, Côte d'Ivoire | 87 | 87 | strong |
+| 5 | Teranga Digital Conseil (`demo-teranga-digital-conseil`) | Small Firm | Dakar, Senegal | 87 | 86 | strong |
+| 6 | Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | Individual | Dakar, Senegal | 86 | 90 | strong |
+| 7 | Boureima Ouédraogo (`demo-boureima-ouedraogo`) | Individual | Ouagadougou, Burkina Faso | 73 | 82 | good |
+| 8 | Lena Hoffmann (`lena-hoffmann`) | Individual | Berlin, Germany | 58 | 66 | partial |
+| 9 | NorthStar Advisory Group (`northstar-advisory-group`) | Small Firm | Washington DC, United States | 53 | 56 | partial |
+| 10 | Caldera Development Group (`demo-caldera-development-group`) | Large Firm | Washington DC, United States | 53 | 55 | partial |
 
 </details>
 
@@ -453,59 +453,59 @@ Rows added by Add all (11): expertise Public Procurement (Nice); expertise Digit
 
 Pool after Required rows: **115** of 115.
 
-Ties: **6** candidates share the top total (100); 5 tied adjacent pairs in the top 10. Bands (whole pool): 9 strong, 3 good, 5 partial, 98 weak.
+Ties: none at the top (91); 2 tied adjacent pairs in the top 10. Bands (whole pool): 6 strong, 2 good, 4 partial, 103 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
-| Akwaba GovTech Partners (`demo-akwaba-govtech-partners`) | 2 | 100 | 92 | ✓ | ✓ |
-| Teranga Digital Conseil (`demo-teranga-digital-conseil`) | 6 | 100 | 86 | ✗ | ✓ |
-| Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | 3 | 100 | 90 | ✓ | ✓ |
-| Kivi Digital Government Advisory (`demo-kivi-digital-government-advisory`) | 1 | 100 | 92 | ✓ | ✓ |
+| Akwaba GovTech Partners (`demo-akwaba-govtech-partners`) | 1 | 91 | 92 | ✓ | ✓ |
+| Teranga Digital Conseil (`demo-teranga-digital-conseil`) | 4 | 84 | 86 | ✓ | ✓ |
+| Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | 3 | 84 | 90 | ✓ | ✓ |
+| Kivi Digital Government Advisory (`demo-kivi-digital-government-advisory`) | 2 | 88 | 92 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| wrong location strong fit | Kivi Digital Government Advisory (`demo-kivi-digital-government-advisory`) | top10 | #1 (100/92) | ✓ |
-| right location wrong fit | Ndèye Astou Faye (`demo-ndeye-astou-faye`) | not top10 | #25 (32/24) | ✓ |
-| specialist over generalist | Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) vs Boureima Ouédraogo (`demo-boureima-ouedraogo`) | above | #3 (100/90) vs #7 (99/82) | ✓ |
-| tie pair | Lagune Data Services (`demo-lagune-data-services`) vs Plateau Digital Solutions (`demo-plateau-digital-solutions`) | adjacent fresher first | #4 (100/87) vs #5 (100/87), tied on total and Fit | ✓ |
+| wrong location strong fit | Kivi Digital Government Advisory (`demo-kivi-digital-government-advisory`) | top10 | #2 (88/92) | ✓ |
+| right location wrong fit | Ndèye Astou Faye (`demo-ndeye-astou-faye`) | not top10 | #25 (24/24) | ✓ |
+| specialist over generalist | Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) vs Boureima Ouédraogo (`demo-boureima-ouedraogo`) | above | #3 (84/90) vs #7 (76/82) | ✓ |
+| tie pair | Lagune Data Services (`demo-lagune-data-services`) vs Plateau Digital Solutions (`demo-plateau-digital-solutions`) | adjacent fresher first | #5 (83/87) vs #6 (83/87), tied on total and Fit | ✓ |
 
 <details><summary>Top 10</summary>
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
-| 1 | Kivi Digital Government Advisory (`demo-kivi-digital-government-advisory`) | Small Firm | Tallinn, Estonia | 100 | 92 | strong |
-| 2 | Akwaba GovTech Partners (`demo-akwaba-govtech-partners`) | Large Firm | Abidjan, Côte d'Ivoire | 100 | 92 | strong |
-| 3 | Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | Individual | Dakar, Senegal | 100 | 90 | strong |
-| 4 | Lagune Data Services (`demo-lagune-data-services`) | Small Firm | Abidjan, Côte d'Ivoire | 100 | 87 | strong |
-| 5 | Plateau Digital Solutions (`demo-plateau-digital-solutions`) | Small Firm | Abidjan, Côte d'Ivoire | 100 | 87 | strong |
-| 6 | Teranga Digital Conseil (`demo-teranga-digital-conseil`) | Small Firm | Dakar, Senegal | 100 | 86 | strong |
-| 7 | Boureima Ouédraogo (`demo-boureima-ouedraogo`) | Individual | Ouagadougou, Burkina Faso | 99 | 82 | strong |
-| 8 | Oksana Melnyk-Hrytsenko (`demo-oksana-melnyk-hrytsenko`) | Individual | Kyiv, Ukraine | 89 | 75 | strong |
-| 9 | Kavya Subramanian (`demo-kavya-subramanian`) | Individual | Bengaluru, India | 83 | 70 | strong |
-| 10 | Lena Hoffmann (`lena-hoffmann`) | Individual | Berlin, Germany | 77 | 66 | good |
+| 1 | Akwaba GovTech Partners (`demo-akwaba-govtech-partners`) | Large Firm | Abidjan, Côte d'Ivoire | 91 | 92 | strong |
+| 2 | Kivi Digital Government Advisory (`demo-kivi-digital-government-advisory`) | Small Firm | Tallinn, Estonia | 88 | 92 | strong |
+| 3 | Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | Individual | Dakar, Senegal | 84 | 90 | strong |
+| 4 | Teranga Digital Conseil (`demo-teranga-digital-conseil`) | Small Firm | Dakar, Senegal | 84 | 86 | strong |
+| 5 | Lagune Data Services (`demo-lagune-data-services`) | Small Firm | Abidjan, Côte d'Ivoire | 83 | 87 | strong |
+| 6 | Plateau Digital Solutions (`demo-plateau-digital-solutions`) | Small Firm | Abidjan, Côte d'Ivoire | 83 | 87 | strong |
+| 7 | Boureima Ouédraogo (`demo-boureima-ouedraogo`) | Individual | Ouagadougou, Burkina Faso | 76 | 82 | good |
+| 8 | Oksana Melnyk-Hrytsenko (`demo-oksana-melnyk-hrytsenko`) | Individual | Kyiv, Ukraine | 68 | 75 | good |
+| 9 | Kavya Subramanian (`demo-kavya-subramanian`) | Individual | Bengaluru, India | 64 | 70 | partial |
+| 10 | Lena Hoffmann (`lena-hoffmann`) | Individual | Berlin, Germany | 60 | 66 | partial |
 
 </details>
 
 ### What-if: without firm preferred (Type: Small or Large Firm, Important)
 
-no effect on the top 10. Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`): #3 with the row, #3 without.
+4 of 10 positions change. Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`): #6 with the row, #3 without.
 
 | # | With the row | Total | Without the row | Total |
 |---|---|---|---|---|
-| 1 | Kivi Digital Government Advisory | 100 | Kivi Digital Government Advisory | 100 |
-| 2 | Akwaba GovTech Partners | 100 | Akwaba GovTech Partners | 100 |
-| 3 | Cheikh Tidiane Sarr | 100 | Cheikh Tidiane Sarr | 100 |
-| 4 | Lagune Data Services | 100 | Lagune Data Services | 100 |
-| 5 | Plateau Digital Solutions | 100 | Plateau Digital Solutions | 100 |
-| 6 | Teranga Digital Conseil | 100 | Teranga Digital Conseil | 100 |
-| 7 | Boureima Ouédraogo | 96 | Boureima Ouédraogo | 96 |
-| 8 | Lena Hoffmann | 77 | Lena Hoffmann | 77 |
-| 9 | Caldera Development Group | 73 | Caldera Development Group | 65 |
-| 10 | NorthStar Advisory Group | 72 | NorthStar Advisory Group | 64 |
+| 1 | Akwaba GovTech Partners | 93 | Akwaba GovTech Partners | 93 |
+| 2 | Kivi Digital Government Advisory | 91 | Kivi Digital Government Advisory | 90 |
+| 3 | Lagune Data Services | 87 | Cheikh Tidiane Sarr | 90 |
+| 4 | Plateau Digital Solutions | 87 | Lagune Data Services | 86 |
+| 5 | Teranga Digital Conseil | 87 | Plateau Digital Solutions | 86 |
+| 6 | Cheikh Tidiane Sarr | 86 | Teranga Digital Conseil | 86 |
+| 7 | Boureima Ouédraogo | 73 | Boureima Ouédraogo | 75 |
+| 8 | Lena Hoffmann | 58 | Lena Hoffmann | 60 |
+| 9 | NorthStar Advisory Group | 53 | NorthStar Advisory Group | 50 |
+| 10 | Caldera Development Group | 53 | Caldera Development Group | 50 |
 
 ### One Nice to have row
 
-Largest change to any candidate's total from a single Nice to have row: **3** points (expertise Digital Governance (Nice), Kivi Digital Government Advisory (`demo-kivi-digital-government-advisory`)). ✓ expected at most about 3.
+Largest change to any candidate's total from a single Nice to have row: **3** points (skill Web Development (Nice), Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`)). ✓ expected at most about 3.
 
 ### Extraction
 
