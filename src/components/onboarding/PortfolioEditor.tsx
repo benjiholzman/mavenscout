@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { PORTFOLIO_LINK_CAP } from '../../lib/validation'
 import type { PortfolioItem } from '../../types/db'
+import { OrgPicker } from '../ui/OrgPicker'
 import { FieldRow, ListItemCard, TextArea, TextField } from './fields'
 import { YearFields } from './HistoryEditors'
 
@@ -71,11 +72,14 @@ export function PortfolioEditor({ profileId, cap }: { profileId: string; cap: nu
             />
             <TextField label="Your role" value={item.role} onChange={(v) => update(i, { role: v })} />
           </FieldRow>
-          <TextField
-            label="Organization (optional)"
+          <OrgPicker
+            label="Organization / client"
+            optional
             value={item.organization ?? ''}
-            onChange={(v) => update(i, { organization: v || null })}
-            placeholder="e.g. GIZ, World Bank, Ministry of Health"
+            orgId={item.organization_id}
+            onChange={(organization, organization_id) =>
+              update(i, { organization: organization || null, organization_id })
+            }
           />
           <YearFields
             start={item.start_year ?? ''}

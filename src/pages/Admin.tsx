@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Moderation } from '../components/admin/Moderation'
+import { OrganizationsManager } from '../components/admin/OrganizationsManager'
 import { QuestionsManager } from '../components/admin/QuestionsManager'
 import { ReviewQueue } from '../components/admin/ReviewQueue'
 import { TaxonomyManager } from '../components/admin/TaxonomyManager'
@@ -13,6 +14,7 @@ import { TierOverview } from '../components/admin/TierOverview'
 const TABS = [
   ['review', 'Review queue'],
   ['taxonomy', 'Taxonomy'],
+  ['organizations', 'Organizations'],
   ['tiers', 'Tiers & subscriptions'],
   ['questions', 'Video Q&A questions'],
   ['moderation', 'Testimonial moderation'],
@@ -52,6 +54,7 @@ export default function Admin() {
       <div className="py-6">
         {tab === 'review' && <ReviewQueue />}
         {tab === 'taxonomy' && <TaxonomyManager />}
+        {tab === 'organizations' && <OrganizationsManager />}
         {tab === 'tiers' && <TierOverview />}
         {tab === 'questions' && <QuestionsManager />}
         {tab === 'moderation' && <Moderation />}

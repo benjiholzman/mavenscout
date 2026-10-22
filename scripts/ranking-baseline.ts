@@ -31,11 +31,12 @@ import type { CandidateInput } from '../src/lib/matching/fit'
 import { bandFor } from '../src/lib/matching/config'
 import { buildTaxonomyIndex, scorePool } from '../src/lib/matching/score'
 import type { ExtractedRequirements, MatchResult, Requirement } from '../src/lib/matching/types'
+import { buildOrgIndex, EMPTY_ORG_INDEX } from '../src/lib/organizations'
 import { orgHistoryOutcome } from '../src/lib/requirements/match'
 import { EMPTY_SEARCH } from '../src/lib/requirements/model'
 import { applyMustHaves } from '../src/lib/requirements/mustHaves'
 import { requirementsReducer } from '../src/lib/requirements/store'
-import type { PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../src/types/db'
+import type { Organization, PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../src/types/db'
 
 const root = process.cwd()
 const samples = join(root, 'docs', 'samples')
@@ -107,12 +108,16 @@ function main() {
 
 async function run() {
   const writesBefore = { jd: await rowCount('job_descriptions'), mr: await rowCount('match_results') }
-  const [profiles, portfolio, categories, items] = await Promise.all([
+  const [profiles, portfolio, categories, items, orgRows] = await Promise.all([
     select<Profile>('profiles', (q) => q.eq('approval_status', 'approved').eq('subscription_status', 'active')),
     select<PortfolioItem>('portfolio_items', (q) => q.order('sort_order')),
     select<TaxonomyCategory>('taxonomy_categories'),
     select<TaxonomyItem>('taxonomy_items'),
+    // The canonical organizations list (009); without it, Org History falls
+    // back to name matching, as in the app.
+    select<Organization>('organizations').catch(() => null),
   ])
+  const orgs = orgRows ? buildOrgIndex(orgRows) : EMPTY_ORG_INDEX
   const byHandle = new Map(profiles.map((p) => [p.handle, p]))
   const byId = new Map(profiles.map((p) => [p.id, p]))
   const portfolioBy = new Map<string, PortfolioItem[]>()
@@ -133,8 +138,8 @@ async function run() {
   const candidate = (p: Profile): CandidateInput => ({ profile: p, portfolio: portfolioBy.get(p.id) ?? [], transcripts: [] })
 
   function rank(rawText: string, extracted: ExtractedRequirements, requirements: Requirement[]): Ranked {
-    const survivors = applyMustHaves(profiles, portfolioBy, requirements, EMPTY_SEARCH, trees)
-    const results = scorePool({ rawText, extracted, requirements, candidates: survivors.map(candidate), taxonomy })
+    const survivors = applyMustHaves(profiles, portfolioBy, requirements, EMPTY_SEARCH, trees, orgs)
+    const results = scorePool({ rawText, extracted, requirements, candidates: survivors.map(candidate), taxonomy, orgs })
     return { results, pool: survivors.length, rankOf: new Map(results.map((r) => [byId.get(r.profile_id)!.handle, r])) }
   }
 
@@ -242,7 +247,7 @@ async function run() {
       const a = byHandle.get(c.handle)
       const b = c.other ? byHandle.get(c.other) : undefined
       if (!a || !b || !c.org) continue
-      const ev = (p: Profile, scope: 'current' | 'ever') => orgHistoryOutcome(p, { org: c.org!, scope, peers: [] }).outcome
+      const ev = (p: Profile, scope: 'current' | 'ever') => orgHistoryOutcome(p, { org: c.org!, scope, peers: [] }, orgs).outcome
       const res = { aEver: ev(a, 'ever'), bEver: ev(b, 'ever'), aCur: ev(a, 'current'), bCur: ev(b, 'current') }
       const pass = res.aEver === 'met' && res.bEver === 'met' && res.aCur === 'met' && res.bCur === 'not_met'
       summary.orgChecks += 1

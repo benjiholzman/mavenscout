@@ -89,7 +89,7 @@ CREATE TABLE profiles (
   skills                        jsonb NOT NULL DEFAULT '[]',  -- same shape/caps as expertise
   accreditations                jsonb NOT NULL DEFAULT '[]',  -- [{name, issuing_organization, year, credential_id_or_url}]
   languages                     text[] NOT NULL DEFAULT '{}', -- free-form; filter options derived dynamically
-  work_history                  jsonb NOT NULL DEFAULT '[]',  -- [{organization, role, start_year, end_year, logo_url, description}], max 10 app-enforced
+  work_history                  jsonb NOT NULL DEFAULT '[]',  -- [{organization, organization_id?, role, start_year, end_year, logo_url, description}], max 10 app-enforced
   education_history             jsonb NOT NULL DEFAULT '[]',  -- [{institution, degree_or_course, start_year, end_year, logo_url}], max 5
   additional_experience         jsonb NOT NULL DEFAULT '[]',  -- [{organization, role, start_year, end_year, description}], max 5
   website_name                  text DEFAULT 'Personal website',
@@ -141,6 +141,25 @@ CREATE POLICY "dev_read_taxonomy_requests"  ON taxonomy_requests FOR SELECT USIN
 CREATE POLICY "dev_write_taxonomy_requests" ON taxonomy_requests FOR ALL USING (true) WITH CHECK (true);
 
 -- ---------------------------------------------------------------------------
+-- organizations — canonical organizations list (profiles-membership §8).
+-- Seeded by 009; employers and clients link to it (portfolio_items.
+-- organization_id, work_history[].organization_id) or stay free text.
+-- ---------------------------------------------------------------------------
+CREATE TABLE organizations (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       text NOT NULL UNIQUE,
+  aliases    text[] NOT NULL DEFAULT '{}',  -- short and former names: 'WB', 'IBRD', 'DFID'
+  domains    text[] NOT NULL DEFAULT '{}',  -- web/email domains, primary first
+  logo_url   text,                          -- explicit logo; NULL = from domains[0] via Brandfetch; '' = initials (orgLogoUrl)
+  type       text NOT NULL CHECK (type IN ('multilateral','bilateral_donor','un_agency','ngo','government','private_firm','academic','foundation')),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+-- PROD: SELECT for everyone; INSERT/UPDATE/DELETE admin-only.
+CREATE POLICY "dev_read_organizations"  ON organizations FOR SELECT USING (true);
+CREATE POLICY "dev_write_organizations" ON organizations FOR ALL USING (true) WITH CHECK (true);
+
+-- ---------------------------------------------------------------------------
 -- portfolio_items (PRD 7.2 / §8)
 -- ---------------------------------------------------------------------------
 CREATE TABLE portfolio_items (
@@ -148,6 +167,7 @@ CREATE TABLE portfolio_items (
   profile_id   uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   project_name text NOT NULL,
   organization text,                          -- client/funder shown beside the dates
+  organization_id uuid REFERENCES organizations(id) ON DELETE SET NULL,  -- set when picked from the list (009)
   start_year   int,
   end_year     int,                           -- NULL = ongoing; = start_year for a single year
   role         text NOT NULL,

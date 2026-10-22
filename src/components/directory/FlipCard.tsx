@@ -15,6 +15,8 @@ import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { logoIconUrl } from '../../lib/brandfetch'
 import { fmtPortfolioMeta } from '../../lib/dates'
+import { nameInitials } from '../../lib/monogram'
+import { EMPTY_ORG_INDEX, sectorExperience, type OrgIndex } from '../../lib/organizations'
 import { resolveVideo } from '../../lib/media'
 import { preferencePercent, rowPointsLabel, rowsByWeight, scoreBreakdown } from '../../lib/matching/display'
 import type { MatchResult } from '../../lib/matching/types'
@@ -45,27 +47,6 @@ type Face =
 const SECTOR_LOGO_CAP = 5
 const PORTFOLIO_FACE_CAP = 3
 
-/** Most recent distinct organizations, current roles first. */
-function recentOrgs(profile: Profile, n: number) {
-  const yearNow = new Date().getFullYear()
-  const seen = new Set<string>()
-  return [...profile.work_history]
-    .sort(
-      (a, b) =>
-        (b.end_year ?? yearNow + 1) - (a.end_year ?? yearNow + 1) || b.start_year - a.start_year,
-    )
-    .filter((o) => !seen.has(o.organization) && seen.add(o.organization))
-    .slice(0, n)
-}
-
-function monogram(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter((w) => /^[A-Z0-9]/i.test(w))
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join('')
-}
 
 const tagLabel = (t: TagSelection) => t.name + (t.level === 'category' ? ' (broad)' : '')
 
@@ -74,6 +55,7 @@ export function FlipCard({
   portfolio,
   intro,
   audioCount,
+  orgs = EMPTY_ORG_INDEX,
   onFavorite,
   onTopPick,
   ranked,
@@ -86,6 +68,8 @@ export function FlipCard({
   onTopPick: (profile: Profile) => void
   /** Ranking mode: rank as displayed, the result, and "About this result". */
   ranked?: { position: number; result: MatchResult; onAbout: () => void }
+  /** Canonical organizations, for Sector Experience logos and dedupe. */
+  orgs?: OrgIndex
 }) {
   const [{ index, direction }, setNav] = useState({ index: 0, direction: 1 })
   const reduceMotion = useReducedMotion()
@@ -165,6 +149,8 @@ export function FlipCard({
             {face.kind === 'front' ? (
               <FrontFace
                 profile={profile}
+                portfolio={portfolio}
+                orgs={orgs}
                 isFirm={isFirm}
                 hasVideo={!!intro}
                 audioCount={audioCount}
@@ -260,7 +246,7 @@ function Avatar({ profile, isFirm, small = false }: { profile: Profile; isFirm: 
     <span
       className={`flex shrink-0 items-center justify-center bg-brand-100 font-display font-semibold text-brand-700 ${shape} ${size}`}
     >
-      {monogram(profile.name)}
+      {nameInitials(profile.name)}
     </span>
   )
 }
@@ -298,12 +284,16 @@ function MetaRow({ icon, children }: { icon: ReactNode; children: ReactNode }) {
 
 function FrontFace({
   profile,
+  portfolio,
+  orgs: orgIndex,
   isFirm,
   hasVideo,
   audioCount,
   squareTop = false,
 }: {
   profile: Profile
+  portfolio: PortfolioItem[]
+  orgs: OrgIndex
   isFirm: boolean
   hasVideo: boolean
   audioCount: number
@@ -316,7 +306,7 @@ function FrontFace({
   const levelText = isFirm
     ? yearsInBusiness !== null && `${yearsInBusiness} years in business`
     : profile.career_level && CAREER_LEVEL_LABELS[profile.career_level]
-  const orgs = recentOrgs(profile, SECTOR_LOGO_CAP)
+  const orgs = sectorExperience(profile, portfolio, orgIndex, SECTOR_LOGO_CAP)
 
   return (
     <div className="flex h-full flex-col">
@@ -376,17 +366,18 @@ function FrontFace({
           {orgs.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {orgs.map((org, i) => (
-                <Tooltip key={org.organization} content={org.organization} align={i < 3 ? 'start' : 'end'}>
+                <Tooltip key={org.key} content={org.name} align={i < 3 ? 'start' : 'end'}>
                   <span
-                    aria-label={org.organization}
+                    aria-label={org.name}
                     role="img"
                     className="flex h-[54px] w-[54px] overflow-hidden rounded-xl border border-line bg-white p-1 hover:border-brand-300"
                   >
                     <OrgLogo
-                      url={logoIconUrl(org.logo_url)}
-                      name={org.organization}
+                      url={logoIconUrl(org.logoUrl)}
+                      name={org.name}
+                      acronym={org.acronym}
                       className="h-full w-full rounded-[7px]"
-                      monogramClassName="bg-brand-100 text-[11px] font-bold text-brand-700"
+                      monogramClassName="font-display text-[15px] font-bold"
                     />
                   </span>
                 </Tooltip>

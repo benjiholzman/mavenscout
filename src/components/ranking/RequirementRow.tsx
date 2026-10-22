@@ -6,6 +6,7 @@ import type { Level, Requirement, RequirementValueByKind } from '../../lib/match
 import { CAREER_LEVEL_SHORT, KIND_LABELS, ORG_SCOPE_LABELS } from '../../lib/requirements/labels'
 import { rowHasValue } from '../../lib/requirements/model'
 import { MultiSelect, type OptionGroup } from '../ui/MultiSelect'
+import { OrgPicker } from '../ui/OrgPicker'
 import { LevelControl } from './LevelControl'
 
 // One row of the requirements grid (match rework spec §3): label · value
@@ -111,7 +112,7 @@ function ValuePicker({
     case 'skill':
       return null // the pick is the row's title; remove and re-add to change it
     case 'org_history':
-      return <OrgPicker value={row.value} onValue={onValue} />
+      return <OrgHistoryPicker value={row.value} onValue={onValue} />
     case 'location':
       return (
         <ListPicker
@@ -305,7 +306,7 @@ function AvailabilityPicker({
   )
 }
 
-function OrgPicker({
+function OrgHistoryPicker({
   value,
   onValue,
 }: {
@@ -334,12 +335,14 @@ function OrgPicker({
             </option>
           ))}
         </select>
-        <input
-          value={value.org}
-          onChange={(e) => onValue({ ...value, org: e.target.value })}
+        <OrgPicker
+          compact
+          label="Organization name"
           placeholder="Organization name"
-          aria-label="Organization name"
-          className="min-w-0 flex-1 rounded-lg border border-line px-2.5 py-1.5 text-xs outline-none focus:border-brand-400"
+          value={value.org}
+          orgId={value.org_id}
+          onChange={(org, org_id) => onValue({ ...value, org, org_id })}
+          className="min-w-0 flex-1"
         />
       </div>
       {value.scope === 'ever_or_peer' && (

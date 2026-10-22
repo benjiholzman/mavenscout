@@ -1,15 +1,20 @@
 import { Plus } from 'lucide-react'
+import { useOrganizations } from '../../hooks/useOrganizations'
+import { resolveOrganization } from '../../lib/organizations'
 import type {
   AdditionalExperienceEntry,
   EducationEntry,
   WorkHistoryEntry,
 } from '../../types/db'
+import { OrgPicker } from '../ui/OrgPicker'
 import { FieldRow, ListItemCard, TextArea, TextField } from './fields'
 import { LogoLookup } from './LogoLookup'
 
-// The three Experience-tab history editors (PRD 7.2/7.3): Work History (≤10,
-// with manual logo URL — Brandfetch autocomplete is a P1 fast-follow, 7.11),
+// The three Experience-tab history editors (PRD 7.2/7.3): Work History (≤10),
 // Education (≤5), Additional Experience (≤5). Year-level dates only.
+// Work History employers come from the canonical organizations list
+// (profiles-membership §8), which supplies the logo; the manual logo URL and
+// Brandfetch lookup (PRD 7.11) remain only for organizations not on the list.
 
 function AddButton({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
   return (
@@ -61,6 +66,7 @@ export function WorkHistoryEditor({
   onChange: (next: WorkHistoryEntry[]) => void
   cap: number
 }) {
+  const orgs = useOrganizations()
   const update = (i: number, patch: Partial<WorkHistoryEntry>) =>
     onChange(value.map((e, j) => (j === i ? { ...e, ...patch } : e)))
   return (
@@ -68,7 +74,12 @@ export function WorkHistoryEditor({
       {value.map((entry, i) => (
         <ListItemCard key={i} onRemove={() => onChange(value.filter((_, j) => j !== i))}>
           <FieldRow>
-            <TextField label="Organization" value={entry.organization} onChange={(v) => update(i, { organization: v })} />
+            <OrgPicker
+              label="Organization"
+              value={entry.organization}
+              orgId={entry.organization_id}
+              onChange={(organization, organization_id) => update(i, { organization, organization_id })}
+            />
             <TextField label="Role" value={entry.role} onChange={(v) => update(i, { role: v })} />
           </FieldRow>
           <YearFields
@@ -77,21 +88,24 @@ export function WorkHistoryEditor({
             onStart={(v) => update(i, { start_year: v || 0 })}
             onEnd={(v) => update(i, { end_year: v === '' ? null : v })}
           />
-          <div>
-            <TextField
-              label="Logo URL (optional)"
-              value={entry.logo_url ?? ''}
-              onChange={(v) => update(i, { logo_url: v || null })}
-              placeholder="https://…/logo.png"
-              hint="Paste an image URL — shown in Work History and as a card-front Sector Experience chip"
-            />
-            <div className="mt-1">
-              <LogoLookup
-                organization={entry.organization}
-                onPick={(url) => update(i, { logo_url: url })}
+          {/* Listed organizations bring their own logo; this is for the rest. */}
+          {entry.organization.trim() && !resolveOrganization(orgs, entry.organization, entry.organization_id) && (
+            <div>
+              <TextField
+                label="Logo URL (optional)"
+                value={entry.logo_url ?? ''}
+                onChange={(v) => update(i, { logo_url: v || null })}
+                placeholder="https://…/logo.png"
+                hint="Paste an image URL — shown in Work History and as a card-front Sector Experience chip"
               />
+              <div className="mt-1">
+                <LogoLookup
+                  organization={entry.organization}
+                  onPick={(url) => update(i, { logo_url: url })}
+                />
+              </div>
             </div>
-          </div>
+          )}
           <TextArea
             label="Description (optional)"
             rows={2}
@@ -106,7 +120,7 @@ export function WorkHistoryEditor({
         onClick={() =>
           onChange([
             ...value,
-            { organization: '', role: '', start_year: new Date().getFullYear(), end_year: null, logo_url: null, description: null },
+            { organization: '', organization_id: null, role: '', start_year: new Date().getFullYear(), end_year: null, logo_url: null, description: null },
           ])
         }
       />

@@ -40,21 +40,23 @@ const LOGO_LINK = /^https:\/\/cdn\.brandfetch\.io\/([^/?]+)\/?(?:\?|$)/
 
 /** Renderable URL for a stored logo_url: adds the configured client id to an
  *  id-free Logo Link (null without one, so the monogram shows). Links already
- *  carrying `c=` and non-Brandfetch URLs pass through unchanged. */
+ *  carrying `c=` and non-Brandfetch URLs pass through unchanged.
+ *  `fallback/404` makes Brandfetch answer 404 for a domain it has no logo for
+ *  (instead of its generic "B" placeholder), so OrgLogo shows our monogram. */
 export function resolveLogoUrl(url: string | null | undefined): string | null {
-  if (!url || !LOGO_LINK.test(url) || /[?&]c=/.test(url)) return url ?? null
+  if (!url || !LOGO_LINK.test(url) || /[?&]c=/.test(url)) return url || null
   const clientId = brandfetchClientId()
-  return clientId ? `${url.replace(/\/$/, '')}?c=${clientId}` : null
+  return clientId ? `${url.replace(/\/$/, '')}/fallback/404?c=${clientId}` : null
 }
 
-/** Square-icon variant of a stored Logo Link, for small square logo tiles
- *  (Brandfetch serves its own lettermark when a brand has no icon). Any
+/** Square-icon variant of a stored Logo Link, for small square logo tiles.
+ *  A brand without an icon 404s, so OrgLogo shows our monogram. Any
  *  non-Brandfetch URL passes through unchanged. */
 export function logoIconUrl(url: string | null): string | null {
   const domain = url?.match(LOGO_LINK)?.[1]
   const clientId = brandfetchClientId()
   if (!domain || !clientId) return url
-  return `https://cdn.brandfetch.io/${domain}/icon/fallback/lettermark/w/96/h/96?c=${clientId}`
+  return `https://cdn.brandfetch.io/${domain}/icon/fallback/404/w/96/h/96?c=${clientId}`
 }
 
 export async function searchBrands(name: string): Promise<BrandMatch[]> {

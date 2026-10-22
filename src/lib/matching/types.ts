@@ -38,6 +38,9 @@ export type OrgScope = 'current' | 'ever' | 'ever_or_peer'
 
 export interface OrgHistoryValue {
   org: string
+  /** Set when the org was picked from the canonical list; optional so rows
+   *  saved before 009 still load. */
+  org_id?: string | null
   scope: OrgScope
   /** Peer organizations, used only with scope 'ever_or_peer'. Empty in the
    *  placeholder unless the manager adds names; the real engine suggests them. */

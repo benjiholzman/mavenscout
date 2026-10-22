@@ -1,5 +1,6 @@
 import { applyFilters, type TaxonomyTree } from '../filters'
 import type { Requirement } from '../matching/types'
+import type { OrgIndex } from '../organizations'
 import type { PortfolioItem, Profile } from '../../types/db'
 import { passesOrgMustHave } from './match'
 import { gridOnlyMustHaves, mustHavesToFilterState, type SearchState } from './model'
@@ -22,10 +23,10 @@ export interface TaxonomyTrees {
 }
 
 /** Profiles that pass every Org History Must-have (all others pass through). */
-export function applyOrgMustHaves(profiles: Profile[], reqs: Requirement[]): Profile[] {
+export function applyOrgMustHaves(profiles: Profile[], reqs: Requirement[], orgs: OrgIndex): Profile[] {
   const orgRows = gridOnlyMustHaves(reqs)
   if (orgRows.length === 0) return profiles
-  return profiles.filter((p) => orgRows.every((r) => passesOrgMustHave(p, r.value)))
+  return profiles.filter((p) => orgRows.every((r) => passesOrgMustHave(p, r.value, orgs)))
 }
 
 /** Profiles that meet every Must-have row and the search term. */
@@ -35,9 +36,10 @@ export function applyMustHaves(
   reqs: Requirement[],
   search: SearchState,
   trees: TaxonomyTrees,
+  orgs: OrgIndex,
 ): Profile[] {
   return applyFilters(
-    applyOrgMustHaves(profiles, reqs),
+    applyOrgMustHaves(profiles, reqs, orgs),
     portfolioByProfile,
     mustHavesToFilterState(reqs, search),
     trees.expertise,

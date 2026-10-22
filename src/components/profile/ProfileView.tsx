@@ -19,6 +19,8 @@ import {
 } from '../ui/badges'
 import { Carousel } from '../ui/Carousel'
 import { GatePrompt } from '../ui/GatePrompt'
+import { useOrganizations } from '../../hooks/useOrganizations'
+import { entryLogoUrl, orgAcronym, resolveOrganization } from '../../lib/organizations'
 import { OrgLogo } from '../ui/OrgLogo'
 import { TagPills } from '../ui/TagPills'
 import { ContactModal } from './ContactModal'
@@ -374,12 +376,14 @@ function CredentialRef({ value }: { value: string }) {
 
 function TimelineEntry({
   logo,
+  acronym,
   title,
   subtitle,
   years,
   description,
 }: {
   logo?: string | null
+  acronym?: string | null
   title: string
   subtitle: string
   years: string
@@ -390,8 +394,9 @@ function TimelineEntry({
       <OrgLogo
         url={logo}
         name={subtitle}
+        acronym={acronym}
         className="mt-0.5 h-9 w-9 rounded-lg"
-        monogramClassName="bg-brand-100 text-xs font-bold text-brand-700"
+        monogramClassName="font-display text-xs font-bold"
       />
       <div className="min-w-0">
         <p className="text-sm font-semibold">{title}</p>
@@ -410,6 +415,7 @@ function yearsLabel(start: number, end: number | null): string {
 }
 
 function ExperienceTab({ profile, isFirm }: { profile: Profile; isFirm: boolean }) {
+  const orgs = useOrganizations()
   return (
     <div className="max-w-3xl space-y-10">
       {/* Work History + Education are individual-only (PRD 7.19). */}
@@ -420,7 +426,8 @@ function ExperienceTab({ profile, isFirm }: { profile: Profile; isFirm: boolean 
             {profile.work_history.map((w, i) => (
               <TimelineEntry
                 key={i}
-                logo={w.logo_url}
+                logo={entryLogoUrl(orgs, w.organization, w.organization_id, w.logo_url)}
+                acronym={orgAcronym(resolveOrganization(orgs, w.organization, w.organization_id))}
                 title={w.role}
                 subtitle={w.organization}
                 years={yearsLabel(w.start_year, w.end_year)}

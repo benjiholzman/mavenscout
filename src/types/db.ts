@@ -31,7 +31,8 @@ export interface Accreditation {
 }
 
 export interface WorkHistoryEntry {
-  organization: string
+  organization: string // as shown; the canonical name when picked from the list
+  organization_id?: string | null // set when picked from `organizations` (009); else resolved by name at read time
   role: string
   start_year: number
   end_year: number | null // null = "Present"
@@ -101,6 +102,27 @@ export interface Profile {
   updated_at: string
 }
 
+export type OrgType =
+  | 'multilateral'
+  | 'bilateral_donor'
+  | 'un_agency'
+  | 'ngo'
+  | 'government'
+  | 'private_firm'
+  | 'academic'
+  | 'foundation'
+
+/** Canonical organizations list (profiles-membership §8; 009). */
+export interface Organization {
+  id: string
+  name: string
+  aliases: string[] // short and former names: 'WB', 'IBRD', 'DFID'
+  domains: string[] // web/email domains, primary first
+  logo_url: string | null // explicit logo; null = from domains[0]; '' = initials (orgLogoUrl)
+  type: OrgType
+  created_at: string
+}
+
 export interface TaxonomyCategory {
   id: string
   type: TaxonomyType
@@ -130,6 +152,7 @@ export interface PortfolioItem {
   profile_id: string
   project_name: string
   organization: string | null
+  organization_id?: string | null // set when picked from `organizations` (009)
   start_year: number | null
   end_year: number | null // null = ongoing (shown as "–present")
   role: string

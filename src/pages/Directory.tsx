@@ -167,7 +167,7 @@ export default function Directory() {
   /** Candidates meeting every Required row and the search term. */
   const filtered = useMemo(() => {
     if (!data || !trees) return []
-    return applyMustHaves(data.profiles, data.portfolioByProfile, requirements, search, trees)
+    return applyMustHaves(data.profiles, data.portfolioByProfile, requirements, search, trees, data.orgs)
   }, [data, trees, requirements, search])
 
   const countFor = useCallback(
@@ -175,7 +175,7 @@ export default function Directory() {
       data && trees
         ? facetCounts(
             // Org History Required rows have no filter-bar control, so apply them first.
-            applyOrgMustHaves(data.profiles, requirements),
+            applyOrgMustHaves(data.profiles, requirements, data.orgs),
             data.portfolioByProfile,
             filters,
             trees.expertise,
@@ -213,7 +213,7 @@ export default function Directory() {
 
   const excludedCount = useMemo(() => {
     if (!ranking || !data || !trees) return 0
-    const searchPool = applyMustHaves(data.profiles, data.portfolioByProfile, [], search, trees)
+    const searchPool = applyMustHaves(data.profiles, data.portfolioByProfile, [], search, trees, data.orgs)
     return searchPool.length - filtered.length
   }, [ranking, data, trees, search, filtered])
 
@@ -393,7 +393,7 @@ export default function Directory() {
 
   const countFn = useCallback<CountFn>(
     (reqRows, s) =>
-      data && trees ? applyMustHaves(data.profiles, data.portfolioByProfile, reqRows, s, trees).length : 0,
+      data && trees ? applyMustHaves(data.profiles, data.portfolioByProfile, reqRows, s, trees, data.orgs).length : 0,
     [data, trees],
   )
 
@@ -542,6 +542,7 @@ export default function Directory() {
               portfolio={data.portfolioByProfile.get(p.id) ?? []}
               intro={data.introByProfile.get(p.id) ?? null}
               audioCount={data.audioCountByProfile.get(p.id) ?? 0}
+              orgs={data.orgs}
               onFavorite={(p) => save(p, 'favorite')}
               onTopPick={(p) => save(p, 'top_pick')}
               ranked={

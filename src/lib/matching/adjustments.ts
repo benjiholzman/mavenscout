@@ -1,4 +1,5 @@
 import { matchesAvailability, matchesLocation, locationLabel, type AvailabilityFilter } from '../filters'
+import type { OrgIndex } from '../organizations'
 import { orgHistoryOutcome } from '../requirements/match'
 import { rowHasValue } from '../requirements/model'
 import { AVAILABILITY_GRACE_MONTHS, CREDIT, PREFERENCE_POINTS } from './config'
@@ -103,7 +104,7 @@ function judgeTag(
   return { outcome: 'not_met', credit: 0, detail: 'Not tagged or mentioned' }
 }
 
-function judge(c: CandidateInput, r: Requirement, index: TaxonomyIndex, evidence: string): Judged {
+function judge(c: CandidateInput, r: Requirement, index: TaxonomyIndex, orgs: OrgIndex, evidence: string): Judged {
   const p = c.profile
   const met = (detail: string): Judged => ({ outcome: 'met', credit: 1, detail })
   const notMet = (detail: string): Judged => ({ outcome: 'not_met', credit: 0, detail })
@@ -112,7 +113,7 @@ function judge(c: CandidateInput, r: Requirement, index: TaxonomyIndex, evidence
     case 'skill':
       return judgeTag(c, r, index, evidence)
     case 'org_history': {
-      const o = orgHistoryOutcome(p, r.value)
+      const o = orgHistoryOutcome(p, r.value, orgs)
       return { outcome: o.outcome, credit: o.outcome === 'met' ? 1 : o.outcome === 'partial' ? CREDIT.otherPartial : 0, detail: o.detail }
     }
     case 'location':
@@ -153,12 +154,13 @@ export function computeAdjustments(
   c: CandidateInput,
   requirements: Requirement[],
   index: TaxonomyIndex,
+  orgs: OrgIndex,
 ): Adjustment[] {
   const evidence = normalizeText(evidenceText(c))
   return requirements
     .filter((r): r is Requirement & { level: PreferenceLevel } => (r.level === 'slight' || r.level === 'strong') && rowHasValue(r))
     .map((r) => {
-      const j = judge(c, r, index, evidence)
+      const j = judge(c, r, index, orgs, evidence)
       const points = j.outcome === 'met' || j.outcome === 'partial' ? PREFERENCE_POINTS[r.level] * j.credit : 0
       return {
         requirement_id: r.id,

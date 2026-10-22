@@ -1,3 +1,4 @@
+import { loadOrgIndex, type OrgIndex } from '../organizations'
 import { supabase } from '../supabase'
 import { computeAdjustments, mustHavesPassed, type TaxonomyIndex } from './adjustments'
 import { bandFor } from './config'
@@ -94,14 +95,15 @@ export function scorePool(args: {
   requirements: Requirement[]
   candidates: CandidateInput[]
   taxonomy: TaxonomyIndex
+  orgs: OrgIndex
 }): MatchResult[] {
-  const { rawText, extracted, requirements, candidates, taxonomy } = args
+  const { rawText, extracted, requirements, candidates, taxonomy, orgs } = args
   // The JD is read once per run, here — never per candidate.
   const sig = buildJdSignature(rawText, extracted)
 
   const scored: Scored[] = candidates.map((c) => {
     const fb = computeFit(c, sig, taxonomy, rawText)
-    const adjustments = computeAdjustments(c, requirements, taxonomy)
+    const adjustments = computeAdjustments(c, requirements, taxonomy, orgs)
     const scoring = preferenceScoring(adjustments)
     const fit_score = Math.round(fb.fit)
     const total_score = totalScore(fit_score, scoring)
@@ -166,11 +168,12 @@ async function loadEvidence(pool: Profile[]): Promise<CandidateInput[]> {
  */
 export const rankPool: RankPoolFn = async (jobDescriptionId, requirements, pool) => {
   if (pool.length === 0) return []
-  const [jdRes, catsRes, itemsRes, candidates] = await Promise.all([
+  const [jdRes, catsRes, itemsRes, candidates, orgs] = await Promise.all([
     supabase.from('job_descriptions').select('raw_text, extracted').eq('id', jobDescriptionId).single(),
     supabase.from('taxonomy_categories').select('*'),
     supabase.from('taxonomy_items').select('*'),
     loadEvidence(pool),
+    loadOrgIndex(),
   ])
   if (jdRes.error) throw new Error(jdRes.error.message)
   return scorePool({
@@ -179,5 +182,6 @@ export const rankPool: RankPoolFn = async (jobDescriptionId, requirements, pool)
     requirements,
     candidates,
     taxonomy: buildTaxonomyIndex((catsRes.data as TaxonomyCategory[]) ?? [], (itemsRes.data as TaxonomyItem[]) ?? []),
+    orgs,
   })
 }
