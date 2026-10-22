@@ -33,6 +33,7 @@ import {
   withRunPreferences,
   type TagLevelOf,
 } from '../lib/requirements/model'
+import { clearDraft, readDraft, writeDraft } from '../lib/requirements/draft'
 import { applyMustHaves, applyOrgMustHaves } from '../lib/requirements/mustHaves'
 import { useRequirements } from '../lib/requirements/store'
 import { DEMO_HIRING_MANAGER_ID, useSession } from '../lib/session'
@@ -296,12 +297,15 @@ export default function Directory() {
       }
       loadedFor.current = rankingId
       setRanking(rec)
+      // Unsaved preference / JD edits made before leaving come back as a
+      // draft (the stored ranking itself is unchanged until a re-run).
+      const draft = readDraft(rankingId)
       reqs.hydrate({
-        requirements: rec.jd.requirements ?? [],
+        requirements: draft?.requirements ?? rec.jd.requirements ?? [],
         search: { term: params.get('q') ?? '', mode: params.get('qm') === 'full' ? 'full' : 'names' },
       })
-      setJdText(rec.jd.raw_text)
-      setExtracted(rec.jd.extracted)
+      setJdText(draft?.jdText ?? rec.jd.raw_text)
+      setExtracted(draft ? draft.extracted : rec.jd.extracted)
       setJdCollapsed(true)
       setEpoch((e) => e + 1)
     })
@@ -317,6 +321,14 @@ export default function Directory() {
     if (!ranking) return
     updateParams({ q: search.term || null, qm: search.mode === 'full' ? 'full' : null })
   }, [ranking, search.term, search.mode, updateParams])
+
+  // Unsaved edits (preference rows, JD) are kept as a per-tab draft so they
+  // survive leaving and returning; matching the run again discards it.
+  useEffect(() => {
+    if (!ranking) return
+    if (requirementsChanged) writeDraft(ranking.jd.id, { requirements, jdText, extracted })
+    else clearDraft(ranking.jd.id)
+  }, [ranking, requirementsChanged, requirements, jdText, extracted])
 
   // Tightening (or loosening) a Required row after a run is written back to
   // the run — without re-scoring — so a reload keeps it.
@@ -392,6 +404,7 @@ export default function Directory() {
     setRunning(true)
     try {
       const rec = await runRanking({ openingId, rawText: jdText, extracted, requirements, pool: filtered })
+      if (ranking) clearDraft(ranking.jd.id) // the edits are now scored
       loadedFor.current = rec.jd.id
       setRanking(rec)
       updateParams(
@@ -431,6 +444,7 @@ export default function Directory() {
   /** Clear exits ranking mode: the JD, preference rows and ranking go;
    *  Required rows stay on as plain filters (spec §2.2). */
   const clearRanking = () => {
+    if (ranking) clearDraft(ranking.jd.id)
     reqs.dropPreferences()
     setRanking(null)
     loadedFor.current = null
