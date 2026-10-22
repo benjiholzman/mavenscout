@@ -134,6 +134,8 @@ Required is allowed on these rows because the filter bar's Domain Expertise and 
 
 ### 3.3 Expertise / skill matching (placeholder; credit multipliers in config)
 
+> **As built (data-foundations, profiles-membership §6, §11):** expertise and skills are one list with no category tags, so there are no skill rows and no parent-tag credit. Credits are Core ×1.0 and Strong ×0.75 (met), Working knowledge ×0.4 and an untagged text mention ×0.4 (partial); a row takes the better of its tag and text credit. Several Required expertise rows are OR within an item's kind (sector / theme / method) and AND across kinds, counting Core + Strong unless the manager includes Working knowledge. See `src/lib/expertise.ts`.
+
 Requested **item** (e.g. "WASH"):
 - Tagged as that item, primary → **met** (×1.0)
 - Tagged as that item, secondary → **met** (×0.75)
@@ -146,6 +148,8 @@ Requested **category**: tagged the category or any of its items → met (primary
 ---
 
 ## 4. Extraction — `extractRequirements` (placeholder)
+
+> **As built (data-foundations):** `ExtractedRequirements` is `{ expertise, locations, languages, hiring_organization }`: one list of expertise items (`{ name, suggested, mentions }`, no `skills`, no `level`). The placeholder matches each item's name, the old names it absorbed and its aliases (acronyms as written; single generic words skipped).
 
 ```ts
 // PLACEHOLDER — Loop8 replaces with real JD understanding.
@@ -222,6 +226,8 @@ Every Nice to have or Important row with a value is judged for each candidate (R
 ## 6. Contract and persistence
 
 ### 6.1 Types (`src/lib/matching/types.ts`)
+
+> **As built (data-foundations):** `RequirementKind` has no `'skill'`; an expertise row's value is `{ name, includeWorking? }` and a language row's is `{ values, min? }` (`'working'` | `'fluent'`). Rows saved earlier are read through `upgradeLegacyRequirements` in `src/lib/expertise.ts`. Fit no longer reads transcripts (profiles-membership §11).
 
 ```ts
 type Level = 'slight' | 'strong' | 'must'; // Nice to have / Important / Required — no 'none': a row exists only once added

@@ -25,8 +25,9 @@ import { createClient } from '@supabase/supabase-js'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { suggestionsFrom } from '../src/components/ranking/JdSuggestions'
-import { buildExpertiseIndex, upgradeLegacyRequirements } from '../src/lib/expertise'
+import { buildExpertiseIndex, expertiseTags, TIERS } from '../src/lib/expertise'
 import { deriveOptions, locationCountry } from '../src/lib/filters'
+import { spokenLanguages } from '../src/lib/languages'
 import { extractRequirements } from '../src/lib/matching/extract'
 import type { CandidateInput } from '../src/lib/matching/fit'
 import { bandFor } from '../src/lib/matching/config'
@@ -49,6 +50,10 @@ interface Check {
   handle: string
   other?: string
   org?: string
+  /** tier_order: the expertise item whose tier varies. */
+  item?: string
+  /** fluent_only: the Required language set to Working in the variant. */
+  language?: string
   expect: string
   why: string
 }
@@ -58,11 +63,13 @@ interface Tor {
   file: string
   requirements: Requirement[]
   expected_top: { handle: string; why: string }[]
-  expected_extraction: { expertise: string[]; skills: string[]; locations: string[]; languages: string[] }
+  expected_extraction: { expertise: string[]; locations: string[]; languages: string[] }
   checks: Check[]
   ablate?: { row: string; label: string; watch: string }[]
 }
 const { tors } = JSON.parse(readFileSync(join(samples, 'expectations.json'), 'utf8')) as { tors: Tor[] }
+/** Checks reported once per ToR rather than per ranking run. */
+const ONCE_PER_TOR = ['current_vs_former', 'tier_order', 'fluent_only']
 
 function readEnv(): Record<string, string> {
   const env: Record<string, string> = {}
@@ -124,15 +131,6 @@ async function run() {
   const portfolioBy = new Map<string, PortfolioItem[]>()
   for (const it of portfolio) portfolioBy.set(it.profile_id, [...(portfolioBy.get(it.profile_id) ?? []), it])
   const expertise = buildExpertiseIndex(categories, items)
-  // expectations.json rows and expected extraction written for the old two
-  // lists are read through the unified list until they're rewritten.
-  const toItem = (n: string) => (expertise.byName.has(n) ? n : expertise.legacy.get(n) ?? n)
-  for (const tor of tors) {
-    tor.requirements = upgradeLegacyRequirements(tor.requirements, expertise).requirements
-    const ex = tor.expected_extraction
-    ex.expertise = [...new Set([...ex.expertise, ...(ex.skills ?? [])].map(toItem))]
-    ex.skills = []
-  }
   const options = deriveOptions(profiles)
   const ctx = {
     taxonomy: { categories, items },
@@ -157,6 +155,8 @@ async function run() {
     recallTotal: 0,
     orgChecks: 0,
     orgPassed: 0,
+    variantChecks: 0,
+    variantPassed: 0,
     topTies: { fixed: 0, e2e: 0 },
     singleNiceMax: 0,
     ablations: [] as string[],
@@ -228,7 +228,7 @@ async function run() {
         out.push(`| ${nameOf(e.handle)} | ${m ? m.rank : 'filtered'} | ${m?.total_score ?? '–'} | ${m?.fit_score ?? '–'} | ${in5 ? '✓' : '✗'} | ${in10 ? '✓' : '✗'} |`)
       }
       out.push('')
-      const checks = tor.checks.filter((c) => c.type !== 'current_vs_former')
+      const checks = tor.checks.filter((c) => !ONCE_PER_TOR.includes(c.type))
       if (checks.length) {
         out.push('| Check | Profile(s) | Expect | Result | |', '|---|---|---|---|---|')
         for (const c of checks) {
@@ -268,6 +268,66 @@ async function run() {
         `${pass ? '✓' : '✗'} ${c.why}`,
         '',
       )
+    }
+
+    // Variants of one profile, scored in memory next to the original (scoring
+    // is per candidate, so the pool is unaffected).
+    for (const c of tor.checks.filter((c) => c.type === 'tier_order' || c.type === 'fluent_only')) {
+      const p = byHandle.get(c.handle)
+      if (!p) continue
+      const variant = (suffix: string, patch: Partial<Profile>): Profile => ({ ...p, ...patch, id: `${p.id}#${suffix}` })
+      let pass = false
+      let lines: string[] = []
+      if (c.type === 'tier_order' && c.item) {
+        const others = expertiseTags(p).filter((t) => t.name !== c.item)
+        const variants = TIERS.map((tier) => variant(tier, { tiered_expertise: [...others, { name: c.item!, tier }] }))
+        const results = scorePool({
+          rawText,
+          extracted,
+          requirements: tor.requirements,
+          candidates: variants.map((v) => ({ profile: v, portfolio: portfolioBy.get(p.id) ?? [] })),
+          expertise,
+          orgs,
+        })
+        const byTier = TIERS.map((tier) => results.find((r) => r.profile_id.endsWith(`#${tier}`))!)
+        pass = byTier[0].total_score > byTier[1].total_score && byTier[1].total_score > byTier[2].total_score
+        lines = [
+          `### Tier order: ${p.name}, ${c.item}`,
+          '',
+          '| Tier | Total | Fit | Row |',
+          '|---|---|---|---|',
+          ...TIERS.map((tier, i) => {
+            const adj = byTier[i].adjustments.find((a) => a.label === c.item)
+            return `| ${tier} | ${byTier[i].total_score} | ${byTier[i].fit_score} | ${adj ? `${adj.outcome}, ${adj.points} pts (${adj.detail})` : '–'} |`
+          }),
+        ]
+      }
+      if (c.type === 'fluent_only' && c.language) {
+        const working = variant('working', {
+          spoken_languages: spokenLanguages(p).map((l) => (l.name === c.language ? { ...l, proficiency: 'working' as const } : l)),
+        })
+        const row = tor.requirements.find(
+          (r) => r.kind === 'language' && r.level === 'must' && r.value.values.includes(c.language!),
+        )
+        const admitted = (min: 'working' | 'fluent') =>
+          row
+            ? applyMustHaves([p, working], portfolioBy, [{ ...row, value: { ...row.value, min } } as Requirement], EMPTY_SEARCH, expertise, orgs).map((x) => x.id)
+            : []
+        const fluentOnly = admitted('fluent')
+        const workingUp = admitted('working')
+        pass = fluentOnly.includes(p.id) && !fluentOnly.includes(working.id) && workingUp.includes(working.id)
+        lines = [
+          `### Fluent only: ${p.name}, ${c.language}`,
+          '',
+          '| Required row | Original (Fluent) | Variant (Working) |',
+          '|---|---|---|',
+          `| ${c.language}, Fluent only | ${fluentOnly.includes(p.id) ? 'admitted' : 'excluded'} | ${fluentOnly.includes(working.id) ? 'admitted' : 'excluded'} |`,
+          `| ${c.language}, Working or above | ${workingUp.includes(p.id) ? 'admitted' : 'excluded'} | ${workingUp.includes(working.id) ? 'admitted' : 'excluded'} |`,
+        ]
+      }
+      summary.variantChecks += 1
+      summary.variantPassed += pass ? 1 : 0
+      out.push(...lines, '', `${pass ? '✓' : '✗'} ${c.why}`, '')
     }
 
     // What-if: drop a row and compare the top 10.
@@ -358,6 +418,7 @@ async function run() {
     `checks ${summary.e2e.passed}/${summary.e2e.checks}. ` +
     `**Extraction recall:** ${summary.recallFound}/${summary.recallTotal} (${pct(summary.recallFound, summary.recallTotal)}). ` +
     `**Org History scopes:** ${summary.orgPassed}/${summary.orgChecks}. ` +
+    `**Profile variants (tiers, language level):** ${summary.variantPassed}/${summary.variantChecks}. ` +
     `**Ties at the top:** ${summary.topTies.fixed}/${tors.length} ToRs (fixed), ${summary.topTies.e2e}/${tors.length} (end to end). ` +
     `**One Nice to have row:** moves a total by at most ${summary.singleNiceMax} points. ` +
     `**What-ifs:** ${summary.ablations.join('; ') || 'none'}.`
@@ -372,6 +433,7 @@ async function run() {
     '- **Fixed requirements (primary):** the exact rows a sensible manager would set for the ToR. Required rows pre-filter through `applyMustHaves`; nothing from extraction is added to the grid.',
     '- **End to end (secondary):** `extractRequirements` → Add all (every suggestion at Nice to have) → `scorePool`, no Required rows.',
     '- **Extraction:** suggestions vs. the terms a good extractor should find (recall), plus suggestions nobody asked for.',
+    '- **Profile variants:** one profile scored as Core / Strong / Working on an item (higher tier must score higher), and with a Required language at Working (excluded by Fluent only).',
     '- In both runs, Fit reads the JD through the extraction (as `rankPool` does for a stored JD); only the grid rows differ.',
     '- Read-only: the harness only SELECTs and scores in memory. ' +
       `\`job_descriptions\` ${writesBefore.jd} → ${writesAfter.jd}, \`match_results\` ${writesBefore.mr} → ${writesAfter.mr} rows during this run${readOnly ? '' : ' ⚠ CHANGED (something else wrote during the run)'}.`,
@@ -472,7 +534,13 @@ function describeRow(r: Requirement): string {
   const lvl = { slight: 'Nice', strong: 'Important', must: 'Required' }[r.level]
   const v = r.value as any
   const what =
-    'name' in v ? v.name : 'values' in v ? v.values.join('/') : 'org' in v ? `${v.scope} at ${v.org}${v.peers?.length ? ` (+${v.peers.join(', ')})` : ''}` : r.kind
+    'name' in v
+      ? v.name
+      : 'values' in v
+        ? v.values.join('/') + (v.min === 'fluent' ? ', fluent only' : '')
+        : 'org' in v
+          ? `${v.scope} at ${v.org}${v.peers?.length ? ` (+${v.peers.join(', ')})` : ''}`
+          : r.kind
   return `${r.kind} ${what} (${lvl})`
 }
 

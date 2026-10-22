@@ -1,18 +1,18 @@
 {
-  "_about": "Ranking baseline expectations for the five sample ToRs. `requirements` are the exact grid rows a sensible hiring manager would set (app Requirement shape; levels: slight = Nice to have, strong = Important, must = Required). `expected_top` should land in the top 10 (ideally top 5). `expected_extraction` is what a good extractor should suggest from the JD. `checks` are deliberate test cases. `ablate` lists rows to drop as a what-if (the report shows the top 10 with and without them). Read by scripts/ranking-baseline.ts.",
+  "_about": "Ranking baseline expectations for the five sample ToRs. `requirements` are the exact grid rows a sensible hiring manager would set (app Requirement shape; levels: slight = Nice to have, strong = Important, must = Required; expertise rows name items of the unified list, profiles-membership §6; language rows carry `min`: working = Working or above, fluent = Fluent only). `expected_top` should land in the top 10 (ideally top 5). `expected_extraction` is what a good extractor should suggest from the JD. `checks` are deliberate test cases; `tier_order` and `fluent_only` score in-memory variants of one profile (Core / Strong / Working on one item; the Required language at Working). `ablate` lists rows to drop as a what-if (the report shows the top 10 with and without them). Read by scripts/ranking-baseline.ts.",
   "tors": [
     {
       "id": "tor-01",
       "title": "Endline evaluation lead, maternal & child nutrition (Ethiopia)",
       "file": "tor-01-ethiopia-nutrition.txt",
       "requirements": [
-        { "id": "t1-exp-nutrition", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Nutrition", "level": "item" } },
-        { "id": "t1-exp-health", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Health Systems", "level": "item" } },
-        { "id": "t1-sk-ie", "kind": "skill", "level": "strong", "source": "manual", "value": { "name": "Impact Evaluation", "level": "item" } },
-        { "id": "t1-sk-survey", "kind": "skill", "level": "slight", "source": "manual", "value": { "name": "Survey Design", "level": "item" } },
-        { "id": "t1-sk-stats", "kind": "skill", "level": "slight", "source": "manual", "value": { "name": "Statistical Analysis", "level": "item" } },
-        { "id": "t1-lang-req", "kind": "language", "level": "must", "source": "manual", "value": { "values": ["English"] } },
-        { "id": "t1-lang-pref", "kind": "language", "level": "strong", "source": "manual", "value": { "values": ["Amharic", "Somali"] } },
+        { "id": "t1-exp-nutrition", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Nutrition" } },
+        { "id": "t1-exp-health", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Health Systems" } },
+        { "id": "t1-sk-ie", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Impact Evaluation" } },
+        { "id": "t1-sk-survey", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Survey Design" } },
+        { "id": "t1-sk-stats", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Statistical Analysis" } },
+        { "id": "t1-lang-req", "kind": "language", "level": "must", "source": "manual", "value": { "values": ["English"], "min": "working" } },
+        { "id": "t1-lang-pref", "kind": "language", "level": "strong", "source": "manual", "value": { "values": ["Amharic", "Somali"], "min": "working" } },
         { "id": "location", "kind": "location", "level": "slight", "source": "manual", "value": { "values": ["Ethiopia"] } },
         { "id": "career_level", "kind": "career_level", "level": "slight", "source": "manual", "value": { "values": ["senior"] } }
       ],
@@ -23,15 +23,14 @@
         { "handle": "demo-nusrat-jahan-chowdhury", "why": "Senior nutrition impact evaluator who led an Ethiopia endline; strong fit despite being based in Dhaka." }
       ],
       "expected_extraction": {
-        "expertise": ["Nutrition", "Health Systems", "Social Protection", "Gender Mainstreaming"],
-        "skills": ["Impact Evaluation", "Survey Design", "Statistical Analysis", "Workshop Facilitation", "Policy Briefs"],
+        "expertise": ["Nutrition", "Health Systems", "Social Protection", "Gender Mainstreaming", "Impact Evaluation", "Survey Design", "Statistical Analysis", "Workshop Facilitation", "Policy Briefs"],
         "locations": ["Ethiopia"],
         "languages": ["Amharic", "Somali", "English"]
       },
       "checks": [
         { "type": "wrong_location_strong_fit", "handle": "demo-nusrat-jahan-chowdhury", "expect": "top10", "why": "Location is only Nice to have; topical fit should carry her." },
         { "type": "right_location_wrong_fit", "handle": "demo-dawit-kebede-abate", "expect": "not_top10", "why": "Addis-based Amharic speaker, but a transport engineer." },
-        { "type": "specialist_over_generalist", "handle": "demo-yonas-alemu", "other": "demo-selamawit-girma", "expect": "above", "why": "Same evidence text; Yonas tags Nutrition / Impact Evaluation, Selamawit only the broad categories." }
+        { "type": "tier_order", "handle": "demo-hanna-tesfaye", "item": "Nutrition", "expect": "core_above_strong_above_working", "why": "Same profile with Nutrition (an Important row) as Core, Strong and Working knowledge: the higher tier must score higher." }
       ]
     },
     {
@@ -39,12 +38,12 @@
       "title": "Procurement transparency & anti-corruption assessment (Guatemala, Honduras)",
       "file": "tor-02-central-america-procurement.txt",
       "requirements": [
-        { "id": "t2-exp-ac", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Anti-Corruption", "level": "item" } },
-        { "id": "t2-exp-pp", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Public Procurement", "level": "item" } },
-        { "id": "t2-exp-ce", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Citizen Engagement", "level": "item" } },
-        { "id": "t2-sk-pa", "kind": "skill", "level": "slight", "source": "manual", "value": { "name": "Policy Analysis", "level": "item" } },
-        { "id": "t2-sk-ds", "kind": "skill", "level": "slight", "source": "manual", "value": { "name": "Data Science", "level": "item" } },
-        { "id": "t2-lang-req", "kind": "language", "level": "must", "source": "manual", "value": { "values": ["Spanish"] } },
+        { "id": "t2-exp-ac", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Anti-Corruption" } },
+        { "id": "t2-exp-pp", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Public Procurement" } },
+        { "id": "t2-exp-ce", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Citizen Engagement" } },
+        { "id": "t2-sk-pa", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Policy Analysis" } },
+        { "id": "t2-sk-ds", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Data Science" } },
+        { "id": "t2-lang-req", "kind": "language", "level": "must", "source": "manual", "value": { "values": ["Spanish"], "min": "fluent" } },
         { "id": "location", "kind": "location", "level": "slight", "source": "manual", "value": { "values": ["Guatemala", "Honduras"] } }
       ],
       "expected_top": [
@@ -54,14 +53,14 @@
         { "handle": "northstar-advisory-group", "why": "Original seed: Spanish-speaking PFM/anti-corruption firm tagging Anti-Corruption and Public Procurement." }
       ],
       "expected_extraction": {
-        "expertise": ["Public Procurement", "Anti-Corruption", "Citizen Engagement"],
-        "skills": ["Policy Analysis", "Data Science", "Workshop Facilitation", "Stakeholder Facilitation", "Qualitative Research", "Policy Briefs"],
+        "expertise": ["Public Procurement", "Anti-Corruption", "Citizen Engagement", "Policy Analysis", "Data Science", "Workshop Facilitation", "Stakeholder Engagement", "Qualitative Research", "Policy Briefs"],
         "locations": ["Guatemala", "Honduras"],
         "languages": ["Spanish", "English"]
       },
       "checks": [
         { "type": "untagged_text_evidence", "handle": "demo-carolina-rojas-villalobos", "expect": "top10", "why": "Co-wrote procurement audit and anti-corruption reports in both countries, but tags only writing and trade." },
-        { "type": "decoy", "handle": "demo-saad-ahmed-malik", "expect": "not_top10", "why": "Anti-corruption and procurement specialist with no Spanish; excluded by the Required language." }
+        { "type": "decoy", "handle": "demo-saad-ahmed-malik", "expect": "not_top10", "why": "Anti-corruption and procurement specialist with no Spanish; excluded by the Required language." },
+        { "type": "fluent_only", "handle": "demo-lucia-barrios-cifuentes", "language": "Spanish", "expect": "working_excluded", "why": "Spanish is Required at Fluent only: the same profile with Spanish at Working is excluded, and admitted again when the row asks for Working or above." }
       ]
     },
     {
@@ -69,13 +68,13 @@
       "title": "Refugee livelihoods & social cohesion assessment (Jordan, Lebanon)",
       "file": "tor-03-levant-refugee-livelihoods.txt",
       "requirements": [
-        { "id": "t3-exp-ref", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Refugee Support", "level": "item" } },
-        { "id": "t3-exp-sc", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Social Cohesion", "level": "item" } },
-        { "id": "t3-exp-sme", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "SME Support", "level": "item" } },
-        { "id": "t3-sk-mr", "kind": "skill", "level": "slight", "source": "manual", "value": { "name": "Market Research", "level": "item" } },
-        { "id": "t3-sk-sd", "kind": "skill", "level": "slight", "source": "manual", "value": { "name": "Survey Design", "level": "item" } },
-        { "id": "t3-sk-qr", "kind": "skill", "level": "slight", "source": "manual", "value": { "name": "Qualitative Research", "level": "item" } },
-        { "id": "t3-lang-req", "kind": "language", "level": "must", "source": "manual", "value": { "values": ["Arabic"] } },
+        { "id": "t3-exp-ref", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Refugees & Forced Displacement" } },
+        { "id": "t3-exp-sc", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Social Cohesion" } },
+        { "id": "t3-exp-sme", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "SME Development" } },
+        { "id": "t3-sk-mr", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Market Research" } },
+        { "id": "t3-sk-sd", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Survey Design" } },
+        { "id": "t3-sk-qr", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Qualitative Research" } },
+        { "id": "t3-lang-req", "kind": "language", "level": "must", "source": "manual", "value": { "values": ["Arabic"], "min": "fluent" } },
         { "id": "org_history", "kind": "org_history", "level": "slight", "source": "manual", "value": { "org": "UNHCR", "scope": "ever", "peers": [] } },
         { "id": "location", "kind": "location", "level": "slight", "source": "manual", "value": { "values": ["Jordan", "Lebanon"] } }
       ],
@@ -86,8 +85,7 @@
         { "handle": "fatima-al-rashid", "why": "Original seed: Amman refugee researcher at UNHCR Jordan; qualitative and survey design." }
       ],
       "expected_extraction": {
-        "expertise": ["Refugee Support", "Social Cohesion", "SME Support", "Humanitarian Aid"],
-        "skills": ["Market Research", "Survey Design", "Qualitative Research"],
+        "expertise": ["Refugees & Forced Displacement", "Social Cohesion", "SME Development", "Humanitarian Response", "Market Research", "Survey Design", "Qualitative Research"],
         "locations": ["Jordan", "Lebanon"],
         "languages": ["Arabic", "English"]
       },
@@ -103,14 +101,14 @@
       "title": "Smallholder agri-finance market assessment & product design (Philippines, Indonesia)",
       "file": "tor-04-sea-agri-finance.txt",
       "requirements": [
-        { "id": "t4-exp-fi", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Financial Inclusion", "level": "item" } },
-        { "id": "t4-exp-ab", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Agribusiness", "level": "item" } },
-        { "id": "t4-exp-rd", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Rural Development", "level": "item" } },
-        { "id": "t4-sk-mr", "kind": "skill", "level": "strong", "source": "manual", "value": { "name": "Market Research", "level": "item" } },
-        { "id": "t4-sk-fm", "kind": "skill", "level": "slight", "source": "manual", "value": { "name": "Financial Modeling", "level": "item" } },
-        { "id": "t4-sk-sd", "kind": "skill", "level": "slight", "source": "manual", "value": { "name": "Survey Design", "level": "item" } },
+        { "id": "t4-exp-fi", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Financial Inclusion" } },
+        { "id": "t4-exp-ab", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Agribusiness & Value Chains" } },
+        { "id": "t4-exp-rd", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Rural Development" } },
+        { "id": "t4-sk-mr", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Market Research" } },
+        { "id": "t4-sk-fm", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Financial Modeling" } },
+        { "id": "t4-sk-sd", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Survey Design" } },
         { "id": "org_history", "kind": "org_history", "level": "slight", "source": "manual", "value": { "org": "Asian Development Bank", "scope": "ever_or_peer", "peers": ["IFAD", "World Bank"] } },
-        { "id": "t4-lang-pref", "kind": "language", "level": "slight", "source": "manual", "value": { "values": ["Filipino", "Indonesian"] } },
+        { "id": "t4-lang-pref", "kind": "language", "level": "slight", "source": "manual", "value": { "values": ["Filipino", "Indonesian"], "min": "working" } },
         { "id": "location", "kind": "location", "level": "slight", "source": "manual", "value": { "values": ["Philippines", "Indonesia"] } }
       ],
       "expected_top": [
@@ -120,8 +118,7 @@
         { "handle": "demo-archipelago-rural-finance-partners", "why": "Large agri-finance firm that designed an ADB/IFAD facility for both countries." }
       ],
       "expected_extraction": {
-        "expertise": ["Financial Inclusion", "Agribusiness", "Rural Development", "Investment Climate", "Gender Mainstreaming"],
-        "skills": ["Market Research", "Financial Modeling", "Survey Design", "Monitoring & Evaluation"],
+        "expertise": ["Financial Inclusion", "Agribusiness & Value Chains", "Rural Development", "Investment Climate", "Gender Mainstreaming", "Market Research", "Financial Modeling", "Survey Design", "Monitoring & Evaluation"],
         "locations": ["Philippines", "Indonesia"],
         "languages": ["Filipino", "Indonesian"]
       },
@@ -137,13 +134,12 @@
       "title": "E-procurement & digital public services platform (Senegal, Côte d'Ivoire)",
       "file": "tor-05-west-africa-eprocurement.txt",
       "requirements": [
-        { "id": "t5-exp-dg", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Digital Governance", "level": "item" } },
-        { "id": "t5-exp-pp", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Public Procurement", "level": "item" } },
-        { "id": "t5-sk-web", "kind": "skill", "level": "slight", "source": "manual", "value": { "name": "Web Development", "level": "item" } },
-        { "id": "t5-sk-db", "kind": "skill", "level": "slight", "source": "manual", "value": { "name": "Database Management", "level": "item" } },
-        { "id": "t5-sk-cloud", "kind": "skill", "level": "slight", "source": "manual", "value": { "name": "Cloud Architecture", "level": "item" } },
-        { "id": "t5-sk-cm", "kind": "skill", "level": "slight", "source": "manual", "value": { "name": "Change Management", "level": "item" } },
-        { "id": "t5-lang-req", "kind": "language", "level": "must", "source": "manual", "value": { "values": ["French"] } },
+        { "id": "t5-exp-dg", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Digital Governance" } },
+        { "id": "t5-exp-pp", "kind": "expertise", "level": "strong", "source": "manual", "value": { "name": "Public Procurement" } },
+        { "id": "t5-sk-web", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Software Development" } },
+        { "id": "t5-sk-db", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Information Systems" } },
+        { "id": "t5-sk-cm", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Change Management" } },
+        { "id": "t5-lang-req", "kind": "language", "level": "must", "source": "manual", "value": { "values": ["French"], "min": "fluent" } },
         { "id": "t5-type", "kind": "type", "level": "strong", "source": "manual", "value": { "values": ["Small Firm", "Large Firm"] } },
         { "id": "location", "kind": "location", "level": "slight", "source": "manual", "value": { "values": ["Senegal", "Côte d'Ivoire"] } }
       ],
@@ -154,16 +150,15 @@
         { "handle": "demo-kivi-digital-government-advisory", "why": "Tallinn firm with a Francophone Africa e-procurement practice; strong fit despite location." }
       ],
       "expected_extraction": {
-        "expertise": ["Digital Governance", "Public Procurement", "Anti-Corruption"],
-        "skills": ["Cloud Architecture", "Database Management", "Web Development", "Cybersecurity", "Change Management", "Training of Trainers"],
+        "expertise": ["Digital Governance", "Public Procurement", "Anti-Corruption", "Information Systems", "Software Development", "Cybersecurity", "Change Management", "Capacity Building"],
         "locations": ["Senegal", "Côte d'Ivoire"],
         "languages": ["French", "English"]
       },
       "checks": [
         { "type": "wrong_location_strong_fit", "handle": "demo-kivi-digital-government-advisory", "expect": "top10", "why": "Location is Nice to have; firm, French-speaking, e-procurement specialist." },
         { "type": "right_location_wrong_fit", "handle": "demo-ndeye-astou-faye", "expect": "not_top10", "why": "Dakar, French and Wolof, but a gender/GBV specialist." },
-        { "type": "specialist_over_generalist", "handle": "demo-cheikh-tidiane-sarr", "other": "demo-boureima-ouedraogo", "expect": "above", "why": "Both individual digital-government consultants; Boureima tags only broad categories." },
-        { "type": "tie_pair", "handle": "demo-lagune-data-services", "other": "demo-plateau-digital-solutions", "expect": "adjacent_fresher_first", "why": "Identical evidence and tags; Lagune updated availability 5 days ago, Plateau 48." }
+        { "type": "tie_pair", "handle": "demo-lagune-data-services", "other": "demo-plateau-digital-solutions", "expect": "adjacent_fresher_first", "why": "Identical evidence and tags; Lagune updated availability 5 days ago, Plateau 48." },
+        { "type": "tier_order", "handle": "demo-cheikh-tidiane-sarr", "item": "Digital Governance", "expect": "core_above_strong_above_working", "why": "Same profile with Digital Governance (an Important row) as Core, Strong and Working knowledge: the higher tier must score higher." }
       ],
       "ablate": [
         { "row": "t5-type", "label": "firm preferred (Type: Small or Large Firm, Important)", "watch": "demo-cheikh-tidiane-sarr" }

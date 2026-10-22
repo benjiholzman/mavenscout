@@ -1,6 +1,6 @@
-# Unified expertise list — draft for review
+# Unified expertise list
 
-**Status:** draft for profiles-membership §13 step 1 (§6). Nothing is migrated until this list is final; Stage 3 of the `data-foundations` branch builds from it.
+**Status:** approved October 22, 2026 as drafted, with the "Also found as" terms stored as aliases. Seeded by `supabase/011_unified_expertise.sql`; the live list is edited in Admin → Taxonomy.
 
 **140 items** in 15 browsing groups: 70 sectors, 22 cross-cutting themes, 48 methods & skills. 70 are new; the other 70 absorb all 86 items of the old Domain Expertise and Technical Skills lists.
 
@@ -296,8 +296,8 @@
 
 "Best-evidenced" = most whole-word mentions of the item (or the old items it folds in) in the profile's headline, bio and portfolio; ties go to the order above.
 
-## Decisions for you
+## Review decisions
 
-1. **Items:** anything to cut, merge, split, rename or add.
-2. **Kinds:** any item whose kind should change (see "Kind choices" above).
-3. **"Also found as":** I propose storing these as `taxonomy_items.aliases` so the picker finds "M&E", "PFM" or "TVET", and so the placeholder extraction can recognise them in a JD. Without it, the picker and extraction match item names only.
+1. **Items:** approved as drafted.
+2. **Kinds:** approved as drafted.
+3. **"Also found as":** stored as `taxonomy_items.aliases` (decided), so the picker finds "M&E", "PFM" or "TVET" and the placeholder extraction recognises them in a JD.
