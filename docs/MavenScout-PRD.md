@@ -166,6 +166,8 @@ This is a fixed rule set by route + auth state, not a per-profile setting a cons
 
 ### 7.3 Consultant/Firm Onboarding & Profile Editor — P0
 
+> **Superseded by `docs/MavenScout-profiles-membership.md`.**
+
 - Multi-step form: basic info → consultant type (Individual/Small/Large Firm) → bio & experience → domain expertise & technical skills (select up to 2 primary + 4 secondary each, at category or sub-item level; may request a new item; see 7.14) → accreditations & certifications (see 7.15) → availability (part-time/full-time tracks, each with optional from/until dates; see 7.16) → portfolio items (Premium: optional attached video, see 7.5) → **work history, education, and additional experience entries (work-history orgs support logo lookup, see 7.11)** → Video Q&As (general intro for all tiers; Premium: up to 5 standard-question videos — each upload-or-URL, 2-min cap, optional transcript, see 7.5) → audio testimonials — both request-a-reference (generates tokenised link + email template, optional portfolio-item attachment) and direct upload of an audio file the candidate already has (see 7.6) → personal website + social links (see 7.13) → tier selection — choosing Premium opens the **application** with 1–3 evidence uploads + explanations for verification (see 7.20) → submit for admin review.
 - New profiles enter a **pending** state and are not publicly listed until an admin approves them.
 - Consultants can edit their profile at any time after approval; edits auto-publish for v1 (admin can still audit).
@@ -218,6 +220,8 @@ The key distinction is between *viewing* an opening and *participating* in its e
 
 ### 7.5 Video Q&As — P0 (upload or URL; in-browser recording P1)
 
+> **Superseded by `docs/MavenScout-profiles-membership.md`.**
+
 Short candidate videos that let hiring managers evaluate communication style before scheduling a call. Rendered as their own tab on the profile page (see 7.2), and the general intro also appears as a flip-card face (see 7.1). **Visibility:** the **general intro video is public** — shown on `/site/:handle` and to anonymous browsers on `/profile/:handle` (it's the teaser). The **5 Premium standard-question videos** are hidden on `/site` and login-gated on `/profile` (anonymous browsers see a "create a free account to watch" prompt). Portfolio-attached Premium videos follow the same gated rule (see 7.9a).
 
 **Standardized questions (so candidates are comparable):** the whole point is that everyone answers the *same* prompts, so a hiring manager can compare like with like.
@@ -240,6 +244,8 @@ Short candidate videos that let hiring managers evaluate communication style bef
 > **Note on the intro video:** the general introduction is **public** — it shows on `/site`, to anonymous platform browsers, and as a flip-card face (7.1), acting as the teaser that makes the gated Premium Q&A videos more compelling. Only the 5 Premium standard-question videos and portfolio-attached videos are login-gated.
 
 ### 7.6 Audio Testimonials — P0 (real audio upload; in-browser recording P1)
+
+> **Superseded by `docs/MavenScout-profiles-membership.md`.**
 
 Audio testimonials are short spoken references from a candidate's former managers/colleagues. They appear in the Audio Testimonials tab (shown on `/profile/:handle`, hidden on `/site/:handle`, per 7.2a), and a testimonial attached to a specific portfolio item **also** embeds on that portfolio item (see 7.2). Hiring managers listen to them in-app via an audio player.
 
@@ -326,6 +332,8 @@ This is the feature Loop8 is building the real engine for. Fable builds the full
 - [ ] The mock scoring logic and templated narrative are clearly commented/labeled as placeholders in code.
 
 ### 7.8 Subscriptions & Payments — Scaffolding only (P0 data model + UI, no live billing)
+
+> **Superseded by `docs/MavenScout-profiles-membership.md`.**
 
 **How this normally works, for reference:** a real implementation uses Stripe Checkout to collect payment, and a webhook endpoint updates a `subscription_status` field in Supabase whenever Stripe reports a payment succeeding, failing, or a subscription canceling — the app never touches a credit card directly, it just reacts to that status field.
 
@@ -423,6 +431,8 @@ A single page at `/about` explaining the platform to a first-time visitor in eit
 
 ### 7.14 Domain Expertise & Technical Skills — Selection Model — P0
 
+> **Superseded by `docs/MavenScout-profiles-membership.md`.**
+
 How candidates tag themselves against the taxonomy (see Section 8), refined to preserve curation quality — an expert who tags everything looks like a generalist, which defeats the platform's purpose.
 
 **Primary vs. secondary, with caps.** For **each** of the two taxonomies (Domain Expertise and Technical Skills), a candidate selects:
@@ -489,6 +499,8 @@ A free-text field capturing how a candidate can legally be engaged. For **indivi
 
 ### 7.20 Verification & Quality Vetting — P0 (evidence storage stubbed — see security note)
 
+> **Superseded by `docs/MavenScout-profiles-membership.md`.**
+
 The marketplace's core promise is a *trusted, vetted* pool — but the classic adverse-selection risk (the least-qualified are often the most eager to join) means curation is essential. This is handled as a **badge + tiered approval**, not a hard exclusion gate (which would filter for pedigree over quality and exclude excellent non-institutionally-credentialed experts — a real quality miss and a values problem in a localization-focused sector).
 
 **Three approval outcomes** (admin decides on every submitted profile):
@@ -513,6 +525,8 @@ The marketplace's core promise is a *trusted, vetted* pool — but the classic a
 - [ ] Evidence storage is clearly stubbed/flagged as sensitive, not production-persisted.
 
 ### 7.19 Firm vs. Individual Profiles — P0
+
+> **Superseded by `docs/MavenScout-profiles-membership.md`.**
 
 Firms and individuals share one profile type (not a separate entity), but some sections don't apply to a firm and are **conditionally hidden by `consultant_type`** — a rendering rule, not a divergent data model:
 
