@@ -2,7 +2,7 @@
 // 001/002/003 seed files). Keep in sync with the SQL — this is the contract
 // the later real-auth/Stripe/Loop8 passes inherit.
 
-import type { Adjustment, Band, ExtractedRequirements, Requirement } from '../lib/matching/types'
+import type { Adjustment, Band, ExtractedRequirements, Requirement, Scoring } from '../lib/matching/types'
 
 export type ConsultantType = 'Individual' | 'Small Firm' | 'Large Firm'
 export type CareerLevel = 'early_career' | 'mid_career' | 'senior'
@@ -286,12 +286,13 @@ export interface MatchResultRow {
   id: string
   job_description_id: string
   profile_id: string
-  total_score: number // 0–100, after cap and clamp
+  total_score: number // 0–100 (spec §5.3)
   rank: number | null // rank at run time
   band: Band | null
   fit_score: number | null
   adjustments: Adjustment[] | null
-  adjustments_capped: boolean | null
+  scoring: Scoring | null // null only on legacy rows (008 deletes them)
+  adjustments_capped: boolean | null // legacy (pre-008 +20 cap); no longer written
   must_haves_passed: { requirement_id: string; label: string }[] | null
   sub_scores: MatchSubScore[] | null // legacy
   narrative: string | null // ~100 words; templated placeholder this build

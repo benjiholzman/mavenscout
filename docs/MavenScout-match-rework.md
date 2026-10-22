@@ -7,12 +7,12 @@
 
 ## 0. Read this first
 
-**What this branch does:** replaces the "Rank by Job Description" modal and its sliders with a single requirements model. Ranking happens inside the directory: a drawer slides in from the right, and the grid itself becomes the ranked list. Filters and preferences become one grid of rows, each at one of three levels — **Nice to have / Important / Required** (internally `slight` / `strong` / `must`). A row only exists once it's added; no row means no preference. Required rows are hard pre-filters applied *before* scoring. Everything else adjusts a fit score additively, so every point in the final score can be explained.
+**What this branch does:** replaces the "Rank by Job Description" modal and its sliders with a single requirements model. Ranking happens inside the directory: a drawer slides in from the right, and the grid itself becomes the ranked list. Filters and preferences become one grid of rows, each at one of three levels — **Nice to have / Important / Required** (internally `slight` / `strong` / `must`). A row only exists once it's added; no row means no preference. Required rows are hard pre-filters applied *before* scoring. Everything else is weighed against a fit score — preferences carry weight equal to their points, up to 20% of the score (§5.3) — and every point in the final score can be explained.
 
 **Ground rules:**
 - Keep the engine isolated in `src/lib/matching/` — the UI must only touch it through the contract in §6. (As built: the engine is `extract.ts`, `fit.ts`, `adjustments.ts`, `score.ts`, `narrative.ts`; persistence is `persist.ts`; display rounding is `display.ts`; the requirements grid / filter-bar state and the Required pre-filter live app-side in `src/lib/requirements/`.)
 - Placeholder logic (extraction and scoring) stays **clearly labeled as placeholder** in code comments and in the UI, exactly as today. Loop8 replaces it.
-- All tunable numbers (points, cap, band thresholds) live in **one config file** (`src/lib/matching/config.ts`), commented as tunable.
+- All tunable numbers (points, the preference weight cap, band thresholds) live in **one config file** (`src/lib/matching/config.ts`), commented as tunable.
 - The directory **filter bar stays.** It is the view of the Required rows — one shared state, not two (see §2.1).
 - Mobile (375px) is a first-class target — verify every new surface there.
 - **Out of scope for this branch** (Branch 2, later): Mapbox location, UN M49 regions, canonical language list + proficiency, map view. This branch uses the existing free-text `location` and `languages` fields and the existing dynamic filter options. Structure the location and language rows so Branch 2 can swap their value pickers without touching scoring.
@@ -29,7 +29,7 @@
 | Hiring-organization field in the JD step | Org name lives inside the Organizational History row |
 | Filters and ranking as separate state that can drift apart | Filter bar and Required rows are **one shared state**; Required rows pre-filter before scoring |
 | Expanding "Why this score?" box above each card | Fixed rank strip + "Match" flip face + "About this result" modal |
-| Weighted-average total | **Additive** total: Fit + preference adjustments (capped) |
+| Weighted-average total | Fit plus preferences weighted by their points: `(1 − w) × Fit + 100 × w × earned ÷ possible`, w ≤ 20% (§5.3; originally additive with a +20 cap, replaced by 008) |
 | `Best Match` as one sort option among others | While ranking mode is on, order is always rank order (sort dropdown locked); the ranking is held in the URL |
 
 **Unchanged:** login gating (ranking requires a hiring-manager account), ranking persistence semantics (ranking inside an opening persists; ad-hoc ranking is transient unless saved to an opening), "Save ranking to opening…", openings showing their persisted ranking.
@@ -176,24 +176,34 @@ Persist the extraction output with the job description (§6.3).
 ### 5.1 Pipeline
 1. **Pool** = approved + active profiles, narrowed by pool chips (search term) and, inside an opening, today's opening pool semantics.
 2. **Required-row (must-have) pre-filter** as a database query (or as close to it as the current code allows; today it runs in the browser on the loaded pool, in `src/lib/requirements/mustHaves.ts`). Candidates failing any Required row are **not scored**. Required rows add no points.
-3. **Score** each survivor: `total = clamp(fit + Σ adjustments, 0, 100)`.
+3. **Score** each survivor: `total = (1 − w) × fit + 100 × w × (earned ÷ possible)`, `w = min(possible, 20) / 100` (§5.3).
 4. **Rank**, then **band**.
 
 ### 5.2 Fit (0–100)
 The engine's holistic fit to the JD: demonstrated experience (bio, portfolio, accreditations, video/audio transcripts) plus tags. **Not adjustable by the manager.**
 Placeholder: reuse today's computation, internally blending the old Demonstrated Experience / Domain / Skills components at the old 5/3/3 ratio. Labeled placeholder. Tune the placeholder so a profile that is clearly on-topic for the JD lands **≥ 70** — real calibration is Loop8's job, but the demo should not cluster everyone in the 40s.
 
-### 5.3 Adjustments (constants in config)
-For every Nice to have or Important row with a value (Required rows add no points; they already filtered the pool):
+### 5.3 Preferences and the total (constants in config)
+Every Nice to have or Important row with a value is judged for each candidate (Required rows add no points; they already filtered the pool). Each row is worth a number of **points**, which is both what it earns when met and what it adds to the points possible:
 
-| Level | Met | Partial | Not met | Not applicable |
-|---|---|---|---|---|
-| Nice to have (`slight`) | +3 | +3 × credit | 0 | 0 |
-| Important (`strong`) | +8 | +8 × credit | 0 | 0 |
+| Level | Points | Met earns | Partial earns | Not met | Not applicable |
+|---|---|---|---|---|---|
+| Nice to have (`slight`) | 3 | 3 | 3 × credit | 0 | not counted |
+| Important (`strong`) | 8 | 8 | 8 × credit | 0 | not counted |
 
 - `credit` = the multiplier from §3.3 or 0.5 for other partials (peer org, near-miss availability).
-- **Total positive adjustment cap: +20.** Preferences reorder close candidates; they cannot lift a weak fit past a strong one by more than 20 points. When the cap bites, show it in the breakdown ("Preference bonus capped at +20").
-- **Rounding:** compute in floats; store and display the total and Fit rounded. Displayed adjustment points use **largest-remainder rounding** (floor every value, then give the leftover whole points to the values with the largest fractional parts) so they always sum **exactly** to (displayed total − displayed Fit) — e.g. three +2.25 partials with total − Fit = 7 show as +3, +2, +2. When the +20 cap (or the 100 ceiling) applies, the rows are rounded to their uncapped sum and a cap row (and, if needed, a 100-ceiling row) brings the build-up to exactly (total − Fit). The middle number of "Fit 72 + 10 = 82" is that sum, never a separately derived value.
+- **earned** = Σ points earned; **possible** = Σ points of the rows that apply. Not-applicable rows (career level for a firm) count toward neither, so a candidate is never marked down for a row that can't apply to them.
+- **Preferences carry weight equal to their points, up to 20% of the score:**
+  - `w = min(possible, PREFERENCE_CAP_POINTS) / 100`, with `PREFERENCE_CAP_POINTS = 20`;
+  - `total = (1 − w) × Fit + 100 × w × (earned ÷ possible)`;
+  - no applicable preference rows → `w = 0` → `total = Fit`.
+  One Nice to have row is worth about 3% of the score, one Important row 8%; preferences reach 20% only at 20+ points possible. Beyond 20 points possible, more rows share the same 20% rather than stacking, so preferences reorder close candidates but can never move a total by more than 20 points. The total is always within 0–100, so there is no cap row and no clamp. (This replaces the original additive rule, `clamp(Fit + min(Σ adjustments, +20), 0, 100)`, which tied most top candidates at 100 — see `docs/samples/ranking-baseline.md`.)
+- `w`, earned and possible are stored with each result (`match_results.scoring`), so a saved run shows the same build-up even if the config changes.
+- **Display and rounding:** Fit is computed in floats and stored/displayed rounded; the total is computed from the **displayed** Fit and rounded, so the shown equation reproduces exactly (ties still break on the unrounded Fit, §5.5).
+  - **Rows are never converted to score points.** Each preference row shows its own points earned of points possible ("3 of 3 pts", "1.5 of 3 pts", "not counted" for not applicable), exactly (two decimals at most: credits are halves and quarters), so the rows visibly sum to the subtotal's points.
+  - The conversion to score points appears **once**, at the preferences subtotal: "Preferences 23.75 of 46 pts → +11".
+  - Exact rounding lives only at the subtotal and total level: Fit part = `round((1 − w) × Fit)`; preference part = total − Fit part (always between 0 and `100 × w`); Fit part + preference part = total.
+  - Example: Fit 80, one Important row met (8 of 8 pts) and one Nice to have row not met (0 of 3 pts) → possible 11, w = 0.11 → "Fit 80 × 0.89 → 71 · preferences 8 of 11 pts → +8 · Total 79".
 
 ### 5.4 Bands (thresholds in config)
 - **80–100:** Strong match
@@ -235,18 +245,18 @@ interface Adjustment {
   label: string;                 // e.g. "Based in Kenya"
   level: 'slight' | 'strong';      // Nice to have / Important
   outcome: 'met' | 'partial' | 'not_met' | 'not_applicable';
-  points: number;                // signed, after credit, before cap
+  points: number;                // earned: points × credit when met/partial, else 0
   detail: string;                // e.g. "Tagged as secondary expertise"; org: "Same org" / "Peer org: ADB"
 }
 
 interface MatchResult {
   profile_id: string;
   rank: number;
-  total_score: number;           // 0–100, after cap and clamp
+  total_score: number;           // 0–100: round((1 − w) × fit_score + 100 × w × earned ÷ possible)
   band: 'strong' | 'good' | 'partial' | 'weak';
   fit_score: number;             // 0–100
   adjustments: Adjustment[];
-  adjustments_capped: boolean;
+  scoring: { weight: number; earned: number; possible: number }; // §5.3; w = weight
   must_haves_passed: { requirement_id: string; label: string }[];
   narrative: string;             // ~100 words, PLACEHOLDER template
 }
@@ -257,7 +267,7 @@ rankPool(jobDescriptionId, requirements: Requirement[], pool: Profile[]): Promis
 ```
 
 ### 6.2 Narrative (placeholder)
-Template must be **grounded in the actual numbers** and never contradict them. Reference the band, the Fit score, the largest positive adjustment (with its displayed, largest-remainder points), and the most important unmet Important row (if any). Do not call a preference "the strongest signal" relative to the profile's evidence — the current template does this and should be removed.
+Template must be **grounded in the actual numbers** and never contradict them. Reference the band, the Fit score and its weight, what the preferences earned and the score points that converts to (as on screen), the best-met preference row by its own points ("8 of 8 pts" — never credit an individual row with score points), and the most important unmet Important row (if any). Do not call a preference "the strongest signal" relative to the profile's evidence — the current template does this and should be removed.
 
 ### 6.3 Migration — `supabase/005_match_rework.sql`
 (Numbered 005 because `004_portfolio_org_and_logos.sql` already existed. `000_schema.sql` carries the same columns for fresh projects.)
@@ -265,6 +275,10 @@ Template must be **grounded in the actual numbers** and never contradict them. R
 - `match_results`: add `rank int`, `band text`, `fit_score int`, `adjustments jsonb`, `adjustments_capped bool`, `must_haves_passed jsonb`; keep `sub_scores` nullable for legacy rows.
 - Re-create the seeded Sahel opening's persisted ranking under the new model (or delete it and document how to re-run it). As built: 005 deletes pre-rework rankings; the Sahel ranking was re-created through the UI from `docs/samples/sahel-me-tor.txt` (steps in `DEVELOPER-HANDOFF.md`).
 - Add `005` to the run order in `DEVELOPER-HANDOFF.md` and anywhere else the order is listed.
+
+### 6.4 Migration — `supabase/008_score_normalization.sql`
+- `match_results`: add `scoring jsonb` (`{weight, earned, possible}`, §5.3); `adjustments_capped` stays as a legacy column, no longer written.
+- Deletes ranking runs scored under the old additive formula (results without `scoring`); they can't be shown in the new build-up. Re-create the Sahel ranking through the UI (steps in `DEVELOPER-HANDOFF.md`).
 
 ---
 
@@ -279,17 +293,17 @@ Template must be **grounded in the actual numbers** and never contradict them. R
 - Inserted as **face 2** (right after Front), in the directory while ranking mode is on. (Openings and shared shortlists have no flip cards; their rows get the strip and the "About this result" modal — §7.1.)
 - Contents, top to bottom:
   - Fit score bar with its value.
-  - Adjustment list, each with an outcome icon (✓ met / ◐ partial / ✗ not met / – n/a), label, and points (e.g. "+8").
+  - "Your preferences · 8% of score", then each row with an outcome icon (✓ met / ◐ partial / ✗ not met / – n/a), label, and its own points ("3 of 3 pts") — Important rows first, then most points earned.
   - Required line: "Meets all 3 Required rows" (omit if none).
-  - Equation line: **"Fit 72 + 10 = 82"** (note the cap if it applied). The middle number is the sum of the displayed adjustments plus any cap row (largest-remainder rounding, §5.3), so it always adds up.
-- Must fit the face without scrolling at desktop and 375px. If there are more than 6 adjustments, show the 6 largest by |points| and "+N more" → opens the modal.
+  - Equation line: **"Fit 80 × 0.92 → 74 · preferences 5 of 8 pts → +5 · Total 79"**, or "Total = Fit 83" when no preference row applies. This is the one place preferences convert to score points (§5.3), and it always adds up.
+- Must fit the face without scrolling at desktop and 375px. If there are more than 6 preference rows, show the first 6 in that order and "+N more" → opens the modal.
 
 ### 7.3 "About this result" modal
 - Header: name, rank, score, band.
-- **Score build-up table:** Fit row, one row per adjustment (outcome, detail, points), cap row if applied, total.
+- **Score build-up table:** Fit row ("Fit 80 × 0.92" → 74), one row per preference (outcome, detail, its own "x of y pts" — no score points), a preferences subtotal ("Preferences 5 of 8 pts →" +5, "worth 8% of the score"), and the total with the equation line. The score column (Fit part, subtotal, total) adds up exactly.
 - Required rows met (✓ list).
 - Narrative (~100 words, labeled placeholder).
-- Collapsible **"How scoring works"**: Fit is the engine's judgment of fit to the JD; preferences add up to +20; must-haves exclude before scoring; tie-break rule; Premium does not affect rank; placeholder notice.
+- Collapsible **"How scoring works"**: Fit is the engine's judgment of fit to the JD; preferences carry weight equal to their points, up to 20% of the score (earned ÷ possible; not-applicable rows don't count; no preferences → total = Fit); must-haves exclude before scoring; tie-break rule; Premium does not affect rank; placeholder notice.
 - Mobile: full-screen sheet.
 
 ### 7.4 Results header banner
@@ -341,8 +355,10 @@ Keep the current banner: "Ranked N candidates against your JD · placeholder sco
 - [ ] Expertise and skill rows allow Required with the inline warning; max 10 combined.
 - [ ] Live count updates as rows change; Run is disabled at 0.
 - [ ] Candidates failing any Required row are excluded before scoring; the banner shows how many were excluded.
-- [ ] Total = Fit + adjustments, positive adjustments capped at +20, clamped 0–100; all constants live in `config.ts`.
-- [ ] Displayed adjustments use largest-remainder rounding and sum exactly to (displayed total − displayed Fit), with cap / 100-ceiling rows when they apply.
+- [ ] Total = (1 − w) × Fit + 100 × w × (earned ÷ possible), w = min(possible, 20) / 100; no applicable preference rows → total = Fit; not-applicable rows count toward neither earned nor possible; no cap row and no clamp. `PREFERENCE_POINTS` and `PREFERENCE_CAP_POINTS` live in `config.ts`; `w`, earned and possible are stored in `match_results.scoring`.
+- [ ] A single Nice to have row moves any total by at most about 3 points; a single Important row by at most about 8.
+- [ ] Preference rows show their own points ("3 of 3 pts", "1.5 of 3 pts"), never score points, on the Match face, in the About table and in the narrative; the conversion appears once, at the subtotal ("Preferences 23.75 of 46 pts → +11"). The score column adds up exactly: Fit part = round((1 − w) × Fit), preference part = total − Fit part.
+- [ ] `008_score_normalization.sql` runs cleanly and is safe to re-run; the Sahel ranking is re-created under the new formula.
 - [ ] Bands display per thresholds; ties break by Fit, then availability freshness, then id; Premium does not affect ranked order.
 - [ ] Each ranked card has a fixed-height rank strip, a "Match" face 2 with the equation line, and an "About this result" modal with the full build-up table; card heights stay uniform.
 - [ ] Narrative references actual numbers and never contradicts them.

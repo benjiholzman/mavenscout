@@ -12,8 +12,8 @@ RLS notes) — the PRD defines *what* was intended; this defines *where the seam
 |---|---|
 | Stack | React 18 + TypeScript + Vite, Tailwind 3, Framer Motion, React Router 6, Supabase (Postgres + Storage) |
 | Run | `npm install && npm run dev` — needs `.env` with `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (see `.env.example`) |
-| Database | `supabase/000_schema.sql` → `001` → `002` → `003` → `004` → `005` → `006` → `007_seed_demo_profiles_1` … `_4`, run in order in the Supabase SQL editor. 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data; 004 fills portfolio organization/years and work-history logo links on the seeded rows; 005 adds the match-rework columns (`job_descriptions.requirements/extracted`; `match_results.rank/band/fit_score/adjustments/adjustments_capped/must_haves_passed`) and deletes pre-rework rankings; 006 adds `profiles.is_demo` (flags the original 15 and normalizes their country names); the four 007 files add 100 synthetic `demo-*` profiles (generated — see *Demo data* below). A fresh project bootstraps from these files. An existing database only needs the migrations it hasn't run — 004 and 005 use `ADD COLUMN IF NOT EXISTS`, so they're no-ops on fresh projects, where 000 already creates the columns. |
-| Verification baseline | Every PRD Definition-of-Done item (Section 13) was verified in-browser at desktop and 375px before handoff. The Playwright scripts lived in a temp scratchpad and are **not** committed — if you want a regression suite, the DoD checklist is the spec to automate against. The match rework's acceptance criteria (`docs/MavenScout-match-rework.md` §10) were verified the same way at desktop (1280px) and 375px in October 2026, plus scripted checks of the filter-bar ↔ requirements round-trip (22 filter combinations matched the pre-rework directory except the intended career-level change), the scoring math, and the largest-remainder rounding (20,000 random cases); those scripts are not committed either. |
+| Database | `supabase/000_schema.sql` → `001` → `002` → `003` → `004` → `005` → `006` → `007_seed_demo_profiles_1` … `_4` → `008`, run in order in the Supabase SQL editor. 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data; 004 fills portfolio organization/years and work-history logo links on the seeded rows; 005 adds the match-rework columns (`job_descriptions.requirements/extracted`; `match_results.rank/band/fit_score/adjustments/adjustments_capped/must_haves_passed`) and deletes pre-rework rankings; 006 adds `profiles.is_demo` (flags the original 15 and normalizes their country names); the four 007 files add 100 synthetic `demo-*` profiles (generated — see *Demo data* below); 008 adds `match_results.scoring` for the preference-weighted total and deletes rankings scored under the old additive formula. A fresh project bootstraps from these files. An existing database only needs the migrations it hasn't run — 004 and 005 use `ADD COLUMN IF NOT EXISTS`, so they're no-ops on fresh projects, where 000 already creates the columns. |
+| Verification baseline | Every PRD Definition-of-Done item (Section 13) was verified in-browser at desktop and 375px before handoff. The Playwright scripts lived in a temp scratchpad and are **not** committed — if you want a regression suite, the DoD checklist is the spec to automate against. The match rework's acceptance criteria (`docs/MavenScout-match-rework.md` §10) were verified the same way at desktop (1280px) and 375px in October 2026, plus scripted checks of the filter-bar ↔ requirements round-trip (22 filter combinations matched the pre-rework directory except the intended career-level change), the scoring math, and the displayed rounding (20,000 random cases, re-run for the preference-weighted total); those scripts are not committed either. |
 
 ## What is mocked vs. real (the load-bearing distinction)
 
@@ -126,18 +126,24 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
     receives the stored JD by id (never the full text per candidate) plus the
     requirement rows, and a pool that has **already passed the Required rows**.
     Returns ranked results: `fit_score`, one `Adjustment` per Nice to have /
-    Important row (`met | partial | not_met | not_applicable`, signed points),
-    `adjustments_capped`, `must_haves_passed`, `band`, `rank`, `narrative`.
-- **Scoring rule the UI explains to managers** (spec §5): `total = clamp(Fit +
-  min(Σ positive adjustments, +20), 0, 100)`. Nice to have = +3 when met, Important
-  = +8, partials × credit. Every tunable number is in `config.ts`. Ties: Fit → more
+    Important row (`met | partial | not_met | not_applicable`, points earned),
+    `scoring` (`{weight, earned, possible}`), `must_haves_passed`, `band`, `rank`,
+    `narrative`.
+- **Scoring rule the UI explains to managers** (spec §5.3): preferences carry
+  weight equal to their points, up to 20% of the score —
+  `w = min(possible, 20) / 100`, `total = (1 − w) × Fit + 100 × w × earned ÷ possible`,
+  and `total = Fit` with no applicable preference rows. A Nice to have row is worth
+  3 points, Important 8, partials × credit; not-applicable rows count toward
+  neither earned nor possible. The pure formula is `total.ts`, shared by the scorer
+  and the display. Every tunable number is in `config.ts`. Ties: Fit → more
   recent `availability_updated_at` → id. Premium never affects rank.
 - **What stays app-side** (don't move it into the engine):
   - The requirements grid / filter-bar state (`src/lib/requirements/`). Required
     rows are evaluated by `applyMustHaves()` (`mustHaves.ts`), which reuses the
     directory filter logic exactly. It runs in the browser on the loaded pool
     today; it's the one place to turn into a database query when the pool grows.
-  - Displayed rounding (`display.ts`, largest-remainder) and persistence
+  - The displayed build-up (`display.ts`: rows show their own points; Fit part +
+    preferences = total, exactly) and persistence
     (`persist.ts`).
 - **Org History:** the tiered `met` / `partial` (peer org) / `not_met` shape is the
   contract. The placeholder matches names only, and peers only if the manager types
@@ -150,6 +156,19 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
 - The placeholder Fit is calibrated in `config.ts` (`FIT_CALIBRATION`) against the
   sample ToR in `docs/samples/` — on-topic profiles ~75, related ~55, unrelated
   13–37. Real calibration is the engine's job.
+- **Open calibration question: "Strong" becomes rare with many preference rows.**
+  Bands are fixed at Strong ≥ 80 / Good ≥ 65 / Partial ≥ 50 (`BAND_THRESHOLDS`),
+  kept after the preference weighting because on the five sample ToRs they separate
+  expected profiles from everyone else cleanly (Strong admits no non-expected
+  profile; every expected profile is at least Good — see "Score distribution by
+  role" in `docs/samples/ranking-baseline.md`). But with many Nice to have / Important
+  rows, w hits the 20% cap and the earned ÷ possible ratio falls, because few
+  candidates meet most of a long list: the Sahel ranking (Add all: 12 rows, 46 points
+  possible) tops out at 77, so nobody there is Strong, although its #1 has Fit 83.
+  The UI nudges managers ("Adding many preferences spreads their weight; keep the
+  ones that matter" under Add all), but the engine should decide whether bands
+  should account for the number of rows (or the ratio should be normalized), and
+  re-check against the baseline.
 - **Baseline to beat:** `npm run baseline` scores five sample ToRs
   (`docs/samples/tor-0*.txt`) against the live pool with the current engine and
   rewrites `docs/samples/ranking-baseline.md`: whether the expected profiles land in
@@ -171,7 +190,8 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   Sahel opening holds a persisted full-pool AI ranking. All are safe to replace/delete;
   they exist so every feature demos without setup.
 - **The Sahel ranking is not in the seed files** — the app created it, and
-  `005_match_rework.sql` deletes any pre-rework ranking. To re-create it (or on a
+  `005_match_rework.sql` and `008_score_normalization.sql` each delete rankings
+  scored under an older formula. To re-create it (or on a
   fresh project): log in as the hiring manager (dev switcher) → My openings →
   *Senior M&E Consultant — Sahel Resilience Program* → **Rank candidates** → paste
   `docs/samples/sahel-me-tor.txt` → **Read job description** → **Add all** → set

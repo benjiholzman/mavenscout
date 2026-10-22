@@ -1,9 +1,10 @@
 import { supabase } from '../supabase'
 import { computeAdjustments, mustHavesPassed, type TaxonomyIndex } from './adjustments'
-import { ADJUSTMENT_CAP, bandFor } from './config'
+import { bandFor } from './config'
 import { scoreBreakdown } from './display'
 import { buildJdSignature, computeFit, tagCredit, type CandidateInput, type TagIndex } from './fit'
 import { buildNarrative } from './narrative'
+import { preferenceScoring, totalScore } from './total'
 import type { ExtractedRequirements, MatchResult, RankPoolFn, Requirement } from './types'
 import type {
   AudioTestimonial,
@@ -20,13 +21,15 @@ import type {
 //
 // Pipeline (§5.1): the caller has already applied the Must-have pre-filter
 // (src/lib/requirements/mustHaves.ts) — candidates failing a Must-have never
-// reach this function. For each survivor:
-//   total = clamp(Fit + min(Σ positive adjustments, +20), 0, 100)
-// then rank (total ↓, Fit ↓, availability freshness ↓, id ↑) and band.
+// reach this function. For each survivor (total.ts):
+//   w = min(points possible, 20) / 100
+//   total = (1 − w) × Fit + 100 × w × (points earned ÷ points possible)
+// with total = Fit when no preference row applies; then rank (total ↓, Fit ↓,
+// availability freshness ↓, id ↑) and band.
 //
-// Rounding (§5.3): everything is computed in floats; only the stored/displayed
-// total and Fit are rounded here. Displayed adjustment points come from
-// display.ts (largest-remainder rounding), so the build-up always adds up.
+// Rounding (§5.3): Fit is computed in floats and rounded for storage/display;
+// the total is computed from that displayed Fit and rounded. The displayed
+// build-up comes from display.ts (Fit part + preferences = total, exactly).
 // ============================================================================
 
 function tagIndex(cats: TaxonomyCategory[], items: TaxonomyItem[], type: TaxonomyCategory['type']): TagIndex {
@@ -99,12 +102,9 @@ export function scorePool(args: {
   const scored: Scored[] = candidates.map((c) => {
     const fb = computeFit(c, sig, taxonomy, rawText)
     const adjustments = computeAdjustments(c, requirements, taxonomy)
-    const positive = adjustments.reduce((s, a) => s + Math.max(0, a.points), 0)
-    const negative = adjustments.reduce((s, a) => s + Math.min(0, a.points), 0)
-    const capped = positive > ADJUSTMENT_CAP
-    const bonus = Math.min(positive, ADJUSTMENT_CAP) + negative
-    const total_score = Math.round(Math.max(0, Math.min(100, fb.fit + bonus)))
+    const scoring = preferenceScoring(adjustments)
     const fit_score = Math.round(fb.fit)
+    const total_score = totalScore(fit_score, scoring)
     const band = bandFor(total_score)
     const coveredTerms = [...sig.expertise.map((t) => ({ t, idx: taxonomy.expertise, tags: c.profile.expertise })), ...sig.skills.map((t) => ({ t, idx: taxonomy.skills, tags: c.profile.skills }))]
       .map(({ t, idx, tags }) => ({ name: t.name, credit: tagCredit(tags, t, idx).credit }))
@@ -118,15 +118,13 @@ export function scorePool(args: {
       fit_score,
       fitFloat: fb.fit,
       adjustments,
-      adjustments_capped: capped,
+      scoring,
       must_haves_passed: mustHavesPassed(c, requirements, taxonomy),
       narrative: buildNarrative({
         profile: c.profile,
         total: total_score,
         band,
-        fit: fit_score,
-        capped,
-        breakdown: scoreBreakdown({ fit_score, total_score, adjustments, adjustments_capped: capped }),
+        breakdown: scoreBreakdown({ fit_score, total_score, adjustments, scoring }),
         coveredTerms,
       }),
     }

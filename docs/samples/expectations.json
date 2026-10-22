@@ -1,5 +1,5 @@
 {
-  "_about": "Ranking baseline expectations for the five sample ToRs. `requirements` are the exact grid rows a sensible hiring manager would set (app Requirement shape; levels: slight = Nice to have, strong = Important, must = Required). `expected_top` should land in the top 10 (ideally top 5). `expected_extraction` is what a good extractor should suggest from the JD. `checks` are deliberate test cases. Read by scripts/ranking-baseline.ts.",
+  "_about": "Ranking baseline expectations for the five sample ToRs. `requirements` are the exact grid rows a sensible hiring manager would set (app Requirement shape; levels: slight = Nice to have, strong = Important, must = Required). `expected_top` should land in the top 10 (ideally top 5). `expected_extraction` is what a good extractor should suggest from the JD. `checks` are deliberate test cases. `ablate` lists rows to drop as a what-if (the report shows the top 10 with and without them). Read by scripts/ranking-baseline.ts.",
   "tors": [
     {
       "id": "tor-01",
@@ -164,6 +164,9 @@
         { "type": "right_location_wrong_fit", "handle": "demo-ndeye-astou-faye", "expect": "not_top10", "why": "Dakar, French and Wolof, but a gender/GBV specialist." },
         { "type": "specialist_over_generalist", "handle": "demo-cheikh-tidiane-sarr", "other": "demo-boureima-ouedraogo", "expect": "above", "why": "Both individual digital-government consultants; Boureima tags only broad categories." },
         { "type": "tie_pair", "handle": "demo-lagune-data-services", "other": "demo-plateau-digital-solutions", "expect": "adjacent_fresher_first", "why": "Identical evidence and tags; Lagune updated availability 5 days ago, Plateau 48." }
+      ],
+      "ablate": [
+        { "row": "t5-type", "label": "firm preferred (Type: Small or Large Firm, Important)", "watch": "demo-cheikh-tidiane-sarr" }
       ]
     }
   ]

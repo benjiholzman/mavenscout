@@ -149,18 +149,29 @@ export interface Adjustment {
   label: string // e.g. "Based in Kenya"
   level: PreferenceLevel
   outcome: Outcome
-  points: number // signed, after credit, before the cap
+  points: number // earned: PREFERENCE_POINTS[level] × credit when met/partial, else 0
   detail: string // e.g. "Tagged as secondary expertise"; org: "Same org" / "Peer org: ADB"
+}
+
+/** How preferences were weighed for one result (spec §5.3). Stored with the
+ *  result so a saved run displays the same build-up if config changes. */
+export interface Scoring {
+  /** w = min(possible, PREFERENCE_CAP_POINTS) / 100; 0 when no applicable rows. */
+  weight: number
+  /** Σ points earned by applicable Nice to have / Important rows. */
+  earned: number
+  /** Σ full points of those rows (not-applicable rows excluded). */
+  possible: number
 }
 
 export interface MatchResult {
   profile_id: string
   rank: number
-  total_score: number // 0–100, after cap and clamp
+  total_score: number // 0–100: round((1 − w) × fit_score + 100 × w × earned ÷ possible)
   band: Band
   fit_score: number // 0–100
   adjustments: Adjustment[]
-  adjustments_capped: boolean
+  scoring: Scoring
   must_haves_passed: { requirement_id: string; label: string }[]
   narrative: string // ~100 words, PLACEHOLDER template
 }

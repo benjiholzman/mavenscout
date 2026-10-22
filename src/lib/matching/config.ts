@@ -9,8 +9,9 @@ import type { Band, PreferenceLevel } from './types'
 
 // ---- Preference adjustments (spec §5.3) ------------------------------------
 
-/** Points a Slight or Strong row adds when it's met. Partial outcomes earn
- *  points × credit; not met and not applicable earn 0. TUNABLE. */
+/** Points a Slight or Strong row is worth: what it earns when met, and what it
+ *  adds to the points possible. Partial outcomes earn points × credit; not met
+ *  earns 0; not applicable rows count toward neither. TUNABLE. */
 export const PREFERENCE_POINTS: Record<PreferenceLevel, number> = {
   slight: 3,
   strong: 8,
@@ -30,9 +31,14 @@ export const CREDIT = {
   otherPartial: 0.5,
 } as const
 
-/** Cap on the total POSITIVE adjustment. Preferences reorder close candidates;
- *  they can't lift a weak Fit past a strong one by more than this. TUNABLE. */
-export const ADJUSTMENT_CAP = 20
+/** Preferences carry weight equal to their points possible, up to this many
+ *  points (i.e. percent of the score). TUNABLE. Spec §5.3:
+ *    w = min(possible, PREFERENCE_CAP_POINTS) / 100
+ *    total = (1 − w) × Fit + 100 × w × (earned ÷ possible)
+ *  so one Nice to have row is worth about 3% of the score, one Important row
+ *  8%, and preferences reach 20% only at 20+ points possible. With no
+ *  applicable preference rows, w = 0 and total = Fit. */
+export const PREFERENCE_CAP_POINTS = 20
 
 // ---- Bands (spec §5.4) -----------------------------------------------------
 
