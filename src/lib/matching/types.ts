@@ -1,5 +1,5 @@
 import type { AvailabilityFilter } from '../filters'
-import type { Profile, TaxonomyCategory, TaxonomyItem } from '../../types/db'
+import type { Proficiency, Profile, TaxonomyCategory, TaxonomyItem } from '../../types/db'
 
 // ============================================================================
 // Matching contract (docs/MavenScout-match-rework.md §6.1).
@@ -20,7 +20,6 @@ export type PreferenceLevel = 'slight' | 'strong'
 
 export type RequirementKind =
   | 'expertise'
-  | 'skill'
   | 'org_history'
   | 'location'
   | 'language'
@@ -38,16 +37,24 @@ export type OrgScope = 'current' | 'ever' | 'ever_or_peer'
 
 export interface OrgHistoryValue {
   org: string
+  /** Set when the org was picked from the canonical list; optional so rows
+   *  saved before 009 still load. */
+  org_id?: string | null
   scope: OrgScope
   /** Peer organizations, used only with scope 'ever_or_peer'. Empty in the
    *  placeholder unless the manager adds names; the real engine suggests them. */
   peers: string[]
 }
 
-/** One taxonomy category or item (expertise and skill rows). */
-export interface TagValue {
+/** One item from the unified expertise list (profiles-membership §6). Rows
+ *  saved before the list (kind 'skill', old names, `level`) are read through
+ *  upgradeLegacyRequirements in lib/expertise. */
+export interface ExpertiseValue {
   name: string
-  level: 'category' | 'item'
+  /** Required rows only: also count Working knowledge tags (default: Core and
+   *  Strong). One setting for all Required expertise rows, kept on each so a
+   *  saved run restores it. */
+  includeWorking?: boolean
 }
 
 /** A multi-select value ("any of"). Location values use the filter's own
@@ -58,12 +65,18 @@ export interface ValuesValue {
   values: string[]
 }
 
+/** Languages ("speaks any of") at a minimum proficiency: 'working' = Working
+ *  or above (Fluent satisfies it), 'fluent' = Fluent only. `min` is optional
+ *  so rows saved before languages had proficiency still load (= 'working'). */
+export interface LanguageValue extends ValuesValue {
+  min?: Proficiency
+}
+
 export interface RequirementValueByKind {
-  expertise: TagValue
-  skill: TagValue
+  expertise: ExpertiseValue
   org_history: OrgHistoryValue
   location: ValuesValue
-  language: ValuesValue
+  language: LanguageValue
   type: ValuesValue
   /** Same shape as the filter bar's availability filter, so the two stay one
    *  state. "Available by [month]" in the grid edits untilMonth. */
@@ -102,12 +115,13 @@ export const ALWAYS_PRESENT_KINDS = [
   'work_arrangement',
 ] as const satisfies readonly RequirementKind[]
 
-/** Rows added from the JD or with "+ Add expertise" / "+ Add skill" (§3.2). */
-export const ADDABLE_KINDS = ['expertise', 'skill'] as const satisfies readonly RequirementKind[]
+/** Rows added from the JD or with "+ Expertise" (§3.2). */
+export const ADDABLE_KINDS = ['expertise'] as const satisfies readonly RequirementKind[]
 
 // ---- Extraction (spec §4) -----------------------------------------------------
 
-export interface ExtractedTag extends TagValue {
+export interface ExtractedTag {
+  name: string
   /** How strongly the JD leans on it (feeds the placeholder Fit). The grid
    *  always adds a suggestion at Nice to have; the manager adjusts. */
   suggested: PreferenceLevel
@@ -124,8 +138,8 @@ export interface ExtractedValue {
  *  to the grid until the manager adds it, and extraction never suggests
  *  Required. Persisted on job_descriptions.extracted. */
 export interface ExtractedRequirements {
+  /** Items from the unified expertise list (one list; no categories). */
   expertise: ExtractedTag[]
-  skills: ExtractedTag[]
   locations: ExtractedValue[]
   languages: ExtractedValue[]
   hiring_organization: string | null
@@ -150,7 +164,7 @@ export interface Adjustment {
   level: PreferenceLevel
   outcome: Outcome
   points: number // earned: PREFERENCE_POINTS[level] × credit when met/partial, else 0
-  detail: string // e.g. "Tagged as secondary expertise"; org: "Same org" / "Peer org: ADB"
+  detail: string // e.g. "Tagged as Strong"; org: "Same org" / "Peer org: ADB"
 }
 
 /** How preferences were weighed for one result (spec §5.3). Stored with the

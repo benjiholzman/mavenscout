@@ -34,7 +34,7 @@
 - Paid membership (prices and trials are commercial settings, §12).
 - Full verification (§3).
 - At least 1 audio testimonial, attached to an employer entry (§4).
-- Expertise: 2 Core / 4 Strong / up to 8 Working knowledge, from one list (§6).
+- Expertise: 3 Core / 5 Strong / up to 10 Working knowledge, from one list (§6).
 - Identical flip-card faces: front, expertise, 3 portfolio faces, plus the Match face when ranked.
 - Ranking is merit-only; membership level never affects rank.
 - A small "Listed on MavenScout" footer on every public personal site, including custom domains.
@@ -182,16 +182,19 @@ Accepted residual risk: collusion by a real referee. Their verified identity is 
 
 ## 6. Expertise (one list, three tiers)
 
-- **One unified list** of roughly 80–100 items replaces the separate Domain Expertise and Technical Skills taxonomies. Categories (e.g. sectors, methods & skills) exist for browsing only.
+- **One unified list** of roughly 130–150 distinct items replaces the separate Domain Expertise and Technical Skills taxonomies. Test for overlap: two experts doing the same work should pick the same item.
 - **Items only; no tagging of category headers.**
+- **Each item has two attributes:**
+  - a **browsing group** (e.g. Health & nutrition, Education, Governance, Evaluation & research), shown only as subheadings in the pickers, which have a search box;
+  - a hidden **kind**: Sector, Cross-cutting theme, or Method & skill. The kind is used only for the matching rule below; managers never pick it.
 - **Tiers (counts are settings, not hard-coded):**
-  - **Core expertise:** exactly 2
-  - **Strong:** exactly 4
-  - **Working knowledge:** 0 to 8
+  - **Core expertise:** exactly 3
+  - **Strong:** exactly 5
+  - **Working knowledge:** 0 to 10
 - **Display:** Core as prominent chips and Strong as smaller chips on the flip card; Working knowledge on the full profile only.
 - **Filters and Required rows** match Core and Strong only by default. Option: a toggle to include Working knowledge.
-- **Multiple Required rows:** OR within a category, AND across categories (e.g. Nutrition AND M&E; two sectors = either one).
-- **Preference credit in ranking:** Core ×1.0, Strong ×0.75, Working knowledge ×0.4 (in `config.ts`).
+- **Multiple Required rows:** OR within a kind, AND across kinds (e.g. Nutrition AND M&E; two sectors = either one). Browsing groups play no part in matching.
+- **Preference credit in ranking:** Core ×1.0, Strong ×0.75, Working knowledge ×0.4 (in `config.ts`). An untagged mention of the item in the profile's text earns ×0.4; a row takes the better of its tag credit and its text credit, so a mention never outscores a tag.
 - **Migration:** primary → Core, secondary → Strong; category-level tags replaced with specific items.
 - The request-a-new-item flow stays.
 
@@ -208,7 +211,7 @@ Accepted residual risk: collusion by a real referee. Their verified identity is 
 | Education | 1 degree (most recent, verified) | 5 |
 | Certifications | 0 | 10, all verified |
 | Languages | 1 | 10 |
-| Expertise | 2 Core + 4 Strong | + up to 8 Working knowledge |
+| Expertise | 3 Core + 5 Strong | + up to 10 Working knowledge |
 | Portfolio items | 3 | 3 (Member) / 10 (Featured) |
 | Audio testimonials | 1 | 1 (Member) / one per entry (Featured) |
 | Video Q&As | 0 (Member) / 5 (Featured) | 0 / 5 |

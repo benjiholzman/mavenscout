@@ -20,7 +20,9 @@
 -- ---------------------------------------------------------------------------
 CREATE TABLE taxonomy_categories (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  type       text NOT NULL CHECK (type IN ('domain_expertise','technical_skills','work_arrangement')),
+  -- 'expertise' = the unified list's browsing groups (011); the other two
+  -- expertise types are LEGACY, kept for main and removed by 012.
+  type       text NOT NULL CHECK (type IN ('domain_expertise','technical_skills','work_arrangement','expertise')),
   name       text NOT NULL,
   sort_order int  NOT NULL DEFAULT 0
 );
@@ -36,7 +38,13 @@ CREATE TABLE taxonomy_items (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   category_id uuid NOT NULL REFERENCES taxonomy_categories(id) ON DELETE CASCADE,
   name        text NOT NULL,
-  sort_order  int  NOT NULL DEFAULT 0
+  sort_order  int  NOT NULL DEFAULT 0,
+  -- Unified expertise items (011): kind drives matching (OR within a kind, AND
+  -- across kinds); aliases are search terms; legacy_names are the old item
+  -- names folded in. NULL / empty for work arrangements.
+  kind         text CHECK (kind IN ('sector','theme','method')),
+  aliases      text[] NOT NULL DEFAULT '{}',
+  legacy_names text[] NOT NULL DEFAULT '{}'
 );
 ALTER TABLE taxonomy_items ENABLE ROW LEVEL SECURITY;
 -- PROD: SELECT for everyone; writes admin-only.
@@ -85,11 +93,13 @@ CREATE TABLE profiles (
   resume_path                   text,                         -- Supabase Storage path in the 'resumes' bucket (PDF upload)
   resume_url                    text,                         -- OR an external link — exactly one populated, app-enforced (same pattern as video_responses)
   detailed_bio                  text,
-  expertise                     jsonb NOT NULL DEFAULT '[]',  -- [{name, tier: primary|secondary, level: category|item}], 2+4 cap app-enforced
-  skills                        jsonb NOT NULL DEFAULT '[]',  -- same shape/caps as expertise
+  expertise                     jsonb NOT NULL DEFAULT '[]',  -- LEGACY [{name, tier: primary|secondary, level}]; replaced by tiered_expertise (011), dropped by 012
+  skills                        jsonb NOT NULL DEFAULT '[]',  -- LEGACY, same shape; dropped by 012
+  tiered_expertise              jsonb NOT NULL DEFAULT '[]',  -- [{name, tier: core|strong|working}] from the unified list (011); 3/5/≤10 app-enforced
   accreditations                jsonb NOT NULL DEFAULT '[]',  -- [{name, issuing_organization, year, credential_id_or_url}]
-  languages                     text[] NOT NULL DEFAULT '{}', -- free-form; filter options derived dynamically
-  work_history                  jsonb NOT NULL DEFAULT '[]',  -- [{organization, role, start_year, end_year, logo_url, description}], max 10 app-enforced
+  languages                     text[] NOT NULL DEFAULT '{}', -- LEGACY free-form list; replaced by spoken_languages (010), dropped by 012
+  spoken_languages              jsonb NOT NULL DEFAULT '[]',  -- [{name, proficiency: fluent|working}] from `languages` table (010), max 10 app-enforced
+  work_history                  jsonb NOT NULL DEFAULT '[]',  -- [{organization, organization_id?, role, start_year, end_year, logo_url, description}], max 10 app-enforced
   education_history             jsonb NOT NULL DEFAULT '[]',  -- [{institution, degree_or_course, start_year, end_year, logo_url}], max 5
   additional_experience         jsonb NOT NULL DEFAULT '[]',  -- [{organization, role, start_year, end_year, description}], max 5
   website_name                  text DEFAULT 'Personal website',
@@ -129,7 +139,7 @@ CREATE TRIGGER profiles_updated_at BEFORE UPDATE ON profiles
 CREATE TABLE taxonomy_requests (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id      uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  type            text NOT NULL CHECK (type IN ('domain_expertise','technical_skills')),
+  type            text NOT NULL CHECK (type IN ('domain_expertise','technical_skills','expertise')),  -- 'expertise' = unified list (011)
   proposed_name   text NOT NULL,
   proposed_parent text,
   status          text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
@@ -141,6 +151,39 @@ CREATE POLICY "dev_read_taxonomy_requests"  ON taxonomy_requests FOR SELECT USIN
 CREATE POLICY "dev_write_taxonomy_requests" ON taxonomy_requests FOR ALL USING (true) WITH CHECK (true);
 
 -- ---------------------------------------------------------------------------
+-- languages — canonical language list (profiles-membership §13 step 1).
+-- Seeded by 010; profiles.spoken_languages names come from it.
+-- ---------------------------------------------------------------------------
+CREATE TABLE languages (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       text NOT NULL UNIQUE,  -- standard English name: 'Haitian Creole', 'K''iche'''
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE languages ENABLE ROW LEVEL SECURITY;
+-- PROD: SELECT for everyone; INSERT/UPDATE/DELETE admin-only.
+CREATE POLICY "dev_read_languages"  ON languages FOR SELECT USING (true);
+CREATE POLICY "dev_write_languages" ON languages FOR ALL USING (true) WITH CHECK (true);
+
+-- ---------------------------------------------------------------------------
+-- organizations — canonical organizations list (profiles-membership §8).
+-- Seeded by 009; employers and clients link to it (portfolio_items.
+-- organization_id, work_history[].organization_id) or stay free text.
+-- ---------------------------------------------------------------------------
+CREATE TABLE organizations (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       text NOT NULL UNIQUE,
+  aliases    text[] NOT NULL DEFAULT '{}',  -- short and former names: 'WB', 'IBRD', 'DFID'
+  domains    text[] NOT NULL DEFAULT '{}',  -- web/email domains, primary first
+  logo_url   text,                          -- explicit logo; NULL = from domains[0] via Brandfetch; '' = initials (orgLogoUrl)
+  type       text NOT NULL CHECK (type IN ('multilateral','bilateral_donor','un_agency','ngo','government','private_firm','academic','foundation')),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+-- PROD: SELECT for everyone; INSERT/UPDATE/DELETE admin-only.
+CREATE POLICY "dev_read_organizations"  ON organizations FOR SELECT USING (true);
+CREATE POLICY "dev_write_organizations" ON organizations FOR ALL USING (true) WITH CHECK (true);
+
+-- ---------------------------------------------------------------------------
 -- portfolio_items (PRD 7.2 / §8)
 -- ---------------------------------------------------------------------------
 CREATE TABLE portfolio_items (
@@ -148,6 +191,7 @@ CREATE TABLE portfolio_items (
   profile_id   uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   project_name text NOT NULL,
   organization text,                          -- client/funder shown beside the dates
+  organization_id uuid REFERENCES organizations(id) ON DELETE SET NULL,  -- set when picked from the list (009)
   start_year   int,
   end_year     int,                           -- NULL = ongoing; = start_year for a single year
   role         text NOT NULL,

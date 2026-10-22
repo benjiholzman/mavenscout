@@ -4,11 +4,12 @@ import { AccreditationsEditor } from '../components/onboarding/AccreditationsEdi
 import { AvailabilityEditor } from '../components/onboarding/AvailabilityEditor'
 import { EditorSection } from '../components/onboarding/EditorSection'
 import { FieldRow, TextArea, TextField } from '../components/onboarding/fields'
+import { ExpertiseEditor } from '../components/onboarding/ExpertiseEditor'
 import { HistoryEditorsBundle } from '../components/onboarding/HistoryBundle'
+import { LanguagesEditor } from '../components/onboarding/LanguagesEditor'
 import { PortfolioEditor } from '../components/onboarding/PortfolioEditor'
 import { ResumeUploader } from '../components/onboarding/ResumeUploader'
 import { SocialLinksEditor } from '../components/onboarding/SocialLinksEditor'
-import { TagPicker } from '../components/onboarding/TagPicker'
 import { TestimonialsSection } from '../components/onboarding/TestimonialsSection'
 import { TierSection } from '../components/onboarding/TierSection'
 import { VideoQnASection } from '../components/onboarding/VideoQnASection'
@@ -16,6 +17,9 @@ import { VideoRequestsInbox } from '../components/onboarding/VideoRequestsInbox'
 import { InfoTip } from '../components/ui/InfoTip'
 import { FIRM_THRESHOLD_NOTE } from '../components/ui/badges'
 import { useEditorProfile } from '../hooks/useEditorProfile'
+import { EXPERTISE_TIER_LIMITS } from '../lib/config'
+import { buildExpertiseIndex, expertiseTags } from '../lib/expertise'
+import { spokenLanguages } from '../lib/languages'
 import { useSession } from '../lib/session'
 import { supabase } from '../lib/supabase'
 import {
@@ -26,7 +30,7 @@ import {
   WORK_HISTORY_CAP,
   portfolioCap,
   socialLinkCap,
-  tagCapError,
+  expertiseTierError,
 } from '../lib/validation'
 import type { PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../types/db'
 
@@ -62,7 +66,7 @@ const SECTIONS = [
   ['basics', 'Basics'],
   ['type', 'Type & level'],
   ['bio', 'Bio & eligibility'],
-  ['tags', 'Expertise & skills'],
+  ['tags', 'Expertise'],
   ['accreditations', 'Accreditations'],
   ['availability', 'Availability'],
   ['history', 'History'],
@@ -110,6 +114,7 @@ export default function Onboarding() {
 
   const isFirm = draft.consultant_type !== 'Individual'
   const set = (patch: Partial<Profile>) => setDraft({ ...draft, ...patch })
+  const expertiseIndex = buildExpertiseIndex(taxonomy.cats, taxonomy.items)
   const workArrangements = taxonomy.items.filter((i) => {
     const cat = taxonomy.cats.find((c) => c.id === i.category_id)
     return cat?.type === 'work_arrangement'
@@ -178,7 +183,7 @@ export default function Onboarding() {
                 name: draft.name,
                 headline: draft.headline,
                 location: draft.location,
-                languages: draft.languages,
+                spoken_languages: spokenLanguages(draft),
                 photo_url: draft.photo_url,
                 cover_image_url: draft.cover_image_url,
               })
@@ -197,11 +202,9 @@ export default function Onboarding() {
                 placeholder="M&E Specialist | Gender & Social Inclusion | USAID & FCDO Programs"
                 hint="Shown on your card front and profile hero"
               />
-              <TextField
-                label="Languages (comma-separated)"
-                value={draft.languages.join(', ')}
-                onChange={(v) => set({ languages: v.split(',').map((s) => s.trim()).filter(Boolean) })}
-                placeholder="English, French, Swahili"
+              <LanguagesEditor
+                value={spokenLanguages(draft)}
+                onChange={(spoken_languages) => set({ spoken_languages })}
               />
               <FieldRow>
                 <TextField label="Photo URL" value={draft.photo_url ?? ''} onChange={(v) => set({ photo_url: v || null })} />
@@ -312,32 +315,17 @@ export default function Onboarding() {
 
           <EditorSection
             id="tags"
-            title="Domain expertise & technical skills"
-            description="Self-attested — shown with a marker so managers know these are your claims. Tight caps keep specialists looking like specialists."
+            title="Expertise"
+            description={`Self-attested — shown with a marker so managers know these are your claims. ${EXPERTISE_TIER_LIMITS.core.max} Core and ${EXPERTISE_TIER_LIMITS.strong.max} Strong keep specialists looking like specialists.`}
             onSave={async () =>
-              tagCapError(draft.expertise, 'Domain expertise') ??
-              tagCapError(draft.skills, 'Technical skills') ??
-              save({ expertise: draft.expertise, skills: draft.skills })
+              expertiseTierError(expertiseTags(draft)) ?? save({ tiered_expertise: expertiseTags(draft) })
             }
           >
-            <div className="space-y-6">
-              <TagPicker
-                type="domain_expertise"
-                label="Domain expertise"
-                value={draft.expertise}
-                onChange={(v) => set({ expertise: v })}
-                categories={taxonomy.cats}
-                items={taxonomy.items}
-              />
-              <TagPicker
-                type="technical_skills"
-                label="Technical skills"
-                value={draft.skills}
-                onChange={(v) => set({ skills: v })}
-                categories={taxonomy.cats}
-                items={taxonomy.items}
-              />
-            </div>
+            <ExpertiseEditor
+              value={expertiseTags(draft)}
+              onChange={(tiered_expertise) => set({ tiered_expertise })}
+              index={expertiseIndex}
+            />
           </EditorSection>
 
           <EditorSection

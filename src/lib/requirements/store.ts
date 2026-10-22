@@ -14,7 +14,6 @@ import {
   setRowLevel,
   type SearchState,
   type Suggestion,
-  type TagLevelOf,
 } from './model'
 
 // The one store behind the filter bar and the ranking panel (spec §2.1).
@@ -28,7 +27,7 @@ export interface RequirementsState {
 }
 
 export type RequirementsAction =
-  | { type: 'fromFilterBar'; next: FilterState; tagLevelOf: TagLevelOf }
+  | { type: 'fromFilterBar'; next: FilterState }
   | { type: 'clearMustHaves' }
   | { type: 'dropPreferences' }
   | { type: 'setLevel'; id: string; level: Level }
@@ -48,7 +47,7 @@ export function requirementsReducer(state: RequirementsState, action: Requiremen
   const withRows = (requirements: Requirement[]) => ({ ...state, requirements })
   switch (action.type) {
     case 'fromFilterBar':
-      return applyFilterStateToRequirements(state.requirements, action.next, action.tagLevelOf)
+      return applyFilterStateToRequirements(state.requirements, action.next)
     case 'clearMustHaves':
       // Clear All clears the search term too, as it always has.
       return { requirements: clearMustHaves(state.requirements), search: { ...EMPTY_SEARCH, mode: state.search.mode } }
@@ -88,10 +87,7 @@ export function requirementsReducer(state: RequirementsState, action: Requiremen
 export function useRequirements(init?: () => RequirementsState) {
   const [state, dispatch] = useReducer(requirementsReducer, undefined, init ?? initialRequirementsState)
 
-  const fromFilterBar = useCallback(
-    (next: FilterState, tagLevelOf: TagLevelOf) => dispatch({ type: 'fromFilterBar', next, tagLevelOf }),
-    [],
-  )
+  const fromFilterBar = useCallback((next: FilterState) => dispatch({ type: 'fromFilterBar', next }), [])
   const clearMustHavesCb = useCallback(() => dispatch({ type: 'clearMustHaves' }), [])
   const dropPreferencesCb = useCallback(() => dispatch({ type: 'dropPreferences' }), [])
   const setLevel = useCallback((id: string, level: Level) => dispatch({ type: 'setLevel', id, level }), [])

@@ -11,7 +11,7 @@ import { isSuggestionAdded, tagRowCount, type Suggestion } from '../../lib/requi
 // its Required row.
 
 function suggestionLabel(s: Suggestion): string {
-  if ('tag' in s) return s.tag.level === 'category' ? `${s.tag.name} (broad)` : s.tag.name
+  if ('tag' in s) return s.tag.name
   return s.kind === 'location' ? locationLabel(s.item.value) : s.item.value
 }
 
@@ -20,7 +20,6 @@ const mentions = (s: Suggestion) => ('tag' in s ? s.tag.mentions : s.item.mentio
 export function suggestionsFrom(extracted: ExtractedRequirements): { title: string; items: Suggestion[] }[] {
   return [
     { title: 'Expertise', items: extracted.expertise.map((tag) => ({ kind: 'expertise' as const, tag })) },
-    { title: 'Skills', items: extracted.skills.map((tag) => ({ kind: 'skill' as const, tag })) },
     { title: 'Locations', items: extracted.locations.map((item) => ({ kind: 'location' as const, item })) },
     { title: 'Languages', items: extracted.languages.map((item) => ({ kind: 'language' as const, item })) },
   ].filter((g) => g.items.length > 0)
@@ -63,7 +62,7 @@ export function JdSuggestions({
       )}
       {groups.length === 0 ? (
         <p className="mt-1 text-xs text-ink-faint">
-          Nothing from the expertise and skills list, or known places and languages, was found in
+          Nothing from the expertise list, or known places and languages, was found in
           this text. Add requirements below.
         </p>
       ) : (
@@ -95,7 +94,7 @@ export function JdSuggestions({
                         key={label}
                         type="button"
                         disabled={capped}
-                        title={capped ? `Up to ${MAX_TAG_ROWS} expertise and skill rows` : undefined}
+                        title={capped ? `Up to ${MAX_TAG_ROWS} expertise rows` : undefined}
                         onClick={() => onAdd([s])}
                         className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-white px-2.5 py-1 text-xs font-medium text-ink hover:border-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
                       >

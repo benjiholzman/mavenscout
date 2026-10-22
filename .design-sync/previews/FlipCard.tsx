@@ -27,6 +27,7 @@ function baseProfile(overrides: Partial<Profile>): Profile {
     detailed_bio: null,
     expertise: [],
     skills: [],
+    tiered_expertise: [],
     accreditations: [],
     languages: [],
     work_history: [],
@@ -65,6 +66,14 @@ const amara = baseProfile({
   skills: [
     { name: 'Monitoring & Evaluation', tier: 'primary', level: 'item' },
     { name: 'Qualitative Research', tier: 'primary', level: 'item' },
+  ],
+  tiered_expertise: [
+    { name: 'Gender Mainstreaming', tier: 'core' },
+    { name: 'Gender-Based Violence', tier: 'core' },
+    { name: 'Monitoring & Evaluation', tier: 'core' },
+    { name: 'Qualitative Research', tier: 'strong' },
+    { name: 'Survey Design', tier: 'strong' },
+    { name: 'Statistical Analysis', tier: 'strong' },
   ],
   work_history: [
     {
@@ -137,6 +146,16 @@ const ifeoma = baseProfile({
     { name: 'Qualitative Research', tier: 'primary', level: 'item' },
     { name: 'Survey Design', tier: 'primary', level: 'item' },
   ],
+  tiered_expertise: [
+    { name: 'Food Security', tier: 'core' },
+    { name: 'Agribusiness & Value Chains', tier: 'core' },
+    { name: 'Qualitative Research', tier: 'core' },
+    { name: 'Survey Design', tier: 'strong' },
+    { name: 'Rural Development', tier: 'strong' },
+    { name: 'Sustainable Agriculture', tier: 'strong' },
+    { name: 'Financial Inclusion', tier: 'strong' },
+    { name: 'Monitoring & Evaluation', tier: 'strong' },
+  ],
   work_history: [
     {
       organization: 'IFAD',
@@ -180,6 +199,10 @@ const rohan = baseProfile({
   cover_image_url: 'https://picsum.photos/seed/rohan-mehta/800/200',
   expertise: [{ name: 'WASH', tier: 'primary', level: 'item' }],
   skills: [{ name: 'Project Management', tier: 'primary', level: 'item' }],
+  tiered_expertise: [
+    { name: 'WASH', tier: 'core' },
+    { name: 'Project Management', tier: 'core' },
+  ],
   work_history: [
     {
       organization: 'UNICEF Bangladesh',

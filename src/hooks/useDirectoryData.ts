@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { loadOrgIndex, type OrgIndex } from '../lib/organizations'
 import { supabase } from '../lib/supabase'
 import type {
   AudioTestimonial,
@@ -16,6 +17,8 @@ export interface DirectoryData {
   audioCountByProfile: Map<string, number>
   taxonomyCategories: TaxonomyCategory[]
   taxonomyItems: TaxonomyItem[]
+  /** Canonical organizations (009): logos, Sector Experience, Org History. */
+  orgs: OrgIndex
 }
 
 /** Loads everything the directory needs in one round of parallel queries.
@@ -28,7 +31,7 @@ export function useDirectoryData() {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const [profilesRes, portfolioRes, videosRes, audioRes, catsRes, itemsRes] =
+      const [profilesRes, portfolioRes, videosRes, audioRes, catsRes, itemsRes, orgs] =
         await Promise.all([
           supabase
             .from('profiles')
@@ -40,6 +43,7 @@ export function useDirectoryData() {
           supabase.from('audio_testimonials').select('id,profile_id').eq('status', 'published'),
           supabase.from('taxonomy_categories').select('*').order('sort_order'),
           supabase.from('taxonomy_items').select('*').order('sort_order'),
+          loadOrgIndex(),
         ])
       if (cancelled) return
       const firstError =
@@ -78,6 +82,7 @@ export function useDirectoryData() {
         audioCountByProfile,
         taxonomyCategories: catsRes.data as TaxonomyCategory[],
         taxonomyItems: itemsRes.data as TaxonomyItem[],
+        orgs,
       })
     }
     load()

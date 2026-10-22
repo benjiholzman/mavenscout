@@ -19,6 +19,10 @@ import {
 } from '../ui/badges'
 import { Carousel } from '../ui/Carousel'
 import { GatePrompt } from '../ui/GatePrompt'
+import { useOrganizations } from '../../hooks/useOrganizations'
+import { expertiseTags } from '../../lib/expertise'
+import { formatLanguages, spokenLanguages } from '../../lib/languages'
+import { entryLogoUrl, orgAcronym, resolveOrganization } from '../../lib/organizations'
 import { OrgLogo } from '../ui/OrgLogo'
 import { TagPills } from '../ui/TagPills'
 import { ContactModal } from './ContactModal'
@@ -144,7 +148,7 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
             {isFirm && profile.year_founded && (
               <span>{new Date().getFullYear() - profile.year_founded} years in business</span>
             )}
-            {profile.languages.length > 0 && <span>{profile.languages.join(' · ')}</span>}
+            {spokenLanguages(profile).length > 0 && <span>{formatLanguages(spokenLanguages(profile))}</span>}
           </div>
         </div>
 
@@ -225,22 +229,13 @@ function OverviewTab({
             </p>
           </section>
         )}
-        {profile.expertise.length > 0 && (
+        {expertiseTags(profile).length > 0 && (
           <section>
             <div className="mb-2 flex items-baseline justify-between">
-              <h2 className="text-lg font-semibold">Domain Expertise</h2>
+              <h2 className="text-lg font-semibold">Expertise</h2>
               <SelfAttestedMark />
             </div>
-            <TagPills tags={profile.expertise} />
-          </section>
-        )}
-        {profile.skills.length > 0 && (
-          <section>
-            <div className="mb-2 flex items-baseline justify-between">
-              <h2 className="text-lg font-semibold">Technical Skills</h2>
-              <SelfAttestedMark />
-            </div>
-            <TagPills tags={profile.skills} />
+            <TagPills tags={expertiseTags(profile)} showWorking />
           </section>
         )}
         {profile.accreditations.length > 0 && (
@@ -374,12 +369,14 @@ function CredentialRef({ value }: { value: string }) {
 
 function TimelineEntry({
   logo,
+  acronym,
   title,
   subtitle,
   years,
   description,
 }: {
   logo?: string | null
+  acronym?: string | null
   title: string
   subtitle: string
   years: string
@@ -390,8 +387,9 @@ function TimelineEntry({
       <OrgLogo
         url={logo}
         name={subtitle}
+        acronym={acronym}
         className="mt-0.5 h-9 w-9 rounded-lg"
-        monogramClassName="bg-brand-100 text-xs font-bold text-brand-700"
+        monogramClassName="font-display text-xs font-bold"
       />
       <div className="min-w-0">
         <p className="text-sm font-semibold">{title}</p>
@@ -410,6 +408,7 @@ function yearsLabel(start: number, end: number | null): string {
 }
 
 function ExperienceTab({ profile, isFirm }: { profile: Profile; isFirm: boolean }) {
+  const orgs = useOrganizations()
   return (
     <div className="max-w-3xl space-y-10">
       {/* Work History + Education are individual-only (PRD 7.19). */}
@@ -420,7 +419,8 @@ function ExperienceTab({ profile, isFirm }: { profile: Profile; isFirm: boolean 
             {profile.work_history.map((w, i) => (
               <TimelineEntry
                 key={i}
-                logo={w.logo_url}
+                logo={entryLogoUrl(orgs, w.organization, w.organization_id, w.logo_url)}
+                acronym={orgAcronym(resolveOrganization(orgs, w.organization, w.organization_id))}
                 title={w.role}
                 subtitle={w.organization}
                 years={yearsLabel(w.start_year, w.end_year)}

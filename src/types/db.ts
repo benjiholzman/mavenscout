@@ -9,7 +9,19 @@ export type CareerLevel = 'early_career' | 'mid_career' | 'senior'
 export type VerificationStatus = 'unverified' | 'pending' | 'verified'
 export type SubscriptionStatus = 'active' | 'past_due' | 'canceled' | 'paused' | 'none'
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
-export type TaxonomyType = 'domain_expertise' | 'technical_skills' | 'work_arrangement'
+/** 'expertise' = the unified list's browsing groups (011). 'domain_expertise' /
+ *  'technical_skills' are LEGACY (kept for main, removed by 012). */
+export type TaxonomyType = 'domain_expertise' | 'technical_skills' | 'work_arrangement' | 'expertise'
+
+/** What an expertise item is; drives matching (OR within a kind, AND across). */
+export type ExpertiseKind = 'sector' | 'theme' | 'method'
+export type ExpertiseTier = 'core' | 'strong' | 'working'
+
+/** One tag on the unified list (profiles-membership §6; 011). */
+export interface ExpertiseTag {
+  name: string
+  tier: ExpertiseTier
+}
 
 export interface AvailabilityTrack {
   status: 'available_now' | 'available_from' | 'unavailable'
@@ -17,10 +29,27 @@ export interface AvailabilityTrack {
   until: string | null
 }
 
+/** LEGACY two-taxonomy tag (profiles.expertise / profiles.skills), read only
+ *  by the migration; the app uses ExpertiseTag. */
 export interface TagSelection {
   name: string
   tier: 'primary' | 'secondary'
   level: 'category' | 'item'
+}
+
+export type Proficiency = 'fluent' | 'working'
+
+/** One language a consultant speaks (010). Fluent satisfies a Working requirement. */
+export interface SpokenLanguage {
+  name: string
+  proficiency: Proficiency
+}
+
+/** Canonical language list (010). */
+export interface Language {
+  id: string
+  name: string
+  created_at: string
 }
 
 export interface Accreditation {
@@ -31,7 +60,8 @@ export interface Accreditation {
 }
 
 export interface WorkHistoryEntry {
-  organization: string
+  organization: string // as shown; the canonical name when picked from the list
+  organization_id?: string | null // set when picked from `organizations` (009); else resolved by name at read time
   role: string
   start_year: number
   end_year: number | null // null = "Present"
@@ -81,10 +111,18 @@ export interface Profile {
   resume_path: string | null // Storage path in 'resumes' bucket (PDF upload)
   resume_url: string | null // OR external link — exactly one populated, app-enforced
   detailed_bio: string | null
+  /** LEGACY (main only until 012); read tiered_expertise. */
   expertise: TagSelection[]
+  /** LEGACY (main only until 012). */
   skills: TagSelection[]
+  /** Core / Strong / Working knowledge tags from the unified list (011). */
+  tiered_expertise: ExpertiseTag[]
   accreditations: Accreditation[]
+  /** LEGACY free-text list, left for main until 012; read spoken_languages. */
   languages: string[]
+  /** Languages spoken, from the canonical list (010). Absent only on a
+   *  database that hasn't run 010 (see lib/languages spokenLanguages). */
+  spoken_languages?: SpokenLanguage[]
   work_history: WorkHistoryEntry[]
   education_history: EducationEntry[]
   additional_experience: AdditionalExperienceEntry[]
@@ -101,6 +139,27 @@ export interface Profile {
   updated_at: string
 }
 
+export type OrgType =
+  | 'multilateral'
+  | 'bilateral_donor'
+  | 'un_agency'
+  | 'ngo'
+  | 'government'
+  | 'private_firm'
+  | 'academic'
+  | 'foundation'
+
+/** Canonical organizations list (profiles-membership §8; 009). */
+export interface Organization {
+  id: string
+  name: string
+  aliases: string[] // short and former names: 'WB', 'IBRD', 'DFID'
+  domains: string[] // web/email domains, primary first
+  logo_url: string | null // explicit logo; null = from domains[0]; '' = initials (orgLogoUrl)
+  type: OrgType
+  created_at: string
+}
+
 export interface TaxonomyCategory {
   id: string
   type: TaxonomyType
@@ -113,12 +172,18 @@ export interface TaxonomyItem {
   category_id: string
   name: string
   sort_order: number
+  /** Unified expertise items only (011); null for work arrangements. */
+  kind?: ExpertiseKind | null
+  /** Search terms: 'M&E', 'PFM', 'TVET'. */
+  aliases?: string[]
+  /** Old Domain Expertise / Technical Skills item names folded into this item. */
+  legacy_names?: string[]
 }
 
 export interface TaxonomyRequest {
   id: string
   profile_id: string
-  type: 'domain_expertise' | 'technical_skills'
+  type: 'domain_expertise' | 'technical_skills' | 'expertise'
   proposed_name: string
   proposed_parent: string | null
   status: 'pending' | 'approved' | 'rejected'
@@ -130,6 +195,7 @@ export interface PortfolioItem {
   profile_id: string
   project_name: string
   organization: string | null
+  organization_id?: string | null // set when picked from `organizations` (009)
   start_year: number | null
   end_year: number | null // null = ongoing (shown as "–present")
   role: string

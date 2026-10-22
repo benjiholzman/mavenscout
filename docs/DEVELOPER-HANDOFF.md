@@ -12,7 +12,7 @@ RLS notes) — the PRD defines *what* was intended; this defines *where the seam
 |---|---|
 | Stack | React 18 + TypeScript + Vite, Tailwind 3, Framer Motion, React Router 6, Supabase (Postgres + Storage) |
 | Run | `npm install && npm run dev` — needs `.env` with `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (see `.env.example`) |
-| Database | `supabase/000_schema.sql` → `001` → `002` → `003` → `004` → `005` → `006` → `007_seed_demo_profiles_1` … `_4` → `008`, run in order in the Supabase SQL editor. 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data; 004 fills portfolio organization/years and work-history logo links on the seeded rows; 005 adds the match-rework columns (`job_descriptions.requirements/extracted`; `match_results.rank/band/fit_score/adjustments/adjustments_capped/must_haves_passed`) and deletes pre-rework rankings; 006 adds `profiles.is_demo` (flags the original 15 and normalizes their country names); the four 007 files add 100 synthetic `demo-*` profiles (generated — see *Demo data* below); 008 adds `match_results.scoring` for the preference-weighted total and deletes rankings scored under the old additive formula. A fresh project bootstraps from these files. An existing database only needs the migrations it hasn't run — 004 and 005 use `ADD COLUMN IF NOT EXISTS`, so they're no-ops on fresh projects, where 000 already creates the columns. |
+| Database | `supabase/000_schema.sql` → `001` → `002` → `003` → `004` → `005` → `006` → `007_seed_demo_profiles_1` … `_4` → `008` → `009` → `010` → `011`, run in order in the Supabase SQL editor; then `012` once the `data-foundations` branch is merged (never before: it drops what older code reads). 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data; 004 fills portfolio organization/years and work-history logo links on the seeded rows; 005 adds the match-rework columns (`job_descriptions.requirements/extracted`; `match_results.rank/band/fit_score/adjustments/adjustments_capped/must_haves_passed`) and deletes pre-rework rankings; 006 adds `profiles.is_demo` (flags the original 15 and normalizes their country names); the four 007 files add 100 synthetic `demo-*` profiles (generated — see *Demo data* below); 008 adds `match_results.scoring` for the preference-weighted total and deletes rankings scored under the old additive formula; 009 adds the canonical `organizations` list (200 seeded) and `portfolio_items.organization_id`; 010 adds the canonical `languages` list and `profiles.spoken_languages` (Fluent/Working), backfilled at Fluent, plus logo fixes for four organizations; 011 adds the unified expertise list (140 items in 15 groups, each with a kind, aliases and the old names it absorbs) and `profiles.tiered_expertise`, filled by `ms_migrate_expertise`. 009–011 are additive (old columns and taxonomies untouched); 012 re-migrates any stragglers, then drops `profiles.languages/expertise/skills`, the old taxonomies and the migration helpers. A fresh project bootstraps from these files. An existing database only needs the migrations it hasn't run — 004 and 005 use `ADD COLUMN IF NOT EXISTS`, so they're no-ops on fresh projects, where 000 already creates the columns. |
 | Verification baseline | Every PRD Definition-of-Done item (Section 13) was verified in-browser at desktop and 375px before handoff. The Playwright scripts lived in a temp scratchpad and are **not** committed — if you want a regression suite, the DoD checklist is the spec to automate against. The match rework's acceptance criteria (`docs/MavenScout-match-rework.md` §10) were verified the same way at desktop (1280px) and 375px in October 2026, plus scripted checks of the filter-bar ↔ requirements round-trip (22 filter combinations matched the pre-rework directory except the intended career-level change), the scoring math, and the displayed rounding (20,000 random cases, re-run for the preference-weighted total); those scripts are not committed either. |
 
 ## What is mocked vs. real (the load-bearing distinction)
@@ -31,7 +31,7 @@ tier logic driven by `is_premium`/`subscription_status`, the visibility rules
 | Verification evidence | Upload UI exists; **no file is persisted** — `file_path` holds a `STUB/…` placeholder | `TierSection.tsx`, `verification_evidence` table |
 | AI matching | Placeholder JD extraction + placeholder Fit and preference adjustments (deterministic keyword matching) behind the real contract | `src/lib/matching/` (see Loop8 section; spec `docs/MavenScout-match-rework.md`) |
 | Account ops | Email/password change forms render disabled | `src/pages/Account.tsx` |
-| Brandfetch | Fully built, dormant until a client id exists | `src/lib/brandfetch.ts` (env var or localStorage `ms_brandfetch_client_id`) |
+| Brandfetch | Fully built; organization logos come from the organizations list through one hook (`orgLogoUrl`: explicit `logo_url`, else Brandfetch by primary domain). Dormant until a client id exists. Spec §8 wants logos in Supabase Storage: copy each into Storage and set `logo_url` | `src/lib/organizations.ts`, `src/lib/brandfetch.ts` (env var or localStorage `ms_brandfetch_client_id`) |
 | Custom domains | `profiles.custom_domain` reserved, no DNS integration (PRD Decisions) | — |
 
 ## Pass 1 — Real authentication (Supabase Auth)
@@ -115,10 +115,30 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
 `src/lib/matching/types.ts`; replacing the engine touches nothing outside
 `src/lib/matching/`.
 
+- **Data the engine reads (profiles-membership §6, §8, §11; `data-foundations`):**
+  - Expertise is **one list** (`taxonomy_items` under `taxonomy_categories` of type
+    `expertise`): each item has a browsing group, a **kind** (sector / theme /
+    method), `aliases` and `legacy_names`. Profiles tag items in
+    `tiered_expertise` as Core (3) / Strong (5) / Working knowledge (≤10); the
+    counts are `EXPERTISE_TIER_LIMITS` in `src/lib/config.ts`.
+  - Requirement rows: kind `skill` and category-level rows are gone; an expertise
+    row is `{ name, includeWorking? }`. Several Required expertise rows are **OR
+    within a kind, AND across kinds**, counting Core + Strong (plus Working
+    knowledge when the manager includes it) — `matchesExpertiseSelection` in
+    `src/lib/expertise.ts`. Language rows carry `min` (`working` | `fluent`;
+    Fluent satisfies Working).
+  - `ExtractedRequirements` is `{ expertise, locations, languages,
+    hiring_organization }` — one expertise list of items, no `skills`, no `level`.
+    Runs saved before the list are read through `upgradeLegacyRequirements` /
+    `upgradeLegacyExtracted` (nothing stored is rewritten).
+  - Preference credits (`CREDIT` in `config.ts`): Core 1, Strong 0.75, Working 0.4,
+    untagged mention 0.4; a row takes the better of its tag and text credit.
+  - Fit inputs exclude video and audio transcripts (§11).
 - **Two entry points, both placeholders today:**
   - `extractRequirements(jdText, ctx) → ExtractedRequirements` (`extract.ts`) — reads
-    the JD **once** and returns *suggestions* (expertise / skills with mention
-    counts and a slight/strong lean, locations, languages, optional hiring org).
+    the JD **once** and returns *suggestions* (items from the unified expertise
+    list with mention counts and a slight/strong lean, locations, languages,
+    optional hiring org).
     The UI shows them as chips; nothing enters the grid until the manager adds it,
     and nothing is ever suggested as Required. Output is stored on
     `job_descriptions.extracted`.
@@ -146,8 +166,10 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
     preferences = total, exactly) and persistence
     (`persist.ts`).
 - **Org History:** the tiered `met` / `partial` (peer org) / `not_met` shape is the
-  contract. The placeholder matches names only, and peers only if the manager types
-  them; **suggesting peer organizations is the engine's job**. The row is only ever
+  contract. Organization identity comes from the canonical organizations list
+  (`src/lib/organizations.ts`: name, alias or country office, so "IBRD" = "World
+  Bank Group"), with name matching for organizations not on it; peers count only
+  if the manager types them — **suggesting peer organizations is the engine's job**. The row is only ever
   added deliberately (ethics note in the spec).
 - **Loosening after a run** scores only the newly eligible candidates
   (`scoreNewcomers` in `persist.ts`). If the engine normalizes scores across the
@@ -156,11 +178,27 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
 - The placeholder Fit is calibrated in `config.ts` (`FIT_CALIBRATION`) against the
   sample ToR in `docs/samples/` — on-topic profiles ~75, related ~55, unrelated
   13–37. Real calibration is the engine's job.
+- **Known gaps in the placeholder Fit** (profiles-membership §11), left for the
+  engine rather than patched in the placeholder:
+  - **Inputs.** §11's Fit inputs are bio, portfolio items, work history, education,
+    certifications and expertise tags, never video or audio transcripts. The
+    placeholder reads headline, bio, portfolio items and accreditations (`fit.ts`
+    `evidenceText`); it does not read work history or education.
+  - **Relevance, not volume.** Fit should judge each candidate's most relevant
+    evidence the same way for everyone, so more items help only by offering more
+    chances of a close fit. The placeholder scores the share of the JD's salient
+    terms found anywhere in the candidate's pooled text, so every extra portfolio
+    item can only add matches: the same profile with 10 items (7 off-topic) scores at
+    least as high as with its 3 on-topic ones. §11 asks for a baseline test of
+    exactly that case (3 vs 10 items must not rank higher); it isn't in
+    `expectations.json` yet because the placeholder would fail it.
 - **Open calibration question: "Strong" becomes rare with many preference rows.**
   Bands are fixed at Strong ≥ 80 / Good ≥ 65 / Partial ≥ 50 (`BAND_THRESHOLDS`),
   kept after the preference weighting because on the five sample ToRs they separate
-  expected profiles from everyone else cleanly (Strong admits no non-expected
-  profile; every expected profile is at least Good — see "Score distribution by
+  expected profiles from everyone else cleanly (Strong admits only expected
+  profiles plus two clearly on-topic ones in tor-01 — a nutrition evaluator and,
+  end to end, a research and evaluation firm working in health at exactly 80 — and only
+  one expected profile per run falls below Good; see "Score distribution by
   role" in `docs/samples/ranking-baseline.md`). But with many Nice to have / Important
   rows, w hits the 20% cap and the earned ÷ possible ratio falls, because few
   candidates meet most of a long list: the Sahel ranking (Add all: 12 rows, 46 points
@@ -173,8 +211,9 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   (`docs/samples/tor-0*.txt`) against the live pool with the current engine and
   rewrites `docs/samples/ranking-baseline.md`: whether the expected profiles land in
   the top 5 / top 10 with fixed manager rows and end to end (extraction → Add all),
-  deliberate test cases (wrong location, specialist vs generalist, untagged evidence,
-  current vs former staff, tie pairs, decoys) and extraction recall. Expectations live
+  deliberate test cases (wrong location, untagged evidence, current vs former staff,
+  tie pairs, decoys), profile variants (one profile as Core / Strong / Working on an
+  item; a Required language at Working under Fluent only) and extraction recall. Expectations live
   in `docs/samples/expectations.json`. The harness is read-only (SELECTs and in-memory
   `scorePool`); run it after every engine change.
 - Narratives are templated (~100 words, grounded in the shown numbers); the engine
@@ -203,6 +242,16 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   then shows "This ranking is no longer available". With real auth, scope that
   delete to the signed-in manager (it already filters by `hiring_manager_id`).
 - The owner plans to upload licensed stock clips for videos (PRD Decisions table).
+- **The seed files predate the data foundations.** 002 and the 007 files still
+  write `languages`, `expertise` and `skills` in the old shapes, and the generator
+  (`scripts/demo-seed/build.mjs`) still validates against the old two taxonomies in
+  `001` (including its "generalist" category-tag profiles). 010 and 011 migrate
+  that data on load; the one-time re-seed in profiles-membership §13 step 5
+  rewrites the seeds in the new model (individuals only, tiered tags, linked
+  organizations) and should then update `000_schema.sql` to drop the old columns.
+- The Sahel ranking above was saved before the unified expertise list; it opens
+  through the read-time translation (its 5 `skill` rows show as expertise rows) and
+  its stored scores display as scored. Re-run it to score under the new list.
 - **Synthetic demo profiles (`is_demo`).** `007_seed_demo_profiles_{1..4}.sql` add 100
   fictional profiles (handles `demo-*`): 80 individuals, 20 firms, spread across UN M49
   sub-regions, 30 Premium/verified, some with stale availability. They are generated —
