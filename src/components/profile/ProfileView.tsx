@@ -20,6 +20,7 @@ import {
 import { Carousel } from '../ui/Carousel'
 import { GatePrompt } from '../ui/GatePrompt'
 import { useOrganizations } from '../../hooks/useOrganizations'
+import { expertiseTags } from '../../lib/expertise'
 import { formatLanguages, spokenLanguages } from '../../lib/languages'
 import { entryLogoUrl, orgAcronym, resolveOrganization } from '../../lib/organizations'
 import { OrgLogo } from '../ui/OrgLogo'
@@ -228,22 +229,13 @@ function OverviewTab({
             </p>
           </section>
         )}
-        {profile.expertise.length > 0 && (
+        {expertiseTags(profile).length > 0 && (
           <section>
             <div className="mb-2 flex items-baseline justify-between">
-              <h2 className="text-lg font-semibold">Domain Expertise</h2>
+              <h2 className="text-lg font-semibold">Expertise</h2>
               <SelfAttestedMark />
             </div>
-            <TagPills tags={profile.expertise} />
-          </section>
-        )}
-        {profile.skills.length > 0 && (
-          <section>
-            <div className="mb-2 flex items-baseline justify-between">
-              <h2 className="text-lg font-semibold">Technical Skills</h2>
-              <SelfAttestedMark />
-            </div>
-            <TagPills tags={profile.skills} />
+            <TagPills tags={expertiseTags(profile)} showWorking />
           </section>
         )}
         {profile.accreditations.length > 0 && (

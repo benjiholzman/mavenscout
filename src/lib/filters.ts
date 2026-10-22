@@ -1,11 +1,11 @@
+import { expertiseTags, matchesExpertiseSelection, type ExpertiseIndex } from './expertise'
 import { speaks, spokenLanguages } from './languages'
-import type { AvailabilityTrack, PortfolioItem, Proficiency, Profile, TaxonomyCategory, TaxonomyItem } from '../types/db'
+import type { AvailabilityTrack, PortfolioItem, Proficiency, Profile } from '../types/db'
 
-// Directory filtering (PRD 7.1): AND across categories, OR within a
-// multi-select category. Selecting a parent taxonomy category expands to
-// match any of its children (filter-bar behavior); selecting a specific
-// sub-item does NOT match profiles that only tagged the parent — a manager
-// choosing narrow wants genuine specialists (PRD 7.14 asymmetry).
+// Directory filtering (PRD 7.1): AND across filters, OR within a multi-select
+// filter. Expertise follows the unified list's rule (profiles-membership §6):
+// OR within a kind (sector / theme / method), AND across kinds, counting Core
+// and Strong tags unless Working knowledge is included (lib/expertise).
 
 export type EngagementType = 'part_time' | 'full_time' | 'either'
 
@@ -20,8 +20,9 @@ export type SearchMode = 'names' | 'full'
 
 export interface FilterState {
   types: string[]              // consultant_type values
-  expertise: string[]          // selected category and/or item names
-  skills: string[]
+  expertise: string[]          // selected item names from the unified list
+  /** Also count Working knowledge tags (default: Core and Strong only). */
+  expertiseIncludeWorking: boolean
   careerLevels: string[]
   workArrangements: string[]
   locations: string[]
@@ -38,7 +39,7 @@ export interface FilterState {
 export const EMPTY_FILTERS: FilterState = {
   types: [],
   expertise: [],
-  skills: [],
+  expertiseIncludeWorking: false,
   careerLevels: [],
   workArrangements: [],
   locations: [],
@@ -54,7 +55,6 @@ export function hasActiveFilters(f: FilterState): boolean {
   return (
     f.types.length > 0 ||
     f.expertise.length > 0 ||
-    f.skills.length > 0 ||
     f.careerLevels.length > 0 ||
     f.workArrangements.length > 0 ||
     f.locations.length > 0 ||
@@ -69,48 +69,6 @@ export function hasActiveFilters(f: FilterState): boolean {
  *  the Career Level filter disables in that case). */
 export function firmsOnlySelected(types: string[]): boolean {
   return types.length > 0 && types.every((t) => t === 'Small Firm' || t === 'Large Firm')
-}
-
-// ---- taxonomy helpers ------------------------------------------------------
-
-export interface TaxonomyTree {
-  /** category name → child item names */
-  childrenOf: Map<string, string[]>
-  categoryNames: Set<string>
-}
-
-export function buildTaxonomyTree(
-  categories: TaxonomyCategory[],
-  items: TaxonomyItem[],
-  type: 'domain_expertise' | 'technical_skills',
-): TaxonomyTree {
-  const cats = categories.filter((c) => c.type === type)
-  const childrenOf = new Map<string, string[]>()
-  for (const cat of cats) {
-    childrenOf.set(
-      cat.name,
-      items.filter((i) => i.category_id === cat.id).map((i) => i.name),
-    )
-  }
-  return { childrenOf, categoryNames: new Set(cats.map((c) => c.name)) }
-}
-
-/** OR within the selection; parent selections expand to their children. */
-function matchesTaxonomySelection(
-  profileTags: { name: string }[],
-  selected: string[],
-  tree: TaxonomyTree,
-): boolean {
-  if (selected.length === 0) return true
-  const tagNames = new Set(profileTags.map((t) => t.name))
-  return selected.some((sel) => {
-    if (tagNames.has(sel)) return true // exact match (category-level or item-level tag)
-    if (tree.categoryNames.has(sel)) {
-      // Parent selected → matches any profile tagged with any of its children.
-      return (tree.childrenOf.get(sel) ?? []).some((child) => tagNames.has(child))
-    }
-    return false // specific item selected: parent-only taggers do NOT match
-  })
 }
 
 // ---- availability (PRD 7.16) ----------------------------------------------
@@ -169,8 +127,7 @@ function matchesSearch(
   if (inNames) return true
   const haystack = [
     p.detailed_bio ?? '',
-    ...p.expertise.map((t) => t.name),
-    ...p.skills.map((t) => t.name),
+    ...expertiseTags(p).map((t) => t.name),
     ...portfolio.flatMap((i) => [i.project_name, i.role, i.description, i.results ?? '']),
   ]
     .join(' ')
@@ -184,13 +141,11 @@ export function applyFilters(
   profiles: Profile[],
   portfolioByProfile: Map<string, PortfolioItem[]>,
   f: FilterState,
-  expertiseTree: TaxonomyTree,
-  skillsTree: TaxonomyTree,
+  expertise: ExpertiseIndex,
 ): Profile[] {
   return profiles.filter((p) => {
     if (f.types.length > 0 && !f.types.includes(p.consultant_type)) return false
-    if (!matchesTaxonomySelection(p.expertise, f.expertise, expertiseTree)) return false
-    if (!matchesTaxonomySelection(p.skills, f.skills, skillsTree)) return false
+    if (!matchesExpertiseSelection(expertiseTags(p), f.expertise, expertise, f.expertiseIncludeWorking)) return false
     // Career level is individual-only (PRD 7.19): firms are "not applicable"
     // and never excluded by it (match rework spec §3.1).
     if (
@@ -268,7 +223,6 @@ export function deriveOptions(profiles: Profile[]): {
 export type FacetKey =
   | 'types'
   | 'expertise'
-  | 'skills'
   | 'careerLevels'
   | 'workArrangements'
   | 'locations'
@@ -281,17 +235,22 @@ export function facetCounts(
   profiles: Profile[],
   portfolioByProfile: Map<string, PortfolioItem[]>,
   f: FilterState,
-  expertiseTree: TaxonomyTree,
-  skillsTree: TaxonomyTree,
+  expertise: ExpertiseIndex,
   key: FacetKey,
   values: string[],
 ): Map<string, number> {
-  const pool = applyFilters(profiles, portfolioByProfile, { ...f, [key]: [] }, expertiseTree, skillsTree)
+  const pool = applyFilters(profiles, portfolioByProfile, { ...f, [key]: [] }, expertise)
   const counts = new Map<string, number>()
   for (const value of values) {
-    // Counts honour the language level, so "Fluent only" counts fluent speakers.
-    const only: FilterState = { ...EMPTY_FILTERS, [key]: [value], languageLevel: f.languageLevel }
-    counts.set(value, applyFilters(pool, portfolioByProfile, only, expertiseTree, skillsTree).length)
+    // Counts honour the language level and the Working knowledge toggle: an
+    // expertise count is how many experts hold that item at a counted tier.
+    const only: FilterState = {
+      ...EMPTY_FILTERS,
+      [key]: [value],
+      languageLevel: f.languageLevel,
+      expertiseIncludeWorking: f.expertiseIncludeWorking,
+    }
+    counts.set(value, applyFilters(pool, portfolioByProfile, only, expertise).length)
   }
   return counts
 }

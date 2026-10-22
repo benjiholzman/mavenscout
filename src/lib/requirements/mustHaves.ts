@@ -1,4 +1,5 @@
-import { applyFilters, type TaxonomyTree } from '../filters'
+import type { ExpertiseIndex } from '../expertise'
+import { applyFilters } from '../filters'
 import type { Requirement } from '../matching/types'
 import type { OrgIndex } from '../organizations'
 import type { PortfolioItem, Profile } from '../../types/db'
@@ -12,15 +13,9 @@ import { gridOnlyMustHaves, mustHavesToFilterState, type SearchState } from './m
 // filter-bar control.
 //
 // TODO(server-side): the spec asks for this as a database query. Today the
-// whole approved pool is loaded and filtered in the browser (taxonomy parent
-// expansion, "City, Country" parsing and availability windows all live in
-// filters.ts); this function is the one place to move to a query when the
+// whole approved pool is loaded and filtered in the browser (expertise kinds,
+// "City, Country" parsing and availability windows all live in filters.ts); this function is the one place to move to a query when the
 // pool outgrows that.
-
-export interface TaxonomyTrees {
-  expertise: TaxonomyTree
-  skills: TaxonomyTree
-}
 
 /** Profiles that pass every Org History Must-have (all others pass through). */
 export function applyOrgMustHaves(profiles: Profile[], reqs: Requirement[], orgs: OrgIndex): Profile[] {
@@ -35,14 +30,13 @@ export function applyMustHaves(
   portfolioByProfile: Map<string, PortfolioItem[]>,
   reqs: Requirement[],
   search: SearchState,
-  trees: TaxonomyTrees,
+  expertise: ExpertiseIndex,
   orgs: OrgIndex,
 ): Profile[] {
   return applyFilters(
     applyOrgMustHaves(profiles, reqs, orgs),
     portfolioByProfile,
     mustHavesToFilterState(reqs, search),
-    trees.expertise,
-    trees.skills,
+    expertise,
   )
 }

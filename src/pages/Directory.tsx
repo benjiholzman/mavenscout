@@ -14,7 +14,13 @@ import type { GridOptions } from '../components/ranking/RequirementsGrid'
 import { SignupPrompt } from '../components/ui/SignupPrompt'
 import { DirectorySkeleton } from '../components/ui/Skeletons'
 import { useDirectoryData } from '../hooks/useDirectoryData'
-import { buildTaxonomyTree, deriveOptions, facetCounts, type FacetKey, type FilterState } from '../lib/filters'
+import {
+  buildExpertiseIndex,
+  EMPTY_EXPERTISE_INDEX,
+  upgradeLegacyExtracted,
+  upgradeLegacyRequirements,
+} from '../lib/expertise'
+import { deriveOptions, facetCounts, type FacetKey, type FilterState } from '../lib/filters'
 import { extractRequirements } from '../lib/matching/extract'
 import {
   loadLatestForOpening,
@@ -31,7 +37,6 @@ import {
   preferenceKey,
   sameRows,
   withRunPreferences,
-  type TagLevelOf,
 } from '../lib/requirements/model'
 import { clearDraft, readDraft, writeDraft } from '../lib/requirements/draft'
 import { applyMustHaves, applyOrgMustHaves } from '../lib/requirements/mustHaves'
@@ -115,22 +120,14 @@ export default function Directory() {
 
   // ---- data ------------------------------------------------------------------
 
-  const trees = useMemo(() => {
-    if (!data) return null
-    return {
-      expertise: buildTaxonomyTree(data.taxonomyCategories, data.taxonomyItems, 'domain_expertise'),
-      skills: buildTaxonomyTree(data.taxonomyCategories, data.taxonomyItems, 'technical_skills'),
-    }
-  }, [data])
-
-  const tagLevelOf = useCallback<TagLevelOf>(
-    (kind, name) =>
-      (kind === 'expertise' ? trees?.expertise : trees?.skills)?.categoryNames.has(name) ? 'category' : 'item',
-    [trees],
+  /** The unified expertise list: kinds for matching, groups for pickers. */
+  const expertise = useMemo(
+    () => (data ? buildExpertiseIndex(data.taxonomyCategories, data.taxonomyItems) : null),
+    [data],
   )
 
   const handleFilterChange = (next: FilterState) => {
-    reqs.fromFilterBar(next, tagLevelOf)
+    reqs.fromFilterBar(next)
     setEpoch((e) => e + 1)
   }
   const handleClearAll = () => {
@@ -143,48 +140,39 @@ export default function Directory() {
 
   /** Picker options for the requirements grid. */
   const gridOptions = useMemo<GridOptions | null>(() => {
-    if (!data || !options) return null
+    if (!data || !options || !expertise) return null
     const typeOf = (id: string) => data.taxonomyCategories.find((c) => c.id === id)?.type
-    const groupsFor = (type: 'domain_expertise' | 'technical_skills') =>
-      data.taxonomyCategories
-        .filter((c) => c.type === type)
-        .map((c) => ({
-          label: c.name,
-          items: data.taxonomyItems.filter((i) => i.category_id === c.id).map((i) => i.name),
-        }))
     return {
+      expertise,
       locations: options.locations,
       languages: options.languages,
       types: ['Individual', 'Small Firm', 'Large Firm'],
       workArrangements: data.taxonomyItems
         .filter((i) => typeOf(i.category_id) === 'work_arrangement')
         .map((i) => i.name),
-      expertiseGroups: groupsFor('domain_expertise'),
-      skillGroups: groupsFor('technical_skills'),
     }
-  }, [data, options])
+  }, [data, options, expertise])
 
   /** Candidates meeting every Required row and the search term. */
   const filtered = useMemo(() => {
-    if (!data || !trees) return []
-    return applyMustHaves(data.profiles, data.portfolioByProfile, requirements, search, trees, data.orgs)
-  }, [data, trees, requirements, search])
+    if (!data || !expertise) return []
+    return applyMustHaves(data.profiles, data.portfolioByProfile, requirements, search, expertise, data.orgs)
+  }, [data, expertise, requirements, search])
 
   const countFor = useCallback(
     (key: FacetKey, values: string[]) =>
-      data && trees
+      data && expertise
         ? facetCounts(
             // Org History Required rows have no filter-bar control, so apply them first.
             applyOrgMustHaves(data.profiles, requirements, data.orgs),
             data.portfolioByProfile,
             filters,
-            trees.expertise,
-            trees.skills,
+            expertise,
             key,
             values,
           )
         : new Map<string, number>(),
-    [data, trees, requirements, filters],
+    [data, expertise, requirements, filters],
   )
 
   const gridOnlyChips = useMemo(
@@ -212,10 +200,10 @@ export default function Directory() {
   }, [ranking, filtered])
 
   const excludedCount = useMemo(() => {
-    if (!ranking || !data || !trees) return 0
-    const searchPool = applyMustHaves(data.profiles, data.portfolioByProfile, [], search, trees, data.orgs)
+    if (!ranking || !data || !expertise) return 0
+    const searchPool = applyMustHaves(data.profiles, data.portfolioByProfile, [], search, expertise, data.orgs)
     return searchPool.length - filtered.length
-  }, [ranking, data, trees, search, filtered])
+  }, [ranking, data, expertise, search, filtered])
 
   /** Requirements as stored for this run: the current Required rows plus the
    *  preference rows the run was scored with. */
@@ -284,6 +272,8 @@ export default function Directory() {
       return
     }
     if (loadedFor.current === rankingId) return
+    // Old saved rankings are read through the expertise list, so wait for it.
+    if (!expertise) return
     if (!gateRanking()) return
     // Marked loaded only once the load lands, so a cancelled first attempt
     // (StrictMode runs effects twice in development) doesn't block the retry.
@@ -296,25 +286,37 @@ export default function Directory() {
         return
       }
       loadedFor.current = rankingId
-      setRanking(rec)
+      // A run saved before the unified list (skill rows, old names, category
+      // rows) is read through it; the stored rows stay as they are, and the
+      // scores and build-up show exactly as they were scored.
+      const upgraded = upgradeLegacyRequirements(rec.jd.requirements ?? [], expertise)
+      const jd = { ...rec.jd, requirements: upgraded.requirements, extracted: upgradeLegacyExtracted(rec.jd.extracted, expertise) }
+      setRanking({ ...rec, jd })
+      if (upgraded.dropped.length > 0)
+        setNotice(
+          `This ranking was saved before the unified expertise list. ${upgraded.dropped.length} expertise row` +
+            `${upgraded.dropped.length === 1 ? '' : 's'} with no match on the new list (${upgraded.dropped.join(', ')}) ` +
+            `${upgraded.dropped.length === 1 ? 'was' : 'were'} left out; re-run to score it under the new list.`,
+        )
       // Unsaved preference / JD edits made before leaving come back as a
       // draft (the stored ranking itself is unchanged until a re-run).
       const draft = readDraft(rankingId)
       reqs.hydrate({
-        requirements: draft?.requirements ?? rec.jd.requirements ?? [],
+        requirements: draft ? upgradeLegacyRequirements(draft.requirements, expertise).requirements : jd.requirements,
         search: { term: params.get('q') ?? '', mode: params.get('qm') === 'full' ? 'full' : 'names' },
       })
       setJdText(draft?.jdText ?? rec.jd.raw_text)
-      setExtracted(draft ? draft.extracted : rec.jd.extracted)
+      setExtracted(draft ? upgradeLegacyExtracted(draft.extracted, expertise) : jd.extracted)
       setJdCollapsed(true)
       setEpoch((e) => e + 1)
     })
     return () => {
       cancelled = true
     }
-    // Runs per ranking id; the other values are read at load time on purpose.
+    // Runs per ranking id (once the expertise list is in); the other values are
+    // read at load time on purpose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rankingId])
+  }, [rankingId, expertise])
 
   // While ranked, the search term rides in the URL so a reload restores the pool.
   useEffect(() => {
@@ -393,8 +395,8 @@ export default function Directory() {
 
   const countFn = useCallback<CountFn>(
     (reqRows, s) =>
-      data && trees ? applyMustHaves(data.profiles, data.portfolioByProfile, reqRows, s, trees, data.orgs).length : 0,
-    [data, trees],
+      data && expertise ? applyMustHaves(data.profiles, data.portfolioByProfile, reqRows, s, expertise, data.orgs).length : 0,
+    [data, expertise],
   )
 
   /** Run: Required rows pre-filter the pool, the survivors are scored, the
@@ -498,6 +500,7 @@ export default function Directory() {
             languages={options.languages}
             taxonomyCategories={data.taxonomyCategories}
             taxonomyItems={data.taxonomyItems}
+            expertise={expertise ?? EMPTY_EXPERTISE_INDEX}
             countFor={countFor}
             onClearAll={handleClearAll}
             gridOnlyMustHaves={gridOnlyChips}

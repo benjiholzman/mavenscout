@@ -9,7 +9,6 @@ import {
   type RequirementOf,
   type RequirementSource,
   type RequirementValueByKind,
-  type TagValue,
 } from '../matching/types'
 
 // ============================================================================
@@ -33,9 +32,10 @@ import {
 // verified, org history) have at most one row.
 //
 // Semantics carried over from the filter bar:
-// - Several Required rows of the same kind (expertise, skill) mean "any of"
-//   (OR), like selecting several items in one filter dropdown. Different kinds
-//   combine with AND.
+// - Several Required expertise rows follow the unified list's rule
+//   (profiles-membership §6): OR within a kind (sector / theme / method), AND
+//   across kinds, counting Core and Strong tags unless the manager includes
+//   Working knowledge. Different requirement kinds combine with AND.
 // - Org History has no filter-bar control; its Required row is evaluated in
 //   mustHaves.ts and shown as a chip at the end of the filter bar.
 // ============================================================================
@@ -47,11 +47,6 @@ export interface SearchState {
 
 export const EMPTY_SEARCH: SearchState = { term: '', mode: 'names' }
 
-/** Taxonomy level of a selected name, so a filter-bar selection can become a
- *  typed expertise/skill row. Usually backed by TaxonomyTree.categoryNames. */
-export type TagLevelOf = (kind: 'expertise' | 'skill', name: string) => TagValue['level']
-
-export type TagKind = 'expertise' | 'skill'
 export type SingleKind = (typeof ALWAYS_PRESENT_KINDS)[number]
 
 /** Multi-select kinds and the FilterState field each one is shown in. */
@@ -66,17 +61,12 @@ const VALUES_FIELDS = {
 export type ValuesKind = keyof typeof VALUES_FIELDS
 export const isValuesKind = (kind: RequirementKind): kind is ValuesKind => kind in VALUES_FIELDS
 
-const TAG_FIELDS = { expertise: 'expertise', skill: 'skills' } as const satisfies Record<
-  TagKind,
-  keyof FilterState
->
-
-const isTagKind = (kind: RequirementKind): kind is TagKind => kind === 'expertise' || kind === 'skill'
+const isTagKind = (kind: RequirementKind): kind is 'expertise' => kind === 'expertise'
 
 // ---- construction ---------------------------------------------------------
 
 let idCounter = 0
-/** Ids for expertise/skill rows. Single-instance rows use their kind as their
+/** Ids for expertise rows. Single-instance rows use their kind as their
  *  id, since there's at most one of each. */
 export function newRequirementId(kind: RequirementKind): string {
   idCounter += 1
@@ -85,8 +75,7 @@ export function newRequirementId(kind: RequirementKind): string {
 
 export function defaultValue<K extends RequirementKind>(kind: K): RequirementValueByKind[K] {
   const defaults: { [P in RequirementKind]: () => RequirementValueByKind[P] } = {
-    expertise: () => ({ name: '', level: 'item' }),
-    skill: () => ({ name: '', level: 'item' }),
+    expertise: () => ({ name: '' }),
     org_history: () => ({ org: '', scope: 'ever', peers: [] }),
     location: () => ({ values: [] }),
     language: () => ({ values: [] }),
@@ -100,7 +89,7 @@ export function defaultValue<K extends RequirementKind>(kind: K): RequirementVal
 }
 
 /** A new row. Availability / verified / org history (one row at most) get
- *  their kind as id; expertise/skill and multi-value rows (which can have a
+ *  their kind as id; expertise and multi-value rows (which can have a
  *  Required and a preference row) get a fresh id. Rows added in the grid
  *  start at Nice to have. */
 export function makeRow<K extends RequirementKind>(
@@ -122,7 +111,7 @@ export function defaultRequirements(): Requirement[] {
   return []
 }
 
-/** Enforces the row limits and puts rows in display order: expertise/skill
+/** Enforces the row limits and puts rows in display order: expertise
  *  rows first, then the other kinds in canonical order — for a multi-value
  *  kind, its Required row before its preference row. Extra rows beyond the
  *  limits are dropped, and a value lives in only one of a kind's two rows
@@ -232,7 +221,6 @@ export function mustHavesToFilterState(reqs: Requirement[], search: SearchState)
     ...EMPTY_FILTERS,
     types: [],
     expertise: [],
-    skills: [],
     careerLevels: [],
     workArrangements: [],
     locations: [],
@@ -245,9 +233,7 @@ export function mustHavesToFilterState(reqs: Requirement[], search: SearchState)
     switch (r.kind) {
       case 'expertise':
         f.expertise.push(r.value.name)
-        break
-      case 'skill':
-        f.skills.push(r.value.name)
+        if (r.value.includeWorking) f.expertiseIncludeWorking = true
         break
       case 'language':
         f.languages = [...r.value.values]
@@ -288,7 +274,6 @@ export function gridOnlyMustHaves(reqs: Requirement[]): RequirementOf<'org_histo
 export function rowHasValue(r: Requirement): boolean {
   switch (r.kind) {
     case 'expertise':
-    case 'skill':
       return r.value.name !== ''
     case 'org_history':
       return r.value.org.trim() !== ''
@@ -317,16 +302,17 @@ export function tagRowCount(reqs: Requirement[]): number {
  *   left alone; availability and verified (one row at most) turn their row
  *   Required;
  * - a filter that's cleared deletes its Required row (no row = no preference);
- * - selecting an expertise/skill that already exists as a Nice to have /
- *   Important row raises that row to Required rather than duplicating it.
+ * - selecting an expertise item that already exists as a Nice to have /
+ *   Important row raises that row to Required rather than duplicating it;
+ * - the "Include Working knowledge" toggle is written to every Required
+ *   expertise row (one setting, kept on the rows so a saved run restores it).
  * Rows below Required are otherwise untouched (the filter bar never shows
- * them). The 10-row cap on expertise/skill applies to the grid, not here, so
- * the filter bar keeps working exactly as it always has.
+ * them). The 10-row cap on expertise applies to the grid, not here, so the
+ * filter bar keeps working exactly as it always has.
  */
 export function applyFilterStateToRequirements(
   reqs: Requirement[],
   next: FilterState,
-  tagLevelOf: TagLevelOf,
 ): { requirements: Requirement[]; search: SearchState } {
   let rows = [...reqs]
 
@@ -354,18 +340,18 @@ export function applyFilterStateToRequirements(
   setSingle('availability', next.availability ? { ...next.availability } : null)
   setSingle('verified', next.verifiedOnly ? {} : null)
 
-  for (const kind of ['expertise', 'skill'] as const) {
-    const wanted = next[TAG_FIELDS[kind]]
-    // Drop Required rows whose selection was removed in the filter bar.
-    rows = rows.filter((r) => !(r.kind === kind && isMust(r) && !wanted.includes(r.value.name)))
-    for (const name of wanted) {
-      const existing = rows.find((r): r is RequirementOf<TagKind> => r.kind === kind && r.value.name === name)
-      if (existing) {
-        if (!isMust(existing)) rows = rows.map((r) => (r === existing ? { ...existing, level: 'must' } : r))
-        continue
-      }
-      rows.push(makeRow(kind, { name, level: tagLevelOf(kind, name) }, { level: 'must', source: 'filter' }))
+  const wanted = next.expertise
+  const withWorking = (name: string) => (next.expertiseIncludeWorking ? { name, includeWorking: true } : { name })
+  // Drop Required rows whose selection was removed in the filter bar.
+  rows = rows.filter((r) => !(r.kind === 'expertise' && isMust(r) && !wanted.includes(r.value.name)))
+  for (const name of wanted) {
+    const existing = rows.find((r): r is RequirementOf<'expertise'> => r.kind === 'expertise' && r.value.name === name)
+    if (existing) {
+      // Raised to Required, or already Required: carries the Working setting.
+      rows = rows.map((r) => (r === existing ? { ...existing, level: 'must', value: withWorking(name) } : r))
+      continue
     }
+    rows.push(makeRow('expertise', withWorking(name), { level: 'must', source: 'filter' }))
   }
 
   return { requirements: normalizeRequirements(rows), search: { term: next.searchTerm, mode: next.searchMode } }
@@ -393,13 +379,13 @@ export function dropPreferences(reqs: Requirement[]): Requirement[] {
 // ---- JD suggestions → grid (spec §2 Step 2, §4) ----------------------------
 
 export type Suggestion =
-  | { kind: TagKind; tag: ExtractedTag }
+  | { kind: 'expertise'; tag: ExtractedTag }
   | { kind: 'location' | 'language'; item: ExtractedValue }
 
 /** True when the suggestion is already in the grid (in any row, any level —
  *  e.g. a language that's already Required). */
 export function isSuggestionAdded(reqs: Requirement[], s: Suggestion): boolean {
-  if ('tag' in s) return reqs.some((r) => isTagKind(r.kind) && r.kind === s.kind && (r.value as TagValue).name === s.tag.name)
+  if ('tag' in s) return reqs.some((r) => r.kind === 'expertise' && r.value.name === s.tag.name)
   return reqs.some(
     (r) => (r.kind === 'location' || r.kind === 'language') && r.kind === s.kind && r.value.values.includes(s.item.value),
   )
@@ -407,7 +393,7 @@ export function isSuggestionAdded(reqs: Requirement[], s: Suggestion): boolean {
 
 /**
  * Adds one "Found in your JD" suggestion, at Nice to have, tagged "from JD".
- * Expertise/skill suggestions become their own row (respecting the combined
+ * Expertise suggestions become their own row (respecting the combined
  * row cap). A location or language goes to that kind's PREFERENCE row —
  * joining it (which keeps its level) or creating it at Nice to have. A
  * Required row is never touched, so a suggestion can't widen a filter.
@@ -416,7 +402,7 @@ export function addSuggestion(reqs: Requirement[], s: Suggestion, maxTagRows: nu
   if (isSuggestionAdded(reqs, s)) return reqs
   if ('tag' in s) {
     if (tagRowCount(reqs) >= maxTagRows) return reqs
-    return [...reqs, makeRow(s.kind, { name: s.tag.name, level: s.tag.level }, { source: 'jd' })]
+    return [...reqs, makeRow('expertise', { name: s.tag.name }, { source: 'jd' })]
   }
   const pref = preferenceRowOf(reqs, s.kind) as RequirementOf<'location' | 'language'> | undefined
   if (pref)

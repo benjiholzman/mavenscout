@@ -20,7 +20,9 @@
 -- ---------------------------------------------------------------------------
 CREATE TABLE taxonomy_categories (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  type       text NOT NULL CHECK (type IN ('domain_expertise','technical_skills','work_arrangement')),
+  -- 'expertise' = the unified list's browsing groups (011); the other two
+  -- expertise types are LEGACY, kept for main and removed by 012.
+  type       text NOT NULL CHECK (type IN ('domain_expertise','technical_skills','work_arrangement','expertise')),
   name       text NOT NULL,
   sort_order int  NOT NULL DEFAULT 0
 );
@@ -36,7 +38,13 @@ CREATE TABLE taxonomy_items (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   category_id uuid NOT NULL REFERENCES taxonomy_categories(id) ON DELETE CASCADE,
   name        text NOT NULL,
-  sort_order  int  NOT NULL DEFAULT 0
+  sort_order  int  NOT NULL DEFAULT 0,
+  -- Unified expertise items (011): kind drives matching (OR within a kind, AND
+  -- across kinds); aliases are search terms; legacy_names are the old item
+  -- names folded in. NULL / empty for work arrangements.
+  kind         text CHECK (kind IN ('sector','theme','method')),
+  aliases      text[] NOT NULL DEFAULT '{}',
+  legacy_names text[] NOT NULL DEFAULT '{}'
 );
 ALTER TABLE taxonomy_items ENABLE ROW LEVEL SECURITY;
 -- PROD: SELECT for everyone; writes admin-only.
@@ -85,8 +93,9 @@ CREATE TABLE profiles (
   resume_path                   text,                         -- Supabase Storage path in the 'resumes' bucket (PDF upload)
   resume_url                    text,                         -- OR an external link — exactly one populated, app-enforced (same pattern as video_responses)
   detailed_bio                  text,
-  expertise                     jsonb NOT NULL DEFAULT '[]',  -- [{name, tier: primary|secondary, level: category|item}], 2+4 cap app-enforced
-  skills                        jsonb NOT NULL DEFAULT '[]',  -- same shape/caps as expertise
+  expertise                     jsonb NOT NULL DEFAULT '[]',  -- LEGACY [{name, tier: primary|secondary, level}]; replaced by tiered_expertise (011), dropped by 012
+  skills                        jsonb NOT NULL DEFAULT '[]',  -- LEGACY, same shape; dropped by 012
+  tiered_expertise              jsonb NOT NULL DEFAULT '[]',  -- [{name, tier: core|strong|working}] from the unified list (011); 3/5/≤10 app-enforced
   accreditations                jsonb NOT NULL DEFAULT '[]',  -- [{name, issuing_organization, year, credential_id_or_url}]
   languages                     text[] NOT NULL DEFAULT '{}', -- LEGACY free-form list; replaced by spoken_languages (010), dropped by 012
   spoken_languages              jsonb NOT NULL DEFAULT '[]',  -- [{name, proficiency: fluent|working}] from `languages` table (010), max 10 app-enforced
@@ -130,7 +139,7 @@ CREATE TRIGGER profiles_updated_at BEFORE UPDATE ON profiles
 CREATE TABLE taxonomy_requests (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id      uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  type            text NOT NULL CHECK (type IN ('domain_expertise','technical_skills')),
+  type            text NOT NULL CHECK (type IN ('domain_expertise','technical_skills','expertise')),  -- 'expertise' = unified list (011)
   proposed_name   text NOT NULL,
   proposed_parent text,
   status          text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),

@@ -9,7 +9,19 @@ export type CareerLevel = 'early_career' | 'mid_career' | 'senior'
 export type VerificationStatus = 'unverified' | 'pending' | 'verified'
 export type SubscriptionStatus = 'active' | 'past_due' | 'canceled' | 'paused' | 'none'
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
-export type TaxonomyType = 'domain_expertise' | 'technical_skills' | 'work_arrangement'
+/** 'expertise' = the unified list's browsing groups (011). 'domain_expertise' /
+ *  'technical_skills' are LEGACY (kept for main, removed by 012). */
+export type TaxonomyType = 'domain_expertise' | 'technical_skills' | 'work_arrangement' | 'expertise'
+
+/** What an expertise item is; drives matching (OR within a kind, AND across). */
+export type ExpertiseKind = 'sector' | 'theme' | 'method'
+export type ExpertiseTier = 'core' | 'strong' | 'working'
+
+/** One tag on the unified list (profiles-membership §6; 011). */
+export interface ExpertiseTag {
+  name: string
+  tier: ExpertiseTier
+}
 
 export interface AvailabilityTrack {
   status: 'available_now' | 'available_from' | 'unavailable'
@@ -17,6 +29,8 @@ export interface AvailabilityTrack {
   until: string | null
 }
 
+/** LEGACY two-taxonomy tag (profiles.expertise / profiles.skills), read only
+ *  by the migration; the app uses ExpertiseTag. */
 export interface TagSelection {
   name: string
   tier: 'primary' | 'secondary'
@@ -97,8 +111,12 @@ export interface Profile {
   resume_path: string | null // Storage path in 'resumes' bucket (PDF upload)
   resume_url: string | null // OR external link — exactly one populated, app-enforced
   detailed_bio: string | null
+  /** LEGACY (main only until 012); read tiered_expertise. */
   expertise: TagSelection[]
+  /** LEGACY (main only until 012). */
   skills: TagSelection[]
+  /** Core / Strong / Working knowledge tags from the unified list (011). */
+  tiered_expertise: ExpertiseTag[]
   accreditations: Accreditation[]
   /** LEGACY free-text list, left for main until 012; read spoken_languages. */
   languages: string[]
@@ -154,12 +172,18 @@ export interface TaxonomyItem {
   category_id: string
   name: string
   sort_order: number
+  /** Unified expertise items only (011); null for work arrangements. */
+  kind?: ExpertiseKind | null
+  /** Search terms: 'M&E', 'PFM', 'TVET'. */
+  aliases?: string[]
+  /** Old Domain Expertise / Technical Skills item names folded into this item. */
+  legacy_names?: string[]
 }
 
 export interface TaxonomyRequest {
   id: string
   profile_id: string
-  type: 'domain_expertise' | 'technical_skills'
+  type: 'domain_expertise' | 'technical_skills' | 'expertise'
   proposed_name: string
   proposed_parent: string | null
   status: 'pending' | 'approved' | 'rejected'

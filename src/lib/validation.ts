@@ -1,12 +1,13 @@
-// Editor-side validation (PRD 7.3/7.13/7.14): tag caps, per-platform social
-// URL validation (lenient about www/country subdomains/paths), handle slugs.
+// Editor-side validation (PRD 7.3/7.13/7.14): expertise tier caps,
+// per-platform social URL validation (lenient about www/country
+// subdomains/paths), handle slugs.
 
-import type { TagSelection } from '../types/db'
+import { EXPERTISE_TIER_LIMITS } from './config'
+import { TIER_LABELS, TIERS } from './expertise'
+import type { ExpertiseTag } from '../types/db'
 
 export const HEADLINE_MAX = 120
 export const ELIGIBILITY_MAX = 300
-export const PRIMARY_CAP = 2
-export const SECONDARY_CAP = 4
 export const WORK_HISTORY_CAP = 10
 export const EDUCATION_CAP = 5
 export const ADDITIONAL_CAP = 5
@@ -22,20 +23,15 @@ export function audioTestimonialCap(isPremium: boolean): number {
   return isPremium ? 10 : 1
 }
 
-/** Can this tag still be added under the 2-primary/4-secondary caps? */
-export function tagCapReached(tags: TagSelection[], tier: 'primary' | 'secondary'): boolean {
-  const cap = tier === 'primary' ? PRIMARY_CAP : SECONDARY_CAP
-  return tags.filter((t) => t.tier === tier).length >= cap
-}
-
-/** Save-time check for the caps — catches over-cap data loaded from older
- *  rows, which the picker's add/toggle guards can't prevent. */
-export function tagCapError(tags: TagSelection[], label: string): string | null {
-  const primary = tags.filter((t) => t.tier === 'primary').length
-  const secondary = tags.filter((t) => t.tier === 'secondary').length
-  if (primary > PRIMARY_CAP) return `${label}: pick at most ${PRIMARY_CAP} primary (you have ${primary}).`
-  if (secondary > SECONDARY_CAP)
-    return `${label}: pick at most ${SECONDARY_CAP} secondary (you have ${secondary}).`
+/** Save-time check for the tier maximums (EXPERTISE_TIER_LIMITS) — catches
+ *  over-cap data, which the editor's add/move guards can't prevent. The
+ *  minimums are enforced with the new editor (profiles-membership §13 step 2). */
+export function expertiseTierError(tags: ExpertiseTag[]): string | null {
+  for (const tier of TIERS) {
+    const n = tags.filter((t) => t.tier === tier).length
+    const { max } = EXPERTISE_TIER_LIMITS[tier]
+    if (n > max) return `${TIER_LABELS[tier]}: pick at most ${max} (you have ${n}).`
+  }
   return null
 }
 

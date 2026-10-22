@@ -11,7 +11,7 @@ import {
   Star,
   Video,
 } from 'lucide-react'
-import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { logoIconUrl } from '../../lib/brandfetch'
 import { fmtPortfolioMeta } from '../../lib/dates'
@@ -22,15 +22,16 @@ import { preferencePercent, rowPointsLabel, rowsByWeight, scoreBreakdown } from 
 import type { MatchResult } from '../../lib/matching/types'
 import { OutcomeIcon, ScoreEquation } from '../match/outcome'
 import { RankStrip } from '../match/RankStrip'
-import { PRIMARY_CAP, SECONDARY_CAP } from '../../lib/validation'
-import type { PortfolioItem, Profile, TagSelection, VideoResponse } from '../../types/db'
+import { EXPERTISE_TIER_LIMITS } from '../../lib/config'
+import { expertiseTags, TIER_LABELS } from '../../lib/expertise'
+import type { ExpertiseTag, PortfolioItem, Profile, VideoResponse } from '../../types/db'
 import { AvailabilityChip } from '../ui/AvailabilityChip'
 import { ButtonLink } from '../ui/Button'
 import { OrgLogo } from '../ui/OrgLogo'
 import { Tooltip } from '../ui/Tooltip'
 import { CAREER_LEVEL_LABELS, FeaturedRibbon, VerifiedBadge } from '../ui/badges'
 
-// Flip card (PRD 7.1): cycles through Front → Expertise & Skills → one face
+// Flip card (PRD 7.1): cycles through Front → Expertise → one face
 // per portfolio item (up to 3) → Video Intro. In ranking mode (match rework
 // spec §7) the card also gets a fixed-height rank strip in the top of its
 // frame and a "Match" face inserted right after Front. Faces change only via the
@@ -40,15 +41,13 @@ import { CAREER_LEVEL_LABELS, FeaturedRibbon, VerifiedBadge } from '../ui/badges
 type Face =
   | { kind: 'front' }
   | { kind: 'match'; result: MatchResult }
-  | { kind: 'tags'; sections: { title: string; tags: TagSelection[] }[] }
+  | { kind: 'tags'; tags: ExpertiseTag[] }
   | { kind: 'portfolio'; item: PortfolioItem; n: number; of: number }
   | { kind: 'video'; video: VideoResponse }
 
 const SECTOR_LOGO_CAP = 5
 const PORTFOLIO_FACE_CAP = 3
 
-
-const tagLabel = (t: TagSelection) => t.name + (t.level === 'category' ? ' (broad)' : '')
 
 export function FlipCard({
   profile,
@@ -78,11 +77,8 @@ export function FlipCard({
   const faces = useMemo<Face[]>(() => {
     const f: Face[] = [{ kind: 'front' }]
     if (ranked) f.push({ kind: 'match', result: ranked.result })
-    const sections = [
-      { title: 'Domain Expertise', tags: profile.expertise },
-      { title: 'Technical Skills', tags: profile.skills },
-    ].filter((s) => s.tags.length > 0)
-    if (sections.length > 0) f.push({ kind: 'tags', sections })
+    const tags = expertiseTags(profile).filter((t) => t.tier !== 'working')
+    if (tags.length > 0) f.push({ kind: 'tags', tags })
     const items = portfolio.slice(0, PORTFOLIO_FACE_CAP)
     items.forEach((item, i) => f.push({ kind: 'portfolio', item, n: i + 1, of: items.length }))
     if (intro) f.push({ kind: 'video', video: intro })
@@ -160,7 +156,7 @@ export function FlipCard({
               <div className="flex h-full flex-col">
                 <BackHeader profile={profile} isFirm={isFirm} />
                 {face.kind === 'match' && <MatchFace result={face.result} onMore={ranked?.onAbout} />}
-                {face.kind === 'tags' && <TagsFace sections={face.sections} />}
+                {face.kind === 'tags' && <TagsFace tags={face.tags} />}
                 {face.kind === 'portfolio' && <PortfolioFace face={face} href={profileHref} />}
                 {face.kind === 'video' && <VideoFace video={face.video} name={profile.name} />}
               </div>
@@ -498,41 +494,48 @@ function MatchFace({ result, onMore }: { result: MatchResult; onMore?: () => voi
   )
 }
 
-function TagsFace({ sections }: { sections: { title: string; tags: TagSelection[] }[] }) {
+function TagsFace({ tags }: { tags: ExpertiseTag[] }) {
+  // Core as prominent chips, Strong as smaller ones (profiles-membership §6);
+  // Working knowledge is on the full profile only. Up to 3 + 5 chips: long
+  // names truncate inside their chip so the face never scrolls.
+  const core = tags.filter((t) => t.tier === 'core').slice(0, EXPERTISE_TIER_LIMITS.core.max)
+  const strong = tags.filter((t) => t.tier === 'strong').slice(0, EXPERTISE_TIER_LIMITS.strong.max)
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2.5 px-4 pb-2.5 pt-3.5">
-      {/* Secondary lines clamp to 2; the gap between sections shrinks (22px →
-          4px) when long primary pills wrap, so the worst case still fits. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {sections.map((s, i) => {
-          const primary = s.tags.filter((t) => t.tier === 'primary').slice(0, PRIMARY_CAP)
-          const secondary = s.tags.filter((t) => t.tier === 'secondary').slice(0, SECONDARY_CAP)
-          return (
-            <Fragment key={s.title}>
-              {i > 0 && <div aria-hidden className="min-h-1 shrink basis-[22px]" />}
-              <section className="shrink-0">
-                <SectionLabel>{s.title}</SectionLabel>
-                {primary.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {primary.map((t) => (
-                      <span
-                        key={t.name}
-                        className="rounded-full border border-brand-100 bg-brand-50 px-2.5 py-1 text-[12.5px] font-medium leading-4 text-brand-800"
-                      >
-                        {tagLabel(t)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {secondary.length > 0 && (
-                  <p className={`line-clamp-2 text-[13.5px] leading-5 text-ink-soft ${primary.length > 0 ? 'mt-2' : ''}`}>
-                    <span className="text-ink-faint">+</span> {secondary.map(tagLabel).join(' · ')}
-                  </p>
-                )}
-              </section>
-            </Fragment>
-          )
-        })}
+        {core.length > 0 && (
+          <section className="shrink-0">
+            <SectionLabel>{TIER_LABELS.core}</SectionLabel>
+            <div className="flex flex-wrap gap-1.5">
+              {core.map((t) => (
+                <span
+                  key={t.name}
+                  title={t.name}
+                  className="max-w-full truncate rounded-full border border-brand-100 bg-brand-50 px-2.5 py-1 text-[12.5px] font-medium leading-4 text-brand-800"
+                >
+                  {t.name}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+        {core.length > 0 && strong.length > 0 && <div aria-hidden className="min-h-1 shrink basis-[18px]" />}
+        {strong.length > 0 && (
+          <section className="shrink-0">
+            <SectionLabel>{TIER_LABELS.strong}</SectionLabel>
+            <div className="flex flex-wrap gap-1">
+              {strong.map((t) => (
+                <span
+                  key={t.name}
+                  title={t.name}
+                  className="max-w-full truncate rounded-full border border-line bg-white px-2 py-0.5 text-[12px] leading-4 text-ink-soft"
+                >
+                  {t.name}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-1.5 text-xs leading-4 text-ink-faint">
         <Tooltip tapToggle content="Listed by the consultant; not verified by MavenScout.">
@@ -544,7 +547,7 @@ function TagsFace({ sections }: { sections: { title: string; tags: TagSelection[
             <Info size={14} />
           </button>
         </Tooltip>
-        <span>Expertise and skills are self-attested</span>
+        <span>Expertise is self-attested</span>
       </div>
     </div>
   )

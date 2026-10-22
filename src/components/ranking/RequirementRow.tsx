@@ -1,6 +1,8 @@
 import { AlertTriangle, Info, Plus, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { availabilitySummary } from '../directory/AvailabilityModal'
+import { EXPERTISE_TIER_LIMITS } from '../../lib/config'
+import { EXPERTISE_KIND_LABELS, type ExpertiseIndex } from '../../lib/expertise'
 import { locationLabel, type EngagementType } from '../../lib/filters'
 import type { Level, Requirement, RequirementValueByKind } from '../../lib/matching/types'
 import { CAREER_LEVEL_SHORT, KIND_LABELS, ORG_SCOPE_LABELS } from '../../lib/requirements/labels'
@@ -20,6 +22,8 @@ import { LevelControl } from './LevelControl'
 // only, so replacing them doesn't touch scoring.
 
 export interface PickerOptions {
+  /** The unified expertise list (an expertise row shows its item's kind). */
+  expertise: ExpertiseIndex
   locations: OptionGroup[]
   languages: string[]
   types: string[]
@@ -47,8 +51,9 @@ export function RequirementRow({
    *  kind's Required row, which can't be picked here (no duplicates). */
   requiredValues?: string[]
 }) {
-  const isTag = row.kind === 'expertise' || row.kind === 'skill'
+  const isTag = row.kind === 'expertise'
   const title = isTag ? row.value.name : KIND_LABELS[row.kind]
+  const itemKind = isTag ? options.expertise.byName.get(row.value.name)?.kind : undefined
   const sourceTag = SOURCE_LABELS[row.source]
 
   return (
@@ -60,13 +65,13 @@ export function RequirementRow({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-semibold leading-snug text-ink">
-            {title}
-            {isTag && row.value.level === 'category' && (
-              <span className="ml-1 font-normal text-ink-faint">(broad)</span>
-            )}
-          </p>
-          {isTag && <p className="text-xs text-ink-faint">{KIND_LABELS[row.kind]}</p>}
+          <p className="text-sm font-semibold leading-snug text-ink">{title}</p>
+          {isTag && (
+            <p className="text-xs text-ink-faint">
+              {KIND_LABELS.expertise}
+              {itemKind && ` · ${EXPERTISE_KIND_LABELS[itemKind]}`}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {sourceTag && (
@@ -111,7 +116,6 @@ function ValuePicker({
 }) {
   switch (row.kind) {
     case 'expertise':
-    case 'skill':
       return null // the pick is the row's title; remove and re-add to change it
     case 'org_history':
       return <OrgHistoryPicker value={row.value} onValue={onValue} />
@@ -431,11 +435,12 @@ function RowNotes({ row }: { row: Requirement }) {
         this row to count.
       </Note>,
     )
-  if ((row.kind === 'expertise' || row.kind === 'skill') && row.level === 'must')
+  if (row.kind === 'expertise' && row.level === 'must')
     notes.push(
       <Note key="tagcap" tone="warn">
-        Candidates can tag only 6 items, so Required may exclude qualified people who didn't tag
-        it. Consider Important.
+        Required counts only the {EXPERTISE_TIER_LIMITS.core.max + EXPERTISE_TIER_LIMITS.strong.max} Core and
+        Strong items each candidate picks{row.value.includeWorking ? ', plus Working knowledge' : ''}, so it may
+        exclude qualified people who didn't tag it. Consider Important.
       </Note>,
     )
   if (row.kind === 'org_history')

@@ -1,9 +1,10 @@
 import { loadOrgIndex, type OrgIndex } from '../organizations'
 import { supabase } from '../supabase'
-import { computeAdjustments, mustHavesPassed, type TaxonomyIndex } from './adjustments'
+import { buildExpertiseIndex, upgradeLegacyExtracted, type ExpertiseIndex } from '../expertise'
+import { computeAdjustments, mustHavesPassed } from './adjustments'
 import { bandFor } from './config'
 import { scoreBreakdown } from './display'
-import { buildJdSignature, computeFit, tagCredit, type CandidateInput, type TagIndex } from './fit'
+import { buildJdSignature, computeFit, tagCredit, type CandidateInput } from './fit'
 import { buildNarrative } from './narrative'
 import { preferenceScoring, totalScore } from './total'
 import type { ExtractedRequirements, MatchResult, RankPoolFn, Requirement } from './types'
@@ -32,24 +33,6 @@ import type {
 // the total is computed from that displayed Fit and rounded. The displayed
 // build-up comes from display.ts (Fit part + preferences = total, exactly).
 // ============================================================================
-
-function tagIndex(cats: TaxonomyCategory[], items: TaxonomyItem[], type: TaxonomyCategory['type']): TagIndex {
-  const parentOf = new Map<string, string>()
-  const childrenOf = new Map<string, string[]>()
-  for (const c of cats.filter((c) => c.type === type)) {
-    const children = items.filter((i) => i.category_id === c.id).map((i) => i.name)
-    childrenOf.set(c.name, children)
-    children.forEach((n) => parentOf.set(n, c.name))
-  }
-  return { parentOf, childrenOf }
-}
-
-export function buildTaxonomyIndex(cats: TaxonomyCategory[], items: TaxonomyItem[]): TaxonomyIndex {
-  return {
-    expertise: tagIndex(cats, items, 'domain_expertise'),
-    skills: tagIndex(cats, items, 'technical_skills'),
-  }
-}
 
 interface Scored extends Omit<MatchResult, 'rank'> {
   fitFloat: number
@@ -94,22 +77,22 @@ export function scorePool(args: {
   extracted: ExtractedRequirements | null
   requirements: Requirement[]
   candidates: CandidateInput[]
-  taxonomy: TaxonomyIndex
+  expertise: ExpertiseIndex
   orgs: OrgIndex
 }): MatchResult[] {
-  const { rawText, extracted, requirements, candidates, taxonomy, orgs } = args
+  const { rawText, extracted, requirements, candidates, expertise, orgs } = args
   // The JD is read once per run, here — never per candidate.
   const sig = buildJdSignature(rawText, extracted)
 
   const scored: Scored[] = candidates.map((c) => {
-    const fb = computeFit(c, sig, taxonomy, rawText)
-    const adjustments = computeAdjustments(c, requirements, taxonomy, orgs)
+    const fb = computeFit(c, sig, rawText)
+    const adjustments = computeAdjustments(c, requirements, expertise, orgs)
     const scoring = preferenceScoring(adjustments)
     const fit_score = Math.round(fb.fit)
     const total_score = totalScore(fit_score, scoring)
     const band = bandFor(total_score)
-    const coveredTerms = [...sig.expertise.map((t) => ({ t, idx: taxonomy.expertise, tags: c.profile.expertise })), ...sig.skills.map((t) => ({ t, idx: taxonomy.skills, tags: c.profile.skills }))]
-      .map(({ t, idx, tags }) => ({ name: t.name, credit: tagCredit(tags, t, idx).credit }))
+    const coveredTerms = sig.expertise
+      .map((t) => ({ name: t.name, credit: tagCredit(c.profile, t.name) }))
       .filter((x) => x.credit > 0)
       .sort((a, b) => b.credit - a.credit)
       .map((x) => x.name)
@@ -121,7 +104,7 @@ export function scorePool(args: {
       fitFloat: fb.fit,
       adjustments,
       scoring,
-      must_haves_passed: mustHavesPassed(c, requirements, taxonomy),
+      must_haves_passed: mustHavesPassed(c, requirements),
       narrative: buildNarrative({
         profile: c.profile,
         total: total_score,
@@ -176,12 +159,15 @@ export const rankPool: RankPoolFn = async (jobDescriptionId, requirements, pool)
     loadOrgIndex(),
   ])
   if (jdRes.error) throw new Error(jdRes.error.message)
+  const expertise = buildExpertiseIndex((catsRes.data as TaxonomyCategory[]) ?? [], (itemsRes.data as TaxonomyItem[]) ?? [])
   return scorePool({
     rawText: jdRes.data.raw_text,
-    extracted: jdRes.data.extracted as ExtractedRequirements | null,
+    // A run saved before the unified list keeps its old extraction; read it
+    // through the list (old names → items) when loosening re-scores it.
+    extracted: upgradeLegacyExtracted(jdRes.data.extracted as ExtractedRequirements | null, expertise),
     requirements,
     candidates,
-    taxonomy: buildTaxonomyIndex((catsRes.data as TaxonomyCategory[]) ?? [], (itemsRes.data as TaxonomyItem[]) ?? []),
+    expertise,
     orgs,
   })
 }

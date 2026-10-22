@@ -9,6 +9,7 @@ import {
   type SearchMode,
 } from '../../lib/filters'
 import type { TaxonomyCategory, TaxonomyItem } from '../../types/db'
+import { describeExpertiseSelection, type ExpertiseIndex } from '../../lib/expertise'
 import { MIN_PROFICIENCY_LABELS } from '../../lib/languages'
 import { MultiSelect, type OptionGroup } from '../ui/MultiSelect'
 import { Segmented } from '../ui/Segmented'
@@ -26,19 +27,6 @@ const CAREER_LEVEL_LABELS_BY_VALUE = Object.fromEntries(
   Object.entries(CAREER_LEVEL_VALUES).map(([label, value]) => [value, label]),
 )
 
-function taxonomyGroups(
-  categories: TaxonomyCategory[],
-  items: TaxonomyItem[],
-  type: 'domain_expertise' | 'technical_skills',
-): OptionGroup[] {
-  return categories
-    .filter((c) => c.type === type)
-    .map((c) => ({
-      label: c.name,
-      items: items.filter((i) => i.category_id === c.id).map((i) => i.name),
-    }))
-}
-
 export function FilterBar({
   filters,
   onChange,
@@ -46,6 +34,7 @@ export function FilterBar({
   languages,
   taxonomyCategories,
   taxonomyItems,
+  expertise,
   countFor,
   onClearAll,
   gridOnlyMustHaves = [],
@@ -57,6 +46,8 @@ export function FilterBar({
   languages: string[]
   taxonomyCategories: TaxonomyCategory[]
   taxonomyItems: TaxonomyItem[]
+  /** The unified expertise list (groups for browsing, kinds for matching). */
+  expertise: ExpertiseIndex
   /** Faceted counts for one filter's option values (see lib/filters facetCounts). */
   countFor: (key: FacetKey, values: string[]) => Map<string, number>
   /** Clear All. Defaults to clearing every filter through onChange; the
@@ -85,8 +76,6 @@ export function FilterBar({
     })
     .map((i) => i.name)
 
-  const expertiseGroups = taxonomyGroups(taxonomyCategories, taxonomyItems, 'domain_expertise')
-  const skillsGroups = taxonomyGroups(taxonomyCategories, taxonomyItems, 'technical_skills')
   const groupValues = (groups: OptionGroup[]) => groups.flatMap((g) => [g.label, ...g.items])
 
   // Counts are computed only for the dropdown that's open.
@@ -95,9 +84,7 @@ export function FilterBar({
       case 'type':
         return countFor('types', TYPE_OPTIONS)
       case 'expertise':
-        return countFor('expertise', groupValues(expertiseGroups))
-      case 'skills':
-        return countFor('skills', groupValues(skillsGroups))
+        return countFor('expertise', expertise.items.map((i) => i.name))
       case 'career': {
         const byValue = countFor('careerLevels', Object.values(CAREER_LEVEL_VALUES))
         return new Map(CAREER_LEVEL_OPTIONS.map((l) => [l, byValue.get(CAREER_LEVEL_VALUES[l]) ?? 0]))
@@ -162,24 +149,33 @@ export function FilterBar({
           onToggle={toggleFor('type')}
         />
         <MultiSelect
-          label="Domain Expertise"
-          groups={expertiseGroups}
-          selectableGroup
+          label="Expertise"
+          groups={expertise.groups}
+          searchable
+          searchTerms={(v) => {
+            const item = expertise.byName.get(v)
+            return item ? [...item.aliases, ...item.legacyNames] : []
+          }}
           selected={filters.expertise}
           onChange={(v) => set('expertise', v)}
           counts={openKey === 'expertise' ? openCounts : undefined}
           open={openKey === 'expertise'}
           onToggle={toggleFor('expertise')}
-        />
-        <MultiSelect
-          label="Skills"
-          groups={skillsGroups}
-          selectableGroup
-          selected={filters.skills}
-          onChange={(v) => set('skills', v)}
-          counts={openKey === 'skills' ? openCounts : undefined}
-          open={openKey === 'skills'}
-          onToggle={toggleFor('skills')}
+          header={
+            // The setting lives on the Required rows, so it appears once something is picked.
+            filters.expertise.length > 0 ? (
+              <Switch
+                checked={filters.expertiseIncludeWorking}
+                onChange={(v) => set('expertiseIncludeWorking', v)}
+                label="Include Working knowledge"
+              />
+            ) : undefined
+          }
+          note={
+            filters.expertise.length > 1
+              ? `Showing experts with ${describeExpertiseSelection(filters.expertise, expertise)}: any of the same kind (sectors, themes, methods), all of different kinds.`
+              : 'Matches Core and Strong expertise unless Working knowledge is included. Two sectors match either; a sector and a method need both.'
+          }
         />
         <MultiSelect
           label="Career Level"
@@ -274,7 +270,6 @@ export function FilterBar({
                     ...filters,
                     types: [],
                     expertise: [],
-                    skills: [],
                     careerLevels: [],
                     workArrangements: [],
                     locations: [],

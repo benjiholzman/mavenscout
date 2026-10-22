@@ -25,11 +25,12 @@ import { createClient } from '@supabase/supabase-js'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { suggestionsFrom } from '../src/components/ranking/JdSuggestions'
-import { buildTaxonomyTree, deriveOptions, locationCountry } from '../src/lib/filters'
+import { buildExpertiseIndex, upgradeLegacyRequirements } from '../src/lib/expertise'
+import { deriveOptions, locationCountry } from '../src/lib/filters'
 import { extractRequirements } from '../src/lib/matching/extract'
 import type { CandidateInput } from '../src/lib/matching/fit'
 import { bandFor } from '../src/lib/matching/config'
-import { buildTaxonomyIndex, scorePool } from '../src/lib/matching/score'
+import { scorePool } from '../src/lib/matching/score'
 import type { ExtractedRequirements, MatchResult, Requirement } from '../src/lib/matching/types'
 import { buildOrgIndex, EMPTY_ORG_INDEX } from '../src/lib/organizations'
 import { orgHistoryOutcome } from '../src/lib/requirements/match'
@@ -122,10 +123,15 @@ async function run() {
   const byId = new Map(profiles.map((p) => [p.id, p]))
   const portfolioBy = new Map<string, PortfolioItem[]>()
   for (const it of portfolio) portfolioBy.set(it.profile_id, [...(portfolioBy.get(it.profile_id) ?? []), it])
-  const taxonomy = buildTaxonomyIndex(categories, items)
-  const trees = {
-    expertise: buildTaxonomyTree(categories, items, 'domain_expertise'),
-    skills: buildTaxonomyTree(categories, items, 'technical_skills'),
+  const expertise = buildExpertiseIndex(categories, items)
+  // expectations.json rows and expected extraction written for the old two
+  // lists are read through the unified list until they're rewritten.
+  const toItem = (n: string) => (expertise.byName.has(n) ? n : expertise.legacy.get(n) ?? n)
+  for (const tor of tors) {
+    tor.requirements = upgradeLegacyRequirements(tor.requirements, expertise).requirements
+    const ex = tor.expected_extraction
+    ex.expertise = [...new Set([...ex.expertise, ...(ex.skills ?? [])].map(toItem))]
+    ex.skills = []
   }
   const options = deriveOptions(profiles)
   const ctx = {
@@ -138,8 +144,8 @@ async function run() {
   const candidate = (p: Profile): CandidateInput => ({ profile: p, portfolio: portfolioBy.get(p.id) ?? [], transcripts: [] })
 
   function rank(rawText: string, extracted: ExtractedRequirements, requirements: Requirement[]): Ranked {
-    const survivors = applyMustHaves(profiles, portfolioBy, requirements, EMPTY_SEARCH, trees, orgs)
-    const results = scorePool({ rawText, extracted, requirements, candidates: survivors.map(candidate), taxonomy, orgs })
+    const survivors = applyMustHaves(profiles, portfolioBy, requirements, EMPTY_SEARCH, expertise, orgs)
+    const results = scorePool({ rawText, extracted, requirements, candidates: survivors.map(candidate), expertise, orgs })
     return { results, pool: survivors.length, rankOf: new Map(results.map((r) => [byId.get(r.profile_id)!.handle, r])) }
   }
 
@@ -321,12 +327,11 @@ async function run() {
     // Extraction recall.
     const got = {
       expertise: extracted.expertise.map((t) => t.name),
-      skills: extracted.skills.map((t) => t.name),
       locations: extracted.locations.map((l) => l.value),
       languages: extracted.languages.map((l) => l.value),
     }
     out.push('### Extraction', '', '| Kind | Found / expected | Missed | Unexpected suggestions |', '|---|---|---|---|')
-    for (const kind of ['expertise', 'skills', 'locations', 'languages'] as const) {
+    for (const kind of ['expertise', 'locations', 'languages'] as const) {
       const want = tor.expected_extraction[kind]
       const hit = (w: string) =>
         kind === 'locations' ? got.locations.some((v) => v === w || locationCountry(v) === w) : got[kind].includes(w)

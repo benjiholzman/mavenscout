@@ -25,6 +25,8 @@ export function MultiSelect({
   disabledNote,
   note,
   header,
+  searchable = false,
+  searchTerms,
   open,
   onToggle,
 }: {
@@ -48,10 +50,25 @@ export function MultiSelect({
   note?: string
   /** Extra control pinned above the options (e.g. a language's minimum level). */
   header?: ReactNode
+  /** A search box over the options (long lists such as expertise). */
+  searchable?: boolean
+  /** Extra words a value is found by (e.g. aliases), besides its label. */
+  searchTerms?: (value: string) => string[]
   open: boolean
   onToggle: (open: boolean) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  const [query, setQuery] = useState('')
+  useEffect(() => {
+    if (!open) setQuery('')
+  }, [open])
+  const q = query.trim().toLowerCase()
+  const shown = (value: string) =>
+    !q || [formatValue(value), ...(searchTerms?.(value) ?? [])].some((t) => t.toLowerCase().includes(q))
+  const shownOptions = options?.filter(shown)
+  const shownGroups = groups
+    ?.map((g) => ({ ...g, items: g.items.filter(shown), labelShown: selectableGroup && shown(g.label) }))
+    .filter((g) => g.items.length > 0 || g.labelShown)
   // The desktop panel opens to the right of its button, or to the left when
   // that would run past the window edge (buttons near the end of a row).
   const [alignRight, setAlignRight] = useState(false)
@@ -142,12 +159,26 @@ export function MultiSelect({
               Done
             </button>
           </div>
-          {header && (
+          {(header || searchable) && (
             // Pinned while the options scroll (the panel has p-2, hence -top-2).
-            <div className="sticky -top-2 z-10 -mx-2 mb-1 border-b border-line bg-white px-4 pb-2 pt-2">{header}</div>
+            <div className="sticky -top-2 z-10 -mx-2 mb-1 space-y-2 border-b border-line bg-white px-4 pb-2 pt-2">
+              {searchable && (
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={`Search ${label.toLowerCase()}`}
+                  aria-label={`Search ${label.toLowerCase()}`}
+                  className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm outline-none focus:border-brand-400"
+                />
+              )}
+              {header}
+            </div>
           )}
-          {options?.map((opt) => <Row key={opt} value={opt} />)}
-          {groups?.map((g) => (
+          {shownOptions?.map((opt) => <Row key={opt} value={opt} />)}
+          {q && (shownOptions ?? shownGroups ?? []).length === 0 && (
+            <p className="px-2 py-2 text-sm text-ink-faint">No matches for “{query.trim()}”.</p>
+          )}
+          {shownGroups?.map((g) => (
             <div key={g.label} className="mb-1">
               {selectableGroup ? (
                 <Row value={g.label} />

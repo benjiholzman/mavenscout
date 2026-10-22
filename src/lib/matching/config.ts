@@ -17,17 +17,20 @@ export const PREFERENCE_POINTS: Record<PreferenceLevel, number> = {
   strong: 8,
 }
 
-/** Credit multipliers for met and partial outcomes (spec §3.3). TUNABLE. */
+/** Credit multipliers for met and partial outcomes (profiles-membership §6,
+ *  amending match rework §3.3). A row takes the better of its tag credit and
+ *  its text credit, so an untagged mention never outscores a tag. TUNABLE. */
 export const CREDIT = {
-  /** Tagged as the requested item (or category), primary tier → met. */
-  primaryTag: 1,
-  /** Tagged as the requested item (or category), secondary tier → met. */
-  secondaryTag: 0.75,
-  /** Requested an item; candidate tagged only its parent category → partial. */
-  parentTag: 0.5,
-  /** Not tagged, but the term appears in bio / portfolio / accreditations → partial. */
-  textEvidence: 0.5,
-  /** Any other partial: peer org, availability within the grace window. */
+  /** Tagged as Core expertise → met. */
+  core: 1,
+  /** Tagged as Strong → met. */
+  strong: 0.75,
+  /** Tagged as Working knowledge → partial. */
+  working: 0.4,
+  /** Not tagged, but the item appears in bio / portfolio / accreditations → partial. */
+  textEvidence: 0.4,
+  /** Any other partial: peer org, availability within the grace window, a
+   *  language at Working level when Fluent is asked. */
   otherPartial: 0.5,
 } as const
 
@@ -69,7 +72,7 @@ export const JD_MAX_CHARS = 15_000
 
 // ---- Requirements grid (spec §2, §3.2) -------------------------------------
 
-/** Max expertise + skill rows combined, from the JD and added by hand. TUNABLE. */
+/** Max expertise rows, from the JD and added by hand. TUNABLE. */
 export const MAX_TAG_ROWS = 10
 
 /** Below this many candidates meeting the must-haves, the panel warns. TUNABLE. */
@@ -86,13 +89,19 @@ export const EXTRACTION_STRONG_MIN_OCCURRENCES = 2
 
 // ---- Placeholder Fit (spec §5.2) -------------------------------------------
 
-/** Internal blend of the placeholder Fit: demonstrated experience vs. expertise
- *  tags vs. skill tags, at the old 5/3/3 ratio. Not exposed to managers. TUNABLE. */
+/** Internal blend of the placeholder Fit: demonstrated experience vs.
+ *  expertise tags. 5 : 6 keeps the old 5/3/3 ratio now that expertise and
+ *  skills are one list. Not exposed to managers. TUNABLE. */
 export const FIT_BLEND = {
   evidence: 5,
-  expertise: 3,
-  skills: 3,
+  expertise: 6,
 } as const
+
+/** Tag coverage in the placeholder Fit is full once the matched weight of
+ *  the JD's expertise terms reaches this many Strong terms (the old lists
+ *  each saturated at 2), so a focused specialist isn't penalised for not
+ *  tagging everything a long JD mentions. TUNABLE. */
+export const TAG_COVERAGE_SATURATION = 4
 
 /** Placeholder Fit calibration. TUNABLE.
  *  - salientTerms: how many of the JD's most frequent terms the evidence is
