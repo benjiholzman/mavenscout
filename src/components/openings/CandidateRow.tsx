@@ -8,8 +8,10 @@ import {
   setOutreachTag,
   upsertNoteScore,
 } from '../../lib/openings'
-import type { CandidateNoteScore, HiringManager, MatchSubScore, OpeningEntry, Profile } from '../../types/db'
-import { MatchBreakdown, MatchScoreBadge } from '../match/MatchBreakdown'
+import type { MatchResult } from '../../lib/matching/types'
+import type { CandidateNoteScore, HiringManager, OpeningEntry, Profile } from '../../types/db'
+import { AboutResultModal } from '../match/AboutResultModal'
+import { RankStrip } from '../match/RankStrip'
 
 // One candidate inside an opening (PRD 7.4): list-tag star (Top Pick ⊆
 // Favorite), independent outreach tag, attributed team notes + 0–5 scores
@@ -81,7 +83,7 @@ export function CandidateRow({
   onChanged: () => void
   /** The opening's saved AI ranking result for this candidate, if any —
    *  stays visible alongside the human scores, never merged (PRD 7.4/7.7). */
-  match?: { total_score: number; sub_scores: MatchSubScore[]; narrative: string | null } | null
+  match?: MatchResult | null
 }) {
   const myNote = currentAuthorId ? notes.find((n) => n.author_id === currentAuthorId) : undefined
   const [noteDraft, setNoteDraft] = useState(myNote?.note ?? '')
@@ -89,6 +91,7 @@ export function CandidateRow({
   const [piNote, setPiNote] = useState(entry.post_interview_note ?? '')
   const [piScore, setPiScore] = useState<number | null>(entry.post_interview_score)
   const [saving, setSaving] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
 
   const otherNotes = notes.filter((n) => n.author_id !== currentAuthorId && (n.note || n.score !== null))
 
@@ -118,7 +121,6 @@ export function CandidateRow({
           <p className="truncate text-xs text-ink-soft">{profile.headline}</p>
         </div>
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-          {match && <MatchScoreBadge score={match.total_score} prominent={false} />}
           {average !== null && (
             <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">
               Team {average}/5{rank && ` · #${rank}`}
@@ -168,10 +170,24 @@ export function CandidateRow({
         </div>
       </div>
 
-      {/* AI match breakdown — complementary to the human scores below */}
+      {/* The opening's AI ranking — complementary to the human scores below
+          (match rework spec §7: rank strip + "About this result"). */}
       {match && (
         <div className="mt-2.5">
-          <MatchBreakdown subScores={match.sub_scores} narrative={match.narrative} />
+          <RankStrip
+            variant="row"
+            rank={match.rank}
+            total={match.total_score}
+            band={match.band}
+            onAbout={() => setAboutOpen(true)}
+          />
+          <AboutResultModal
+            open={aboutOpen}
+            onClose={() => setAboutOpen(false)}
+            profile={profile}
+            result={match}
+            rank={match.rank}
+          />
         </div>
       )}
 

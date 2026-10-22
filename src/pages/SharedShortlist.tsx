@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { CandidateRow } from '../components/openings/CandidateRow'
 import { useOpeningDetail } from '../hooks/useOpeningData'
 import { RowsSkeleton } from '../components/ui/Skeletons'
-import { loadRankingForOpening, type SavedRanking } from '../lib/matching/run'
+import { loadLatestForOpening, type RankingRecord } from '../lib/matching/persist'
 import { computeTeamStats } from '../lib/openings'
 import { DEMO_HIRING_MANAGER_ID, useSession } from '../lib/session'
 import NotFound from './NotFound'
@@ -19,9 +19,9 @@ export default function SharedShortlist() {
   const { data, notFound, reload } = useOpeningDetail(token, true)
 
   // AI match scores stay visible on the shared view too (PRD 7.4).
-  const [saved, setSaved] = useState<SavedRanking | null>(null)
+  const [saved, setSaved] = useState<RankingRecord | null>(null)
   useEffect(() => {
-    if (data) loadRankingForOpening(data.opening.id).then(setSaved)
+    if (data) loadLatestForOpening(data.opening.id).then(setSaved)
   }, [data])
 
   if (notFound) return <NotFound />
@@ -62,7 +62,7 @@ export default function SharedShortlist() {
           currentAuthorId={canParticipate ? identityId : null}
           canParticipate={canParticipate}
           onChanged={reload}
-          match={saved?.results.get(entry.profile_id) ?? null}
+          match={saved?.results.find((r) => r.profile_id === entry.profile_id) ?? null}
         />
       )
     })

@@ -11,12 +11,15 @@ export function Modal({
   title,
   children,
   wide = false,
+  fullScreenMobile = false,
 }: {
   open: boolean
   onClose: () => void
   title: string
   children: ReactNode
   wide?: boolean
+  /** Below sm, fill the screen instead of a bottom sheet (long content). */
+  fullScreenMobile?: boolean
 }) {
   useEffect(() => {
     if (!open) return
@@ -33,7 +36,7 @@ export function Modal({
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+          className={`fixed inset-0 z-50 flex justify-center sm:items-center ${fullScreenMobile ? 'items-stretch' : 'items-end'}`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -43,9 +46,9 @@ export function Modal({
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className={`relative z-10 max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:m-4 sm:rounded-2xl ${
-              wide ? 'sm:max-w-2xl' : 'sm:max-w-md'
-            }`}
+            className={`relative z-10 w-full overflow-y-auto bg-white p-5 shadow-xl sm:m-4 sm:max-h-[85vh] sm:rounded-2xl ${
+              fullScreenMobile ? 'h-full sm:h-auto' : 'max-h-[85vh] rounded-t-2xl'
+            } ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'}`}
             initial={{ y: 48, opacity: 0.6 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 48, opacity: 0 }}

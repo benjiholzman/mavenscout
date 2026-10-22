@@ -271,20 +271,21 @@ Template must be **grounded in the actual numbers** and never contradict them. R
 ### 7.1 Card rank strip
 - A slim, **fixed-height** strip integrated into the top of the card frame (one card, not a separate box above it): **"#1 · 82 · Strong match"** + an **"About this result"** link.
 - Never expands. Card heights stay uniform across the grid.
+- Openings and `/shortlists/:token` show candidates as list rows, not flip cards, so each row carries a compact form of the same strip ("#4 · 95 · Strong match · About this result") in place of the old score badge and "Why this score?" box. The rank shown there is the candidate's rank in the saved run.
 
 ### 7.2 "Match" flip face
-- Inserted as **face 2** (right after Front), only in ranked contexts (the directory in ranking mode, openings with a ranking, `/shortlists/:token`).
+- Inserted as **face 2** (right after Front), in the directory while ranking mode is on. (Openings and shared shortlists have no flip cards; their rows get the strip and the "About this result" modal — §7.1.)
 - Contents, top to bottom:
   - Fit score bar with its value.
   - Adjustment list, each with an outcome icon (✓ met / ◐ partial / ✗ not met / – n/a), label, and points (e.g. "+8").
-  - Must-haves line: "Meets all 3 must-haves" (omit if none).
-  - Equation line: **"Fit 72 + 10 = 82"** (note the cap if it applied).
+  - Required line: "Meets all 3 Required rows" (omit if none).
+  - Equation line: **"Fit 72 + 10 = 82"** (note the cap if it applied). The middle number is the sum of the displayed adjustments plus any cap row (largest-remainder rounding, §5.3), so it always adds up.
 - Must fit the face without scrolling at desktop and 375px. If there are more than 6 adjustments, show the 6 largest by |points| and "+N more" → opens the modal.
 
 ### 7.3 "About this result" modal
 - Header: name, rank, score, band.
 - **Score build-up table:** Fit row, one row per adjustment (outcome, detail, points), cap row if applied, total.
-- Must-haves passed (✓ list).
+- Required rows met (✓ list).
 - Narrative (~100 words, labeled placeholder).
 - Collapsible **"How scoring works"**: Fit is the engine's judgment of fit to the JD; preferences add up to +20; must-haves exclude before scoring; tie-break rule; Premium does not affect rank; placeholder notice.
 - Mobile: full-screen sheet.

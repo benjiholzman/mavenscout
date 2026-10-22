@@ -14,6 +14,19 @@ import type { Profile } from '../../types/db'
 // Keeps proper nouns intact: "No work history at USAID" → "no work history at USAID".
 const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1)
 
+const TITLES = new Set(['dr', 'prof', 'professor', 'mr', 'mrs', 'ms', 'mx', 'eng', 'engr', 'sir', 'dame'])
+
+/** How the narrative refers to the candidate after first mention: a person's
+ *  first name (skipping titles like "Dr."), or a firm's full name. */
+/** "Amara's", "Ifeoma Obi & Associates'". */
+const possessive = (name: string) => (name.endsWith('s') ? `${name}'` : `${name}'s`)
+
+export function shortName(profile: Pick<Profile, 'name' | 'consultant_type'>): string {
+  if (profile.consultant_type !== 'Individual') return profile.name
+  const words = profile.name.split(/\s+/)
+  return words.find((w) => !TITLES.has(w.toLowerCase().replace(/\.$/, ''))) ?? profile.name
+}
+
 export function buildNarrative(args: {
   profile: Profile
   total: number
@@ -28,14 +41,14 @@ export function buildNarrative(args: {
   const { profile, total, band, fit, capped, breakdown, coveredTerms } = args
   const bonus = breakdown.bonus
   const adjustments = breakdown.rows.map((r) => r.adjustment)
-  const first = profile.name.split(' ')[0]
+  const first = shortName(profile)
   const parts: string[] = []
 
   parts.push(`${profile.name} is a ${BAND_LABELS[band].toLowerCase()} for this brief at ${total}/100.`)
 
   const fitWord = fit >= 70 ? 'strong' : fit >= 50 ? 'moderate' : 'limited'
   parts.push(
-    `Fit to the job description is ${fit}/100 — ${fitWord} overlap between the JD and ${first}'s portfolio, bio and tags` +
+    `Fit to the job description is ${fit}/100 — ${fitWord} overlap between the JD and ${possessive(first)} portfolio, bio and tags` +
       (coveredTerms.length ? `, which cover ${coveredTerms.slice(0, 2).join(' and ')}.` : '.'),
   )
 
@@ -60,6 +73,6 @@ export function buildNarrative(args: {
   else if (adjustments.some((a) => a.level === 'strong'))
     parts.push('Everything marked Important is met or partly met.')
 
-  parts.push(`The score reflects fit to this brief, not overall caliber — weigh it alongside ${first}'s portfolio and references.`)
+  parts.push(`The score reflects fit to this brief, not overall caliber — weigh it alongside ${possessive(first)} portfolio and references.`)
   return parts.join(' ')
 }

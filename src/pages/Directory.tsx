@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { FilterBar } from '../components/directory/FilterBar'
 import { FlipCard } from '../components/directory/FlipCard'
 import { SortDropdown } from '../components/directory/SortDropdown'
+import { AboutResultModal } from '../components/match/AboutResultModal'
 import { SaveRankingModal } from '../components/match/SaveRankingModal'
 import { useSaveCandidate } from '../components/openings/SaveCandidateFlow'
 import type { CountFn } from '../components/ranking/LiveCount'
@@ -82,6 +83,8 @@ export default function Directory() {
   const [scoring, setScoring] = useState(false)
   const [saveOpen, setSaveOpen] = useState(false)
   const [openingName, setOpeningName] = useState<string | null>(null)
+  /** "About this result": the profile id whose build-up is open. */
+  const [aboutId, setAboutId] = useState<string | null>(null)
 
   const canRank = role === 'hiring_manager'
 
@@ -233,6 +236,8 @@ export default function Directory() {
     () => (ranked ? ranked.map((r) => r.profile) : sortProfiles(filtered, sort)),
     [ranked, filtered, sort],
   )
+  const rankedById = useMemo(() => new Map((ranked ?? []).map((r) => [r.profile.id, r])), [ranked])
+  const about = aboutId ? rankedById.get(aboutId) ?? null : null
 
   // ---- ranking mode: URL → state --------------------------------------------
 
@@ -525,6 +530,15 @@ export default function Directory() {
               audioCount={data.audioCountByProfile.get(p.id) ?? 0}
               onFavorite={(p) => save(p, 'favorite')}
               onTopPick={(p) => save(p, 'top_pick')}
+              ranked={
+                rankedById.has(p.id)
+                  ? {
+                      position: rankedById.get(p.id)!.position,
+                      result: rankedById.get(p.id)!.result,
+                      onAbout: () => setAboutId(p.id),
+                    }
+                  : undefined
+              }
             />
           ))}
       </div>
@@ -582,6 +596,14 @@ export default function Directory() {
           linkedOpeningName={openingId ? openingName : null}
         />
       )}
+
+      <AboutResultModal
+        open={!!about}
+        onClose={() => setAboutId(null)}
+        profile={about?.profile ?? null}
+        result={about?.result ?? null}
+        rank={about?.position ?? 0}
+      />
 
       <SignupPrompt open={gatedFeature !== null} onClose={() => setGatedFeature(null)} feature={gatedFeature ?? ''} />
       {saveUi}

@@ -244,7 +244,8 @@ export interface OpeningReviewer {
 // ---- AI matching rows -------------------------------------------------------
 // The engine contract (requirements, adjustments, results) lives in
 // src/lib/matching/types.ts. MatchComponent / MatchWeights / MatchSubScore are
-// the pre-rework slider model (PRD 7.7), kept only until the old UI is removed.
+// the pre-rework slider model (PRD 7.7); they only type the legacy nullable
+// columns (job_descriptions.weights, match_results.sub_scores).
 
 export type MatchComponent =
   | 'demonstrated_experience'
