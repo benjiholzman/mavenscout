@@ -156,6 +156,20 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
 - The placeholder Fit is calibrated in `config.ts` (`FIT_CALIBRATION`) against the
   sample ToR in `docs/samples/` — on-topic profiles ~75, related ~55, unrelated
   13–37. Real calibration is the engine's job.
+- **Known gaps in the placeholder Fit** (profiles-membership §11), left for the
+  engine rather than patched in the placeholder:
+  - **Inputs.** §11's Fit inputs are bio, portfolio items, work history, education,
+    certifications and expertise tags, never video or audio transcripts. The
+    placeholder reads headline, bio, portfolio items and accreditations (`fit.ts`
+    `evidenceText`); it does not read work history or education.
+  - **Relevance, not volume.** Fit should judge each candidate's most relevant
+    evidence the same way for everyone, so more items help only by offering more
+    chances of a close fit. The placeholder scores the share of the JD's salient
+    terms found anywhere in the candidate's pooled text, so every extra portfolio
+    item can only add matches: the same profile with 10 items (7 off-topic) scores at
+    least as high as with its 3 on-topic ones. §11 asks for a baseline test of
+    exactly that case (3 vs 10 items must not rank higher); it isn't in
+    `expectations.json` yet because the placeholder would fail it.
 - **Open calibration question: "Strong" becomes rare with many preference rows.**
   Bands are fixed at Strong ≥ 80 / Good ≥ 65 / Partial ≥ 50 (`BAND_THRESHOLDS`),
   kept after the preference weighting because on the five sample ToRs they separate
