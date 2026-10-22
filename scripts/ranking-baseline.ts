@@ -57,6 +57,7 @@ interface Tor {
   expected_top: { handle: string; why: string }[]
   expected_extraction: { expertise: string[]; skills: string[]; locations: string[]; languages: string[] }
   checks: Check[]
+  ablate?: { row: string; label: string; watch: string }[]
 }
 const { tors } = JSON.parse(readFileSync(join(samples, 'expectations.json'), 'utf8')) as { tors: Tor[] }
 
@@ -145,6 +146,9 @@ async function run() {
     recallTotal: 0,
     orgChecks: 0,
     orgPassed: 0,
+    topTies: { fixed: 0, e2e: 0 },
+    singleNiceMax: 0,
+    ablations: [] as string[],
   }
   const missing = new Set<string>()
 
@@ -171,6 +175,16 @@ async function run() {
       if (key === 'fixed') out.push(`Rows: ${tor.requirements.map(describeRow).join('; ')}.`, '')
       else out.push(`Rows added by Add all (${added.length}): ${added.map(describeRow).join('; ') || 'none'}.`, '')
       out.push(`Pool after Required rows: **${r.pool}** of ${profiles.length}.`, '')
+      const ties = tieStats(r.results)
+      if (ties.atTop > 1) summary.topTies[key] += 1
+      out.push(
+        (ties.atTop > 1
+          ? `Ties: **${ties.atTop}** candidates share the top total (${r.results[0].total_score}); `
+          : `Ties: none at the top (${r.results[0]?.total_score ?? '–'}); `) +
+          `${ties.pairsTop10} tied adjacent pair${ties.pairsTop10 === 1 ? '' : 's'} in the top 10. ` +
+          `Bands (whole pool): ${bandCounts(r.results)}.`,
+        '',
+      )
       out.push('| Expected | Rank | Total | Fit | Top 5 | Top 10 |', '|---|---|---|---|---|---|')
       for (const e of tor.expected_top) {
         const m = r.rankOf.get(e.handle)
@@ -223,6 +237,59 @@ async function run() {
       )
     }
 
+    // What-if: drop a row and compare the top 10.
+    for (const a of tor.ablate ?? []) {
+      const without = rank(rawText, extracted, tor.requirements.filter((r) => r.id !== a.row))
+      const top = (x: Ranked) => x.results.slice(0, 10).map((m) => byId.get(m.profile_id)!.handle)
+      const withTop = top(fixed)
+      const withoutTop = top(without)
+      const moved = withTop.filter((h, i) => withoutTop[i] !== h).length
+      const w = fixed.rankOf.get(a.watch)
+      const wo = without.rankOf.get(a.watch)
+      const verdict = moved === 0 && w?.rank === wo?.rank ? 'no effect on the top 10' : `${moved} of 10 positions change`
+      summary.ablations.push(`${tor.id} ${a.label}: ${verdict}`)
+      out.push(
+        `### What-if: without ${a.label}`,
+        '',
+        `${verdict}. ${nameOf(a.watch)}: #${w?.rank ?? '–'} with the row, #${wo?.rank ?? '–'} without.`,
+        '',
+        '| # | With the row | Total | Without the row | Total |',
+        '|---|---|---|---|---|',
+        ...withTop.map((h, i) => {
+          const m1 = fixed.rankOf.get(h)!
+          const h2 = withoutTop[i]
+          const m2 = h2 ? without.rankOf.get(h2) : undefined
+          return `| ${i + 1} | ${byHandle.get(h)!.name} | ${m1.total_score} | ${h2 ? byHandle.get(h2)!.name : '–'} | ${m2?.total_score ?? '–'} |`
+        }),
+        '',
+      )
+    }
+
+    // A single Nice to have row: how far can it move any candidate's total?
+    // Base = the fixed rows minus every preference (Required rows kept, so
+    // the pool is the same); then each preference row alone, at Nice to have.
+    {
+      const base = tor.requirements.filter((r) => r.level === 'must')
+      const baseRun = rank(rawText, extracted, base)
+      let worst = { delta: 0, row: '', handle: '' }
+      for (const row of tor.requirements.filter((r) => r.level !== 'must')) {
+        const one = rank(rawText, extracted, [...base, { ...row, level: 'slight' } as Requirement])
+        for (const [h, m] of one.rankOf) {
+          const d = Math.abs(m.total_score - baseRun.rankOf.get(h)!.total_score)
+          if (d > worst.delta) worst = { delta: d, row: describeRow({ ...row, level: 'slight' } as Requirement), handle: h }
+        }
+      }
+      summary.singleNiceMax = Math.max(summary.singleNiceMax, worst.delta)
+      out.push(
+        '### One Nice to have row',
+        '',
+        `Largest change to any candidate's total from a single Nice to have row: **${worst.delta}** point${worst.delta === 1 ? '' : 's'}` +
+          (worst.row ? ` (${worst.row}, ${nameOf(worst.handle)})` : '') +
+          `. ${worst.delta <= 3 ? '✓' : '✗'} expected at most about 3.`,
+        '',
+      )
+    }
+
     // Extraction recall.
     const got = {
       expertise: extracted.expertise.map((t) => t.name),
@@ -258,7 +325,10 @@ async function run() {
     `**End to end:** ${summary.e2e.top10}/${summary.expected} in top 10, ${summary.e2e.top5}/${summary.expected} in top 5, ` +
     `checks ${summary.e2e.passed}/${summary.e2e.checks}. ` +
     `**Extraction recall:** ${summary.recallFound}/${summary.recallTotal} (${pct(summary.recallFound, summary.recallTotal)}). ` +
-    `**Org History scopes:** ${summary.orgPassed}/${summary.orgChecks}.`
+    `**Org History scopes:** ${summary.orgPassed}/${summary.orgChecks}. ` +
+    `**Ties at the top:** ${summary.topTies.fixed}/${tors.length} ToRs (fixed), ${summary.topTies.e2e}/${tors.length} (end to end). ` +
+    `**One Nice to have row:** moves a total by at most ${summary.singleNiceMax} points. ` +
+    `**What-ifs:** ${summary.ablations.join('; ') || 'none'}.`
 
   const header = [
     '# Ranking baseline: placeholder engine',
@@ -317,6 +387,22 @@ async function run() {
         return { pass: false, detail: `unknown expectation ${c.expect}` }
     }
   }
+}
+
+/** How many share the top total, and tied adjacent pairs in the top 10. */
+function tieStats(results: MatchResult[]): { atTop: number; pairsTop10: number } {
+  const top = results[0]?.total_score
+  const atTop = results.filter((r) => r.total_score === top).length
+  let pairsTop10 = 0
+  for (let i = 1; i < Math.min(10, results.length); i++)
+    if (results[i].total_score === results[i - 1].total_score) pairsTop10++
+  return { atTop, pairsTop10 }
+}
+
+function bandCounts(results: MatchResult[]): string {
+  const n = { strong: 0, good: 0, partial: 0, weak: 0 }
+  for (const r of results) n[r.band]++
+  return `${n.strong} strong, ${n.good} good, ${n.partial} partial, ${n.weak} weak`
 }
 
 function describeRow(r: Requirement): string {

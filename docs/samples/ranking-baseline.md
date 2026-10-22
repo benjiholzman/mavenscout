@@ -8,11 +8,11 @@ First baseline for Loop8. Five sample ToRs (`docs/samples/tor-0*.txt`) are score
 - **End to end (secondary):** `extractRequirements` → Add all (every suggestion at Nice to have) → `scorePool`, no Required rows.
 - **Extraction:** suggestions vs. the terms a good extractor should find (recall), plus suggestions nobody asked for.
 - In both runs, Fit reads the JD through the extraction (as `rankPool` does for a stored JD); only the grid rows differ.
-- Read-only: the harness only SELECTs and scores in memory. `job_descriptions` 1 → 1, `match_results` 15 → 15 rows during this run.
+- Read-only: the harness only SELECTs and scores in memory. `job_descriptions` 2 → 2, `match_results` 130 → 130 rows during this run.
 
 ## Summary
 
-**Fixed requirements:** 20/20 expected in top 10, 18/20 in top 5, checks 14/15. **End to end:** 20/20 in top 10, 18/20 in top 5, checks 12/15. **Extraction recall:** 51/63 (81%). **Org History scopes:** 2/2.
+**Fixed requirements:** 20/20 expected in top 10, 18/20 in top 5, checks 14/15. **End to end:** 20/20 in top 10, 18/20 in top 5, checks 12/15. **Extraction recall:** 51/63 (81%). **Org History scopes:** 2/2. **Ties at the top:** 5/5 ToRs (fixed), 4/5 (end to end). **One Nice to have row:** moves a total by at most 3 points. **What-ifs:** tor-05 firm preferred (Type: Small or Large Firm, Important): no effect on the top 10.
 
 Run 2026-10-22. Availability-based scores depend on the run date only through availability rows, which these requirements don't use.
 
@@ -25,6 +25,8 @@ JD: [`tor-01-ethiopia-nutrition.txt`](tor-01-ethiopia-nutrition.txt)
 Rows: expertise Nutrition (Important); expertise Health Systems (Nice); skill Impact Evaluation (Important); skill Survey Design (Nice); skill Statistical Analysis (Nice); language English (Required); language Amharic/Somali (Important); location Ethiopia (Nice); career_level senior (Nice).
 
 Pool after Required rows: **114** of 115.
+
+Ties: **5** candidates share the top total (100); 4 tied adjacent pairs in the top 10. Bands (whole pool): 9 strong, 4 good, 3 partial, 98 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
@@ -62,6 +64,8 @@ Rows added by Add all (8): expertise Nutrition (Nice); expertise Health Systems 
 
 Pool after Required rows: **115** of 115.
 
+Ties: **4** candidates share the top total (100); 3 tied adjacent pairs in the top 10. Bands (whole pool): 8 strong, 3 good, 7 partial, 97 weak.
+
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
 | Hanna Tesfaye (`demo-hanna-tesfaye`) | 1 | 100 | 94 | ✓ | ✓ |
@@ -92,6 +96,10 @@ Pool after Required rows: **115** of 115.
 
 </details>
 
+### One Nice to have row
+
+Largest change to any candidate's total from a single Nice to have row: **3** points (expertise Nutrition (Nice), Hanna Tesfaye (`demo-hanna-tesfaye`)). ✓ expected at most about 3.
+
 ### Extraction
 
 | Kind | Found / expected | Missed | Unexpected suggestions |
@@ -110,6 +118,8 @@ JD: [`tor-02-central-america-procurement.txt`](tor-02-central-america-procuremen
 Rows: expertise Anti-Corruption (Important); expertise Public Procurement (Important); expertise Citizen Engagement (Nice); skill Policy Analysis (Nice); skill Data Science (Nice); language Spanish (Required); location Guatemala/Honduras (Nice).
 
 Pool after Required rows: **25** of 115.
+
+Ties: **2** candidates share the top total (100); 2 tied adjacent pairs in the top 10. Bands (whole pool): 4 strong, 2 good, 2 partial, 17 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
@@ -146,6 +156,8 @@ Rows added by Add all (7): expertise Public Procurement (Nice); expertise Anti-C
 
 Pool after Required rows: **115** of 115.
 
+Ties: none at the top (100); 1 tied adjacent pair in the top 10. Bands (whole pool): 6 strong, 2 good, 7 partial, 100 weak.
+
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
 | Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`) | 1 | 100 | 84 | ✓ | ✓ |
@@ -175,6 +187,10 @@ Pool after Required rows: **115** of 115.
 
 </details>
 
+### One Nice to have row
+
+Largest change to any candidate's total from a single Nice to have row: **3** points (expertise Anti-Corruption (Nice), Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`)). ✓ expected at most about 3.
+
 ### Extraction
 
 | Kind | Found / expected | Missed | Unexpected suggestions |
@@ -193,6 +209,8 @@ JD: [`tor-03-levant-refugee-livelihoods.txt`](tor-03-levant-refugee-livelihoods.
 Rows: expertise Refugee Support (Important); expertise Social Cohesion (Important); expertise SME Support (Nice); skill Market Research (Nice); skill Survey Design (Nice); skill Qualitative Research (Nice); language Arabic (Required); org_history ever at UNHCR (Nice); location Jordan/Lebanon (Nice).
 
 Pool after Required rows: **20** of 115.
+
+Ties: **3** candidates share the top total (100); 2 tied adjacent pairs in the top 10. Bands (whole pool): 5 strong, 0 good, 0 partial, 15 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
@@ -229,6 +247,8 @@ Pool after Required rows: **20** of 115.
 Rows added by Add all (7): expertise Social Cohesion (Nice); expertise SME Support (Nice); skill Qualitative Research (Nice); skill Survey Design (Nice); skill Market Research (Nice); location Jordan/Lebanon (Nice); language Arabic/English (Nice).
 
 Pool after Required rows: **115** of 115.
+
+Ties: **2** candidates share the top total (100); 1 tied adjacent pair in the top 10. Bands (whole pool): 4 strong, 5 good, 6 partial, 100 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
@@ -269,6 +289,10 @@ Pool after Required rows: **115** of 115.
 
 ✓ Omar is at UNHCR now (end_year null); Layla left in 2020. 'Ever at' should credit both; 'Currently at' only Omar.
 
+### One Nice to have row
+
+Largest change to any candidate's total from a single Nice to have row: **3** points (expertise Refugee Support (Nice), Layla Nasser Odeh (`demo-layla-nasser-odeh`)). ✓ expected at most about 3.
+
 ### Extraction
 
 | Kind | Found / expected | Missed | Unexpected suggestions |
@@ -287,6 +311,8 @@ JD: [`tor-04-sea-agri-finance.txt`](tor-04-sea-agri-finance.txt)
 Rows: expertise Financial Inclusion (Important); expertise Agribusiness (Important); expertise Rural Development (Nice); skill Market Research (Important); skill Financial Modeling (Nice); skill Survey Design (Nice); org_history ever_or_peer at Asian Development Bank (+IFAD, World Bank) (Nice); language Filipino/Indonesian (Nice); location Philippines/Indonesia (Nice).
 
 Pool after Required rows: **115** of 115.
+
+Ties: **7** candidates share the top total (100); 6 tied adjacent pairs in the top 10. Bands (whole pool): 8 strong, 2 good, 6 partial, 99 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
@@ -323,6 +349,8 @@ Pool after Required rows: **115** of 115.
 Rows added by Add all (9): expertise Financial Inclusion (Nice); expertise Agribusiness (Nice); expertise Rural Development (Nice); expertise Investment Climate (Nice); skill Market Research (Nice); skill Financial Modeling (Nice); skill Survey Design (Nice); location Indonesia/Philippines (Nice); language Filipino/Indonesian (Nice).
 
 Pool after Required rows: **115** of 115.
+
+Ties: **4** candidates share the top total (100); 4 tied adjacent pairs in the top 10. Bands (whole pool): 8 strong, 0 good, 8 partial, 99 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
@@ -363,6 +391,10 @@ Pool after Required rows: **115** of 115.
 
 ✓ Joaquin is at ADB now; Siti left in 2019.
 
+### One Nice to have row
+
+Largest change to any candidate's total from a single Nice to have row: **3** points (expertise Financial Inclusion (Nice), Rowena Bautista Lacson (`demo-rowena-bautista-lacson`)). ✓ expected at most about 3.
+
 ### Extraction
 
 | Kind | Found / expected | Missed | Unexpected suggestions |
@@ -381,6 +413,8 @@ JD: [`tor-05-west-africa-eprocurement.txt`](tor-05-west-africa-eprocurement.txt)
 Rows: expertise Digital Governance (Important); expertise Public Procurement (Important); skill Web Development (Nice); skill Database Management (Nice); skill Cloud Architecture (Nice); skill Change Management (Nice); language French (Required); type Small Firm/Large Firm (Important); location Senegal/Côte d'Ivoire (Nice).
 
 Pool after Required rows: **36** of 115.
+
+Ties: **6** candidates share the top total (100); 5 tied adjacent pairs in the top 10. Bands (whole pool): 7 strong, 3 good, 0 partial, 26 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
@@ -419,6 +453,8 @@ Rows added by Add all (11): expertise Public Procurement (Nice); expertise Digit
 
 Pool after Required rows: **115** of 115.
 
+Ties: **6** candidates share the top total (100); 5 tied adjacent pairs in the top 10. Bands (whole pool): 9 strong, 3 good, 5 partial, 98 weak.
+
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
 | Akwaba GovTech Partners (`demo-akwaba-govtech-partners`) | 2 | 100 | 92 | ✓ | ✓ |
@@ -449,6 +485,27 @@ Pool after Required rows: **115** of 115.
 | 10 | Lena Hoffmann (`lena-hoffmann`) | Individual | Berlin, Germany | 77 | 66 | good |
 
 </details>
+
+### What-if: without firm preferred (Type: Small or Large Firm, Important)
+
+no effect on the top 10. Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`): #3 with the row, #3 without.
+
+| # | With the row | Total | Without the row | Total |
+|---|---|---|---|---|
+| 1 | Kivi Digital Government Advisory | 100 | Kivi Digital Government Advisory | 100 |
+| 2 | Akwaba GovTech Partners | 100 | Akwaba GovTech Partners | 100 |
+| 3 | Cheikh Tidiane Sarr | 100 | Cheikh Tidiane Sarr | 100 |
+| 4 | Lagune Data Services | 100 | Lagune Data Services | 100 |
+| 5 | Plateau Digital Solutions | 100 | Plateau Digital Solutions | 100 |
+| 6 | Teranga Digital Conseil | 100 | Teranga Digital Conseil | 100 |
+| 7 | Boureima Ouédraogo | 96 | Boureima Ouédraogo | 96 |
+| 8 | Lena Hoffmann | 77 | Lena Hoffmann | 77 |
+| 9 | Caldera Development Group | 73 | Caldera Development Group | 65 |
+| 10 | NorthStar Advisory Group | 72 | NorthStar Advisory Group | 64 |
+
+### One Nice to have row
+
+Largest change to any candidate's total from a single Nice to have row: **3** points (expertise Digital Governance (Nice), Kivi Digital Government Advisory (`demo-kivi-digital-government-advisory`)). ✓ expected at most about 3.
 
 ### Extraction
 
