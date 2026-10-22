@@ -125,7 +125,8 @@ export function defaultRequirements(): Requirement[] {
 /** Enforces the row limits and puts rows in display order: expertise/skill
  *  rows first, then the other kinds in canonical order — for a multi-value
  *  kind, its Required row before its preference row. Extra rows beyond the
- *  limits are dropped. */
+ *  limits are dropped, and a value lives in only one of a kind's two rows
+ *  (see withoutRequiredValues). */
 export function normalizeRequirements(reqs: Requirement[]): Requirement[] {
   const tags = reqs.filter((r) => isTagKind(r.kind))
   const singles = ALWAYS_PRESENT_KINDS.flatMap((k) => {
@@ -133,7 +134,32 @@ export function normalizeRequirements(reqs: Requirement[]): Requirement[] {
     if (!isValuesKind(k)) return ofKind.slice(0, 1)
     return [ofKind.find(isMust), ofKind.find((r) => !isMust(r))].filter((r): r is Requirement => !!r)
   })
-  return [...tags, ...singles]
+  return withoutRequiredValues([...tags, ...singles])
+}
+
+/**
+ * A value lives in only one of a multi-value kind's two rows. The preference
+ * row's picker can't select a value that's already Required ("already
+ * required"); and when a value becomes Required (a filter, or the Required
+ * row's own picker) it moves there — it's removed from the preference row,
+ * which is dropped if nothing is left in it. This keeps a preference from
+ * re-scoring what the Required row already guarantees.
+ */
+export function withoutRequiredValues(reqs: Requirement[]): Requirement[] {
+  let rows = reqs
+  for (const kind of Object.keys(VALUES_FIELDS) as ValuesKind[]) {
+    const req = requiredRowOf(rows, kind)
+    const pref = preferenceRowOf(rows, kind)
+    if (!req || !pref || !('values' in req.value) || !('values' in pref.value)) continue
+    const required = req.value.values
+    const kept = pref.value.values.filter((v) => !required.includes(v))
+    if (kept.length === pref.value.values.length) continue
+    rows =
+      kept.length === 0 && pref.value.values.length > 0
+        ? rows.filter((r) => r !== pref)
+        : rows.map((r) => (r === pref ? ({ ...pref, value: { values: kept } } as Requirement) : r))
+  }
+  return rows
 }
 
 /** The Required row of a kind, and its preference row (multi-value kinds). */

@@ -5,6 +5,7 @@ import type { Level, Requirement } from '../matching/types'
 import {
   addRowChecked,
   addSuggestion,
+  withoutRequiredValues,
   applyFilterStateToRequirements,
   clearMustHaves,
   dropPreferences,
@@ -58,8 +59,11 @@ export function requirementsReducer(state: RequirementsState, action: Requiremen
       // row of a multi-value kind.
       return withRows(setRowLevel(state.requirements, action.id, action.level))
     case 'setValue':
+      // A value newly picked in a Required row moves out of the preference row.
       return withRows(
-        state.requirements.map((r) => (r.id === action.id ? ({ ...r, value: action.value } as Requirement) : r)),
+        withoutRequiredValues(
+          state.requirements.map((r) => (r.id === action.id ? ({ ...r, value: action.value } as Requirement) : r)),
+        ),
       )
     case 'addRow':
       // Respects the row limits: adding a row that would clash is a no-op.

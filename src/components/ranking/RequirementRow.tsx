@@ -32,6 +32,7 @@ export function RequirementRow({
   onValue,
   onRemove,
   highlighted,
+  requiredValues = [],
 }: {
   row: Requirement
   options: PickerOptions
@@ -39,6 +40,9 @@ export function RequirementRow({
   onValue: (value: Requirement['value']) => void
   onRemove: () => void
   highlighted?: boolean
+  /** Preference row of a multi-value kind: the values already in that
+   *  kind's Required row, which can't be picked here (no duplicates). */
+  requiredValues?: string[]
 }) {
   const isTag = row.kind === 'expertise' || row.kind === 'skill'
   const title = isTag ? row.value.name : KIND_LABELS[row.kind]
@@ -78,7 +82,7 @@ export function RequirementRow({
         </div>
       </div>
 
-      <ValuePicker row={row} options={options} onValue={onValue} />
+      <ValuePicker row={row} options={options} onValue={onValue} requiredValues={requiredValues} />
 
       <div className="mt-2.5">
         <LevelControl value={row.level} onChange={onLevel} rowLabel={title} />
@@ -95,10 +99,12 @@ function ValuePicker({
   row,
   options,
   onValue,
+  requiredValues,
 }: {
   row: Requirement
   options: PickerOptions
   onValue: (value: Requirement['value']) => void
+  requiredValues: string[]
 }) {
   switch (row.kind) {
     case 'expertise':
@@ -114,6 +120,7 @@ function ValuePicker({
           emptyText="Based in any of the places you pick"
           groups={options.locations}
           formatValue={locationLabel}
+          disabledValues={requiredValues}
           selected={row.value.values}
           onChange={(values) => onValue({ values })}
         />
@@ -125,6 +132,7 @@ function ValuePicker({
           summary={row.value.values.join(', ')}
           emptyText="Speaks any of the languages you pick"
           options={options.languages}
+          disabledValues={requiredValues}
           selected={row.value.values}
           onChange={(values) => onValue({ values })}
         />
@@ -133,6 +141,7 @@ function ValuePicker({
       return (
         <ChipToggles
           choices={options.types.map((t) => ({ value: t, label: t }))}
+          disabledValues={requiredValues}
           selected={row.value.values}
           onChange={(values) => onValue({ values })}
         />
@@ -141,6 +150,7 @@ function ValuePicker({
       return (
         <ChipToggles
           choices={Object.entries(CAREER_LEVEL_SHORT).map(([value, label]) => ({ value, label }))}
+          disabledValues={requiredValues}
           selected={row.value.values}
           onChange={(values) => onValue({ values })}
         />
@@ -149,6 +159,7 @@ function ValuePicker({
       return (
         <ChipToggles
           choices={options.workArrangements.map((w) => ({ value: w, label: w }))}
+          disabledValues={requiredValues}
           selected={row.value.values}
           onChange={(values) => onValue({ values })}
         />
@@ -168,26 +179,37 @@ function ChipToggles({
   choices,
   selected,
   onChange,
+  disabledValues = [],
 }: {
   choices: { value: string; label: string }[]
   selected: string[]
   onChange: (next: string[]) => void
+  /** Values already in this kind's Required row (preference rows only). */
+  disabledValues?: string[]
 }) {
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
       {choices.map((c) => {
         const on = selected.includes(c.value)
+        const off = disabledValues.includes(c.value)
         return (
           <button
             key={c.value}
             type="button"
             aria-pressed={on}
+            disabled={off}
+            title={off ? 'Already required' : undefined}
             onClick={() => onChange(on ? selected.filter((v) => v !== c.value) : [...selected, c.value])}
             className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
-              on ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-line text-ink-soft hover:border-ink-faint'
+              off
+                ? 'cursor-not-allowed border-dashed border-line text-ink-faint'
+                : on
+                  ? 'border-brand-500 bg-brand-50 text-brand-700'
+                  : 'border-line text-ink-soft hover:border-ink-faint'
             }`}
           >
             {c.label}
+            {off && <span className="ml-1 font-normal italic">· already required</span>}
           </button>
         )
       })}
@@ -199,6 +221,7 @@ function ListPicker({
   label,
   summary,
   emptyText,
+  disabledValues,
   options,
   groups,
   formatValue,
@@ -208,6 +231,7 @@ function ListPicker({
   label: string
   summary: string
   emptyText: string
+  disabledValues?: string[]
   options?: string[]
   groups?: OptionGroup[]
   formatValue?: (v: string) => string
@@ -223,6 +247,8 @@ function ListPicker({
         groups={groups}
         selectableGroup={!!groups}
         formatValue={formatValue}
+        disabledValues={disabledValues}
+        disabledLabel="already required"
         selected={selected}
         onChange={onChange}
         open={open}

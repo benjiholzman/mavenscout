@@ -3,7 +3,16 @@ import { useState } from 'react'
 import { MAX_TAG_ROWS } from '../../lib/matching/config'
 import { ALWAYS_PRESENT_KINDS, type Requirement } from '../../lib/matching/types'
 import { KIND_LABELS } from '../../lib/requirements/labels'
-import { canAddKind, makeRow, tagRowCount, type SingleKind, type TagKind } from '../../lib/requirements/model'
+import {
+  canAddKind,
+  isMust,
+  isValuesKind,
+  makeRow,
+  requiredRowOf,
+  tagRowCount,
+  type SingleKind,
+  type TagKind,
+} from '../../lib/requirements/model'
 import type { RequirementsStore } from '../../lib/requirements/store'
 import type { OptionGroup } from '../ui/MultiSelect'
 import { RequirementRow, type PickerOptions } from './RequirementRow'
@@ -83,6 +92,13 @@ export function RequirementsGrid({
   const mustCount = (kind: TagKind) => tagRows.filter((r) => r.kind === kind && r.level === 'must').length
   const anyOfKinds = (['expertise', 'skill'] as const).filter((k) => mustCount(k) >= 2)
 
+  /** For a multi-value preference row: values its Required row already has. */
+  const requiredValuesFor = (r: Requirement): string[] => {
+    if (isMust(r) || !isValuesKind(r.kind)) return []
+    const req = requiredRowOf(requirements, r.kind)
+    return req && 'values' in req.value ? req.value.values : []
+  }
+
   const add = (row: Requirement) => {
     store.addRow(row)
     onFocusRow(row.id)
@@ -97,6 +113,7 @@ export function RequirementsGrid({
       onValue={(value) => store.setValue(r.id, value)}
       onRemove={() => store.removeRow(r.id)}
       highlighted={focusId === r.id}
+      requiredValues={requiredValuesFor(r)}
     />
   )
 
