@@ -43,6 +43,7 @@ export function describeRequirement(r: Requirement): string {
     case 'career_level':
       return `${kind}: ${r.value.values.map((v) => CAREER_LEVEL_SHORT[v] ?? v).join(', ')}`
     case 'language':
+      return `${kind}: ${r.value.values.join(', ')}${r.value.min === 'fluent' ? ' (fluent only)' : ''}`
     case 'type':
     case 'work_arrangement':
       return `${kind}: ${r.value.values.join(', ')}`

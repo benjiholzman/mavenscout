@@ -1,5 +1,5 @@
 import type { AvailabilityFilter } from '../filters'
-import type { Profile, TaxonomyCategory, TaxonomyItem } from '../../types/db'
+import type { Proficiency, Profile, TaxonomyCategory, TaxonomyItem } from '../../types/db'
 
 // ============================================================================
 // Matching contract (docs/MavenScout-match-rework.md §6.1).
@@ -61,12 +61,19 @@ export interface ValuesValue {
   values: string[]
 }
 
+/** Languages ("speaks any of") at a minimum proficiency: 'working' = Working
+ *  or above (Fluent satisfies it), 'fluent' = Fluent only. `min` is optional
+ *  so rows saved before languages had proficiency still load (= 'working'). */
+export interface LanguageValue extends ValuesValue {
+  min?: Proficiency
+}
+
 export interface RequirementValueByKind {
   expertise: TagValue
   skill: TagValue
   org_history: OrgHistoryValue
   location: ValuesValue
-  language: ValuesValue
+  language: LanguageValue
   type: ValuesValue
   /** Same shape as the filter bar's availability filter, so the two stay one
    *  state. "Available by [month]" in the grid edits untilMonth. */

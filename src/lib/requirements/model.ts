@@ -157,7 +157,7 @@ export function withoutRequiredValues(reqs: Requirement[]): Requirement[] {
     rows =
       kept.length === 0 && pref.value.values.length > 0
         ? rows.filter((r) => r !== pref)
-        : rows.map((r) => (r === pref ? ({ ...pref, value: { values: kept } } as Requirement) : r))
+        : rows.map((r) => (r === pref ? ({ ...pref, value: { ...pref.value, values: kept } } as Requirement) : r))
   }
   return rows
 }
@@ -210,7 +210,8 @@ export function setRowLevel(reqs: Requirement[], id: string, level: Level): Requ
       const merged = {
         ...other,
         level: level === 'must' ? other.level : level,
-        value: { values: unionValues(other.value.values, row.value.values) },
+        // The surviving row keeps its own settings (a language row's minimum).
+        value: { ...other.value, values: unionValues(other.value.values, row.value.values) },
       } as Requirement
       return reqs.filter((r) => r.id !== row.id).map((r) => (r.id === other.id ? merged : r))
     }
@@ -248,8 +249,11 @@ export function mustHavesToFilterState(reqs: Requirement[], search: SearchState)
       case 'skill':
         f.skills.push(r.value.name)
         break
-      case 'location':
       case 'language':
+        f.languages = [...r.value.values]
+        f.languageLevel = r.value.min ?? 'working'
+        break
+      case 'location':
       case 'type':
       case 'career_level':
       case 'work_arrangement':
@@ -340,7 +344,7 @@ export function applyFilterStateToRequirements(
     const values = next[VALUES_FIELDS[kind]]
     const required = requiredRowOf(rows, kind)
     if (values.length > 0) {
-      const value = { values: [...values] }
+      const value = kind === 'language' ? { values: [...values], min: next.languageLevel } : { values: [...values] }
       if (required) rows = rows.map((r) => (r === required ? ({ ...r, value } as Requirement) : r))
       else rows.push(makeRow(kind, value, { level: 'must', source: 'filter' }))
     } else if (required) {
@@ -416,7 +420,9 @@ export function addSuggestion(reqs: Requirement[], s: Suggestion, maxTagRows: nu
   }
   const pref = preferenceRowOf(reqs, s.kind) as RequirementOf<'location' | 'language'> | undefined
   if (pref)
-    return reqs.map((r) => (r === pref ? { ...pref, value: { values: [...pref.value.values, s.item.value] } } : r))
+    return reqs.map((r) =>
+      r === pref ? ({ ...pref, value: { ...pref.value, values: [...pref.value.values, s.item.value] } } as Requirement) : r,
+    )
   return normalizeRequirements([...reqs, makeRow(s.kind, { values: [s.item.value] }, { source: 'jd' })])
 }
 

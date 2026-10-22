@@ -20,6 +20,7 @@ import {
 import { Carousel } from '../ui/Carousel'
 import { GatePrompt } from '../ui/GatePrompt'
 import { useOrganizations } from '../../hooks/useOrganizations'
+import { formatLanguages, spokenLanguages } from '../../lib/languages'
 import { entryLogoUrl, orgAcronym, resolveOrganization } from '../../lib/organizations'
 import { OrgLogo } from '../ui/OrgLogo'
 import { TagPills } from '../ui/TagPills'
@@ -146,7 +147,7 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
             {isFirm && profile.year_founded && (
               <span>{new Date().getFullYear() - profile.year_founded} years in business</span>
             )}
-            {profile.languages.length > 0 && <span>{profile.languages.join(' · ')}</span>}
+            {spokenLanguages(profile).length > 0 && <span>{formatLanguages(spokenLanguages(profile))}</span>}
           </div>
         </div>
 

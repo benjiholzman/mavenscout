@@ -1,4 +1,5 @@
 import { matchesAvailability, matchesLocation, locationLabel, type AvailabilityFilter } from '../filters'
+import { speaks } from '../languages'
 import type { OrgIndex } from '../organizations'
 import { orgHistoryOutcome } from '../requirements/match'
 import { rowHasValue } from '../requirements/model'
@@ -40,7 +41,7 @@ export function requirementLabel(r: Requirement): string {
     case 'location':
       return `Based in ${or(r.value.values.map(locationLabel))}`
     case 'language':
-      return `Speaks ${or(r.value.values)}`
+      return `Speaks ${or(r.value.values)}${r.value.min === 'fluent' ? ' fluently' : ''}`
     case 'type':
       return or(r.value.values)
     case 'availability': {
@@ -121,8 +122,19 @@ function judge(c: CandidateInput, r: Requirement, index: TaxonomyIndex, orgs: Or
         ? met(`Based in ${p.location}`)
         : notMet(p.location ? `Based in ${p.location}` : 'No location listed')
     case 'language': {
-      const hit = r.value.values.filter((l) => p.languages.includes(l))
-      return hit.length ? met(`Speaks ${hit.join(', ')}`) : notMet(`Doesn't list ${or(r.value.values)}`)
+      // Fluent satisfies Working. A row asking for Fluent gives partial credit
+      // to someone who speaks the language at Working level.
+      const min = r.value.min ?? 'working'
+      const hit = speaks(p, r.value.values, min)
+      if (hit.length) return met(`Speaks ${hit.map((l) => l.name).join(', ')}${min === 'fluent' ? ' fluently' : ''}`)
+      const working = min === 'fluent' ? speaks(p, r.value.values, 'working') : []
+      if (working.length)
+        return {
+          outcome: 'partial',
+          credit: CREDIT.otherPartial,
+          detail: `Speaks ${working.map((l) => l.name).join(', ')} at working level`,
+        }
+      return notMet(`Doesn't list ${or(r.value.values)}`)
     }
     case 'type':
       return r.value.values.includes(p.consultant_type) ? met(p.consultant_type) : notMet(p.consultant_type)

@@ -1,4 +1,5 @@
-import type { AvailabilityTrack, PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../types/db'
+import { speaks, spokenLanguages } from './languages'
+import type { AvailabilityTrack, PortfolioItem, Proficiency, Profile, TaxonomyCategory, TaxonomyItem } from '../types/db'
 
 // Directory filtering (PRD 7.1): AND across categories, OR within a
 // multi-select category. Selecting a parent taxonomy category expands to
@@ -25,6 +26,9 @@ export interface FilterState {
   workArrangements: string[]
   locations: string[]
   languages: string[]
+  /** Minimum proficiency for `languages`: 'working' = Working or above
+   *  (Fluent satisfies it), 'fluent' = Fluent only. */
+  languageLevel: Proficiency
   availability: AvailabilityFilter | null
   verifiedOnly: boolean
   searchTerm: string
@@ -39,6 +43,7 @@ export const EMPTY_FILTERS: FilterState = {
   workArrangements: [],
   locations: [],
   languages: [],
+  languageLevel: 'working',
   availability: null,
   verifiedOnly: false,
   searchTerm: '',
@@ -200,7 +205,7 @@ export function applyFilters(
     )
       return false
     if (f.locations.length > 0 && !matchesLocation(p.location, f.locations)) return false
-    if (f.languages.length > 0 && !f.languages.some((l) => p.languages.includes(l))) return false
+    if (f.languages.length > 0 && speaks(p, f.languages, f.languageLevel).length === 0) return false
     if (f.availability && !matchesAvailability(p, f.availability)) return false
     if (f.verifiedOnly && p.verification_status !== 'verified') return false
     if (!matchesSearch(p, portfolioByProfile.get(p.id) ?? [], f.searchTerm, f.searchMode))
@@ -254,7 +259,7 @@ export function deriveOptions(profiles: Profile[]): {
   locations: { label: string; items: string[] }[]
   languages: string[]
 } {
-  const languages = [...new Set(profiles.flatMap((p) => p.languages))].sort()
+  const languages = [...new Set(profiles.flatMap((p) => spokenLanguages(p).map((l) => l.name)))].sort()
   return { locations: deriveLocationGroups(profiles), languages }
 }
 
@@ -284,7 +289,8 @@ export function facetCounts(
   const pool = applyFilters(profiles, portfolioByProfile, { ...f, [key]: [] }, expertiseTree, skillsTree)
   const counts = new Map<string, number>()
   for (const value of values) {
-    const only: FilterState = { ...EMPTY_FILTERS, [key]: [value] }
+    // Counts honour the language level, so "Fluent only" counts fluent speakers.
+    const only: FilterState = { ...EMPTY_FILTERS, [key]: [value], languageLevel: f.languageLevel }
     counts.set(value, applyFilters(pool, portfolioByProfile, only, expertiseTree, skillsTree).length)
   }
   return counts

@@ -23,6 +23,21 @@ export interface TagSelection {
   level: 'category' | 'item'
 }
 
+export type Proficiency = 'fluent' | 'working'
+
+/** One language a consultant speaks (010). Fluent satisfies a Working requirement. */
+export interface SpokenLanguage {
+  name: string
+  proficiency: Proficiency
+}
+
+/** Canonical language list (010). */
+export interface Language {
+  id: string
+  name: string
+  created_at: string
+}
+
 export interface Accreditation {
   name: string
   issuing_organization: string
@@ -85,7 +100,11 @@ export interface Profile {
   expertise: TagSelection[]
   skills: TagSelection[]
   accreditations: Accreditation[]
+  /** LEGACY free-text list, left for main until 012; read spoken_languages. */
   languages: string[]
+  /** Languages spoken, from the canonical list (010). Absent only on a
+   *  database that hasn't run 010 (see lib/languages spokenLanguages). */
+  spoken_languages?: SpokenLanguage[]
   work_history: WorkHistoryEntry[]
   education_history: EducationEntry[]
   additional_experience: AdditionalExperienceEntry[]

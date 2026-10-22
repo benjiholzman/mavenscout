@@ -9,7 +9,9 @@ import {
   type SearchMode,
 } from '../../lib/filters'
 import type { TaxonomyCategory, TaxonomyItem } from '../../types/db'
+import { MIN_PROFICIENCY_LABELS } from '../../lib/languages'
 import { MultiSelect, type OptionGroup } from '../ui/MultiSelect'
+import { Segmented } from '../ui/Segmented'
 import { Switch } from '../ui/Switch'
 import { AvailabilityModal, availabilitySummary } from './AvailabilityModal'
 
@@ -216,6 +218,20 @@ export function FilterBar({
           options={languages}
           selected={filters.languages}
           onChange={(v) => set('languages', v)}
+          header={
+            <div className="space-y-1.5">
+              <span className="block text-xs font-medium text-ink-soft">Spoken at</span>
+              <Segmented
+                label="Minimum language level"
+                value={filters.languageLevel}
+                options={(['working', 'fluent'] as const).map((v) => ({ value: v, label: MIN_PROFICIENCY_LABELS[v] }))}
+                onChange={(v) => set('languageLevel', v)}
+                disabled={filters.languages.length === 0}
+                className="w-full"
+              />
+            </div>
+          }
+          note={filters.languages.length === 0 ? 'Pick a language to set the level. Fluent counts as Working.' : 'Fluent counts as Working.'}
           counts={openKey === 'language' ? openCounts : undefined}
           open={openKey === 'language'}
           onToggle={toggleFor('language')}

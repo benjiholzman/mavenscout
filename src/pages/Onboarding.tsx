@@ -5,6 +5,7 @@ import { AvailabilityEditor } from '../components/onboarding/AvailabilityEditor'
 import { EditorSection } from '../components/onboarding/EditorSection'
 import { FieldRow, TextArea, TextField } from '../components/onboarding/fields'
 import { HistoryEditorsBundle } from '../components/onboarding/HistoryBundle'
+import { LanguagesEditor } from '../components/onboarding/LanguagesEditor'
 import { PortfolioEditor } from '../components/onboarding/PortfolioEditor'
 import { ResumeUploader } from '../components/onboarding/ResumeUploader'
 import { SocialLinksEditor } from '../components/onboarding/SocialLinksEditor'
@@ -16,6 +17,7 @@ import { VideoRequestsInbox } from '../components/onboarding/VideoRequestsInbox'
 import { InfoTip } from '../components/ui/InfoTip'
 import { FIRM_THRESHOLD_NOTE } from '../components/ui/badges'
 import { useEditorProfile } from '../hooks/useEditorProfile'
+import { spokenLanguages } from '../lib/languages'
 import { useSession } from '../lib/session'
 import { supabase } from '../lib/supabase'
 import {
@@ -178,7 +180,7 @@ export default function Onboarding() {
                 name: draft.name,
                 headline: draft.headline,
                 location: draft.location,
-                languages: draft.languages,
+                spoken_languages: spokenLanguages(draft),
                 photo_url: draft.photo_url,
                 cover_image_url: draft.cover_image_url,
               })
@@ -197,11 +199,9 @@ export default function Onboarding() {
                 placeholder="M&E Specialist | Gender & Social Inclusion | USAID & FCDO Programs"
                 hint="Shown on your card front and profile hero"
               />
-              <TextField
-                label="Languages (comma-separated)"
-                value={draft.languages.join(', ')}
-                onChange={(v) => set({ languages: v.split(',').map((s) => s.trim()).filter(Boolean) })}
-                placeholder="English, French, Swahili"
+              <LanguagesEditor
+                value={spokenLanguages(draft)}
+                onChange={(spoken_languages) => set({ spoken_languages })}
               />
               <FieldRow>
                 <TextField label="Photo URL" value={draft.photo_url ?? ''} onChange={(v) => set({ photo_url: v || null })} />

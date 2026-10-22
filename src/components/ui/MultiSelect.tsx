@@ -1,5 +1,5 @@
 import { Check, ChevronDown, Info } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 
 export interface OptionGroup {
   /** Group/category label; selectable itself when `selectableGroup`. */
@@ -24,6 +24,7 @@ export function MultiSelect({
   disabled = false,
   disabledNote,
   note,
+  header,
   open,
   onToggle,
 }: {
@@ -45,10 +46,20 @@ export function MultiSelect({
   disabledNote?: string
   /** Short explanatory line shown at the bottom of the open panel. */
   note?: string
+  /** Extra control pinned above the options (e.g. a language's minimum level). */
+  header?: ReactNode
   open: boolean
   onToggle: (open: boolean) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  // The desktop panel opens to the right of its button, or to the left when
+  // that would run past the window edge (buttons near the end of a row).
+  const [alignRight, setAlignRight] = useState(false)
+  useLayoutEffect(() => {
+    if (!open || !ref.current) return
+    const PANEL_WIDTH = 288 // sm:w-72
+    setAlignRight(ref.current.getBoundingClientRect().left + PANEL_WIDTH > window.innerWidth - 8)
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -122,13 +133,19 @@ export function MultiSelect({
       </button>
 
       {open && (
-        <div className="fixed inset-x-0 bottom-0 z-40 max-h-[70vh] overflow-y-auto rounded-t-2xl border border-line bg-white p-2 shadow-xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:left-0 sm:top-full sm:mt-2 sm:max-h-96 sm:w-72 sm:rounded-xl">
+        <div
+          className={`fixed inset-x-0 bottom-0 z-40 max-h-[70vh] overflow-y-auto rounded-t-2xl border border-line bg-white p-2 shadow-xl sm:absolute sm:inset-x-auto sm:bottom-auto ${alignRight ? 'sm:right-0' : 'sm:left-0'} sm:top-full sm:mt-2 sm:max-h-96 sm:w-72 sm:rounded-xl`}
+        >
           <div className="mb-1 flex items-center justify-between px-2 pt-1 sm:hidden">
             <span className="text-sm font-semibold">{label}</span>
             <button className="text-sm text-brand-600" onClick={() => onToggle(false)}>
               Done
             </button>
           </div>
+          {header && (
+            // Pinned while the options scroll (the panel has p-2, hence -top-2).
+            <div className="sticky -top-2 z-10 -mx-2 mb-1 border-b border-line bg-white px-4 pb-2 pt-2">{header}</div>
+          )}
           {options?.map((opt) => <Row key={opt} value={opt} />)}
           {groups?.map((g) => (
             <div key={g.label} className="mb-1">

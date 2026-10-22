@@ -7,6 +7,8 @@ import { CAREER_LEVEL_SHORT, KIND_LABELS, ORG_SCOPE_LABELS } from '../../lib/req
 import { rowHasValue } from '../../lib/requirements/model'
 import { MultiSelect, type OptionGroup } from '../ui/MultiSelect'
 import { OrgPicker } from '../ui/OrgPicker'
+import { Segmented } from '../ui/Segmented'
+import { MIN_PROFICIENCY_LABELS } from '../../lib/languages'
 import { LevelControl } from './LevelControl'
 
 // One row of the requirements grid (match rework spec §3): label · value
@@ -128,15 +130,26 @@ function ValuePicker({
       )
     case 'language':
       return (
-        <ListPicker
-          label="Languages"
-          summary={row.value.values.join(', ')}
-          emptyText="Speaks any of the languages you pick"
-          options={options.languages}
-          disabledValues={requiredValues}
-          selected={row.value.values}
-          onChange={(values) => onValue({ values })}
-        />
+        <>
+          <ListPicker
+            label="Languages"
+            summary={row.value.values.join(', ')}
+            emptyText="Speaks any of the languages you pick"
+            options={options.languages}
+            disabledValues={requiredValues}
+            selected={row.value.values}
+            onChange={(values) => onValue({ ...row.value, values })}
+          />
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Segmented
+              label={`${KIND_LABELS.language}: minimum level`}
+              value={row.value.min ?? 'working'}
+              options={(['working', 'fluent'] as const).map((v) => ({ value: v, label: MIN_PROFICIENCY_LABELS[v] }))}
+              onChange={(min) => onValue({ ...row.value, min })}
+            />
+            <span className="text-[11px] text-ink-faint">Fluent counts as Working.</span>
+          </div>
+        </>
       )
     case 'type':
       return (

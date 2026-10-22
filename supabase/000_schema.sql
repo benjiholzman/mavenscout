@@ -88,7 +88,8 @@ CREATE TABLE profiles (
   expertise                     jsonb NOT NULL DEFAULT '[]',  -- [{name, tier: primary|secondary, level: category|item}], 2+4 cap app-enforced
   skills                        jsonb NOT NULL DEFAULT '[]',  -- same shape/caps as expertise
   accreditations                jsonb NOT NULL DEFAULT '[]',  -- [{name, issuing_organization, year, credential_id_or_url}]
-  languages                     text[] NOT NULL DEFAULT '{}', -- free-form; filter options derived dynamically
+  languages                     text[] NOT NULL DEFAULT '{}', -- LEGACY free-form list; replaced by spoken_languages (010), dropped by 012
+  spoken_languages              jsonb NOT NULL DEFAULT '[]',  -- [{name, proficiency: fluent|working}] from `languages` table (010), max 10 app-enforced
   work_history                  jsonb NOT NULL DEFAULT '[]',  -- [{organization, organization_id?, role, start_year, end_year, logo_url, description}], max 10 app-enforced
   education_history             jsonb NOT NULL DEFAULT '[]',  -- [{institution, degree_or_course, start_year, end_year, logo_url}], max 5
   additional_experience         jsonb NOT NULL DEFAULT '[]',  -- [{organization, role, start_year, end_year, description}], max 5
@@ -139,6 +140,20 @@ ALTER TABLE taxonomy_requests ENABLE ROW LEVEL SECURITY;
 -- PROD: owner inserts/reads own; admin all.
 CREATE POLICY "dev_read_taxonomy_requests"  ON taxonomy_requests FOR SELECT USING (true);
 CREATE POLICY "dev_write_taxonomy_requests" ON taxonomy_requests FOR ALL USING (true) WITH CHECK (true);
+
+-- ---------------------------------------------------------------------------
+-- languages — canonical language list (profiles-membership §13 step 1).
+-- Seeded by 010; profiles.spoken_languages names come from it.
+-- ---------------------------------------------------------------------------
+CREATE TABLE languages (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       text NOT NULL UNIQUE,  -- standard English name: 'Haitian Creole', 'K''iche'''
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE languages ENABLE ROW LEVEL SECURITY;
+-- PROD: SELECT for everyone; INSERT/UPDATE/DELETE admin-only.
+CREATE POLICY "dev_read_languages"  ON languages FOR SELECT USING (true);
+CREATE POLICY "dev_write_languages" ON languages FOR ALL USING (true) WITH CHECK (true);
 
 -- ---------------------------------------------------------------------------
 -- organizations — canonical organizations list (profiles-membership §8).
