@@ -370,8 +370,9 @@ CREATE POLICY "dev_write_job_descriptions" ON job_descriptions FOR ALL USING (tr
 
 -- ---------------------------------------------------------------------------
 -- match_results — per-candidate output of a ranking run (match rework spec
--- §6.1): total = clamp(fit_score + capped adjustments, 0, 100). narrative:
--- ~100 words (templated placeholder this build — real text comes with Loop8).
+-- §5.3, §6.1): total = (1 − w) × fit_score + 100 × w × earned ÷ possible, with
+-- w = min(possible, 20) / 100 stored in `scoring`. narrative: ~100 words
+-- (templated placeholder this build — real text comes with Loop8).
 -- ---------------------------------------------------------------------------
 CREATE TABLE match_results (
   id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -382,7 +383,8 @@ CREATE TABLE match_results (
   band               text,            -- 'strong' | 'good' | 'partial' | 'weak'
   fit_score          int,             -- 0–100, the engine's holistic fit
   adjustments        jsonb,           -- Adjustment[]: one per Slight/Strong row
-  adjustments_capped bool,            -- positive adjustments hit the cap
+  scoring            jsonb,           -- {weight, earned, possible} (008)
+  adjustments_capped bool,            -- legacy (pre-008 +20 cap); no longer written
   must_haves_passed  jsonb,           -- [{requirement_id, label}]
   sub_scores         jsonb DEFAULT '[]',  -- legacy (pre-rework component scores)
   narrative          text,
