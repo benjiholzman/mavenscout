@@ -10,7 +10,7 @@
 **What this branch does:** replaces the "Rank by Job Description" modal and its sliders with a single requirements model. Ranking happens inside the directory: a drawer slides in from the right, and the grid itself becomes the ranked list. Filters and preferences become one grid of rows, each at one of three levels — **Nice to have / Important / Required** (internally `slight` / `strong` / `must`). A row only exists once it's added; no row means no preference. Required rows are hard pre-filters applied *before* scoring. Everything else adjusts a fit score additively, so every point in the final score can be explained.
 
 **Ground rules:**
-- Read `src/lib/matching/`, `run.ts`, the current JD modal, and the ranked-results UI before changing anything. Keep the engine isolated in `src/lib/matching/` — the UI must only touch it through the contract in §6.
+- Keep the engine isolated in `src/lib/matching/` — the UI must only touch it through the contract in §6. (As built: the engine is `extract.ts`, `fit.ts`, `adjustments.ts`, `score.ts`, `narrative.ts`; persistence is `persist.ts`; display rounding is `display.ts`; the requirements grid / filter-bar state and the Required pre-filter live app-side in `src/lib/requirements/`.)
 - Placeholder logic (extraction and scoring) stays **clearly labeled as placeholder** in code comments and in the UI, exactly as today. Loop8 replaces it.
 - All tunable numbers (points, cap, band thresholds) live in **one config file** (`src/lib/matching/config.ts`), commented as tunable.
 - The directory **filter bar stays.** It is the view of the Required rows — one shared state, not two (see §2.1).
@@ -258,11 +258,12 @@ rankPool(jobDescriptionId, requirements: Requirement[], pool: Profile[]): Promis
 ### 6.2 Narrative (placeholder)
 Template must be **grounded in the actual numbers** and never contradict them. Reference the band, the Fit score, the largest positive adjustment (with its displayed, largest-remainder points), and the most important unmet Important row (if any). Do not call a preference "the strongest signal" relative to the profile's evidence — the current template does this and should be removed.
 
-### 6.3 Migration — `supabase/004_match_rework.sql`
+### 6.3 Migration — `supabase/005_match_rework.sql`
+(Numbered 005 because `004_portfolio_org_and_logos.sql` already existed. `000_schema.sql` carries the same columns for fresh projects.)
 - `job_descriptions`: add `requirements jsonb`, `extracted jsonb`; keep `hiring_organization` and `weights` nullable for legacy rows (new code stops writing them).
 - `match_results`: add `rank int`, `band text`, `fit_score int`, `adjustments jsonb`, `adjustments_capped bool`, `must_haves_passed jsonb`; keep `sub_scores` nullable for legacy rows.
-- Re-create the seeded Sahel opening's persisted ranking under the new model (or delete it and document how to re-run it).
-- Add `004` to the run order in `DEVELOPER-HANDOFF.md` and anywhere else the order is listed.
+- Re-create the seeded Sahel opening's persisted ranking under the new model (or delete it and document how to re-run it). As built: 005 deletes pre-rework rankings; the Sahel ranking was re-created through the UI from `docs/samples/sahel-me-tor.txt` (steps in `DEVELOPER-HANDOFF.md`).
+- Add `005` to the run order in `DEVELOPER-HANDOFF.md` and anywhere else the order is listed.
 
 ---
 

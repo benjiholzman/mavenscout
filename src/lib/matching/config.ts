@@ -106,3 +106,9 @@ export const FIT_CALIBRATION = {
 
 /** Available within this many months after the target → partial. TUNABLE. */
 export const AVAILABILITY_GRACE_MONTHS = 1
+
+// ---- Placeholder narrative (spec §6.2) -------------------------------------
+
+/** Fit at or above `strong` is described as strong overlap, at or above
+ *  `moderate` as moderate, otherwise limited. TUNABLE. */
+export const NARRATIVE_FIT_WORDS = { strong: 70, moderate: 50 } as const

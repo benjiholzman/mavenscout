@@ -77,6 +77,7 @@ Explicitly out of scope for this build:
 - `/openings` — Hiring manager's list of their openings + create new (see 7.4, 7.9b)
 - `/openings/:id` — A single opening workspace: long/short lists, per-candidate notes/scores/tags, reviewers, post-interview capture (see 7.4)
 - `/match` — Job description upload + weighting questionnaire → ranked results (operates on the hiring manager's currently filtered pool; can be launched from the directory or from within an opening)
+  > **Note (match rework):** `/match` now redirects to `/?rank=1` — ranking is a mode of the directory (a drawer beside the grid, results held in the URL as `/?ranking=<id>`). See `docs/MavenScout-match-rework.md`.
 - `/login`, `/signup` — Mocked-session flows for Hiring Manager vs. Consultant/Firm (see 7.9)
 - `/onboarding` — Multi-step consultant/firm profile builder (also edit-profile after launch)
 - `/account` — Account settings for both roles (change email/password — UI scaffold, see 7.9b)
@@ -276,6 +277,8 @@ A testimonial can be attached to **either the candidate in general, or a specifi
 - [ ] Hiring managers can play testimonials in-app, see the reference's name/org/title/relationship/date, and follow the verification link when provided; the candidate controls which are published; admin can remove any.
 
 ### 7.7 AI Matching — Scaffold (P0 UI/data model, mocked scoring logic)
+
+> **Superseded by `docs/MavenScout-match-rework.md`.** That spec replaces this section — and the AI-match rows of the Decisions table — wherever they conflict. This section is kept as written for history.
 
 This is the feature Loop8 is building the real engine for. Fable builds the full user-facing flow with a clearly isolated, swappable scoring function.
 

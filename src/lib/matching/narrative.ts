@@ -1,4 +1,4 @@
-import { ADJUSTMENT_CAP, BAND_LABELS } from './config'
+import { ADJUSTMENT_CAP, BAND_LABELS, NARRATIVE_FIT_WORDS } from './config'
 import type { ScoreBreakdown } from './display'
 import type { Band } from './types'
 import type { Profile } from '../../types/db'
@@ -46,7 +46,8 @@ export function buildNarrative(args: {
 
   parts.push(`${profile.name} is a ${BAND_LABELS[band].toLowerCase()} for this brief at ${total}/100.`)
 
-  const fitWord = fit >= 70 ? 'strong' : fit >= 50 ? 'moderate' : 'limited'
+  const fitWord =
+    fit >= NARRATIVE_FIT_WORDS.strong ? 'strong' : fit >= NARRATIVE_FIT_WORDS.moderate ? 'moderate' : 'limited'
   parts.push(
     `Fit to the job description is ${fit}/100 — ${fitWord} overlap between the JD and ${possessive(first)} portfolio, bio and tags` +
       (coveredTerms.length ? `, which cover ${coveredTerms.slice(0, 2).join(' and ')}.` : '.'),
