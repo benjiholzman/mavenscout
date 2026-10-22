@@ -139,9 +139,8 @@ async function run() {
     locationOptions: options.locations.flatMap((g) => [g.label, ...g.items]),
     languageOptions: options.languages,
   }
-  // No video/audio transcripts: the demo seed has none, and the original
-  // seeds' intro videos carry no transcript.
-  const candidate = (p: Profile): CandidateInput => ({ profile: p, portfolio: portfolioBy.get(p.id) ?? [], transcripts: [] })
+  // Fit reads the profile and portfolio only; transcripts never feed ranking (§11).
+  const candidate = (p: Profile): CandidateInput => ({ profile: p, portfolio: portfolioBy.get(p.id) ?? [] })
 
   function rank(rawText: string, extracted: ExtractedRequirements, requirements: Requirement[]): Ranked {
     const survivors = applyMustHaves(profiles, portfolioBy, requirements, EMPTY_SEARCH, expertise, orgs)

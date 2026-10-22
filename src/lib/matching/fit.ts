@@ -11,8 +11,8 @@ import type { PortfolioItem, Profile } from '../../types/db'
 // ingredients at the old ratio (5 : 6, as 5/3/3 was before expertise and
 // skills became one list):
 //   - demonstrated experience: how many of the JD's salient terms appear in the
-//     candidate's evidence (headline, bio, portfolio, accreditations, video and
-//     audio transcripts);
+//     candidate's evidence (headline, bio, portfolio, accreditations). Video
+//     and audio transcripts are never Fit inputs (profiles-membership §11);
 //   - expertise tags: how well the candidate's tags cover the expertise
 //     extracted from the JD (Core > Strong > Working knowledge).
 // The blended 0–1 value goes through a calibration curve so a clearly on-topic
@@ -20,11 +20,11 @@ import type { PortfolioItem, Profile } from '../../types/db'
 // replaces all of this; the curve and weights live in config.ts.
 // ============================================================================
 
+/** What Fit reads about a candidate. No transcripts: video Q&As and audio
+ *  testimonials never feed ranking (profiles-membership §4.1, §5, §11). */
 export interface CandidateInput {
   profile: Profile
   portfolio: PortfolioItem[]
-  /** Video Q&A + published audio-testimonial transcripts. */
-  transcripts: string[]
 }
 
 /** What Fit needs from the JD, computed ONCE per run — never per candidate. */
@@ -51,13 +51,12 @@ export function buildJdSignature(rawText: string, extracted: ExtractedRequiremen
 }
 
 export function evidenceText(c: CandidateInput): string {
-  const { profile, portfolio, transcripts } = c
+  const { profile, portfolio } = c
   return [
     profile.headline,
     profile.detailed_bio ?? '',
     ...portfolio.flatMap((p) => [p.project_name, p.role, p.description, p.results ?? '']),
     ...profile.accreditations.map((a) => `${a.name} ${a.issuing_organization}`),
-    ...transcripts,
   ].join(' ')
 }
 

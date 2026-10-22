@@ -167,8 +167,8 @@ export function AboutResultModal({
           <ul className="mt-2 list-disc space-y-1 pl-4 text-[12.5px] leading-snug text-ink-soft">
             <li>
               <b className="font-medium text-ink">Fit</b> (0–100) is the engine's judgment of how well the candidate's
-              evidence — portfolio, bio, accreditations, video and audio transcripts, and tags — fits the job
-              description. You can't adjust it.
+              evidence — portfolio, bio, accreditations and expertise tags — fits the job description. Video
+              and audio transcripts are never used. You can't adjust it.
             </li>
             <li>
               Preferences carry weight equal to their points, up to {PREFERENCE_CAP_POINTS}% of the score. A{' '}

@@ -8,14 +8,7 @@ import { buildJdSignature, computeFit, tagCredit, type CandidateInput } from './
 import { buildNarrative } from './narrative'
 import { preferenceScoring, totalScore } from './total'
 import type { ExtractedRequirements, MatchResult, RankPoolFn, Requirement } from './types'
-import type {
-  AudioTestimonial,
-  PortfolioItem,
-  Profile,
-  TaxonomyCategory,
-  TaxonomyItem,
-  VideoResponse,
-} from '../../types/db'
+import type { PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../../types/db'
 
 // ============================================================================
 // ⚠ PLACEHOLDER SCORING ENGINE (docs/MavenScout-match-rework.md §5, §6).
@@ -118,30 +111,16 @@ export function scorePool(args: {
   return orderResults(scored, new Map(candidates.map((c) => [c.profile.id, c.profile])))
 }
 
-/** Loads portfolio + transcripts (video Q&As and published testimonials) for
- *  the pool in three queries. */
+/** Loads the pool's portfolio items: with the profile, all Fit reads.
+ *  Transcripts (video Q&As, testimonials) are deliberately not loaded — they
+ *  never feed ranking (profiles-membership §11). */
 async function loadEvidence(pool: Profile[]): Promise<CandidateInput[]> {
   const ids = pool.map((p) => p.id)
-  const [portfolioRes, videosRes, audioRes] = await Promise.all([
-    supabase.from('portfolio_items').select('*').in('profile_id', ids).order('sort_order'),
-    supabase.from('video_responses').select('profile_id,transcript').in('profile_id', ids),
-    supabase.from('audio_testimonials').select('profile_id,transcript').eq('status', 'published').in('profile_id', ids),
-  ])
+  const { data } = await supabase.from('portfolio_items').select('*').in('profile_id', ids).order('sort_order')
   const portfolioBy = new Map<string, PortfolioItem[]>()
-  for (const item of (portfolioRes.data as PortfolioItem[]) ?? [])
+  for (const item of (data as PortfolioItem[]) ?? [])
     portfolioBy.set(item.profile_id, [...(portfolioBy.get(item.profile_id) ?? []), item])
-  const transcriptsBy = new Map<string, string[]>()
-  const rows = [
-    ...((videosRes.data as Pick<VideoResponse, 'profile_id' | 'transcript'>[]) ?? []),
-    ...((audioRes.data as Pick<AudioTestimonial, 'profile_id' | 'transcript'>[]) ?? []),
-  ]
-  for (const r of rows)
-    if (r.transcript) transcriptsBy.set(r.profile_id, [...(transcriptsBy.get(r.profile_id) ?? []), r.transcript])
-  return pool.map((profile) => ({
-    profile,
-    portfolio: portfolioBy.get(profile.id) ?? [],
-    transcripts: transcriptsBy.get(profile.id) ?? [],
-  }))
+  return pool.map((profile) => ({ profile, portfolio: portfolioBy.get(profile.id) ?? [] }))
 }
 
 /**

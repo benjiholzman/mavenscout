@@ -198,7 +198,7 @@ function ExistingVideo({
       </div>
       <div className="mt-2.5">
         <label className="block text-sm">
-          <span className="text-xs font-medium">Transcript (optional — feeds AI matching + accessibility)</span>
+          <span className="text-xs font-medium">Transcript (optional — for accessibility; never used in ranking)</span>
           <textarea
             rows={2}
             value={transcript}
