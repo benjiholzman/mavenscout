@@ -13,7 +13,7 @@ RLS notes) — the PRD defines *what* was intended; this defines *where the seam
 | Stack | React 18 + TypeScript + Vite, Tailwind 3, Framer Motion, React Router 6, Supabase (Postgres + Storage) |
 | Run | `npm install && npm run dev` — needs `.env` with `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (see `.env.example`) |
 | Database | `supabase/000_schema.sql` → `001` → `002` → `003` → `004` → `005` → `006` → `007_seed_demo_profiles_1` … `_4` → `008`, run in order in the Supabase SQL editor. 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data; 004 fills portfolio organization/years and work-history logo links on the seeded rows; 005 adds the match-rework columns (`job_descriptions.requirements/extracted`; `match_results.rank/band/fit_score/adjustments/adjustments_capped/must_haves_passed`) and deletes pre-rework rankings; 006 adds `profiles.is_demo` (flags the original 15 and normalizes their country names); the four 007 files add 100 synthetic `demo-*` profiles (generated — see *Demo data* below); 008 adds `match_results.scoring` for the preference-weighted total and deletes rankings scored under the old additive formula. A fresh project bootstraps from these files. An existing database only needs the migrations it hasn't run — 004 and 005 use `ADD COLUMN IF NOT EXISTS`, so they're no-ops on fresh projects, where 000 already creates the columns. |
-| Verification baseline | Every PRD Definition-of-Done item (Section 13) was verified in-browser at desktop and 375px before handoff. The Playwright scripts lived in a temp scratchpad and are **not** committed — if you want a regression suite, the DoD checklist is the spec to automate against. The match rework's acceptance criteria (`docs/MavenScout-match-rework.md` §10) were verified the same way at desktop (1280px) and 375px in October 2026, plus scripted checks of the filter-bar ↔ requirements round-trip (22 filter combinations matched the pre-rework directory except the intended career-level change), the scoring math, and the largest-remainder rounding (20,000 random cases); those scripts are not committed either. |
+| Verification baseline | Every PRD Definition-of-Done item (Section 13) was verified in-browser at desktop and 375px before handoff. The Playwright scripts lived in a temp scratchpad and are **not** committed — if you want a regression suite, the DoD checklist is the spec to automate against. The match rework's acceptance criteria (`docs/MavenScout-match-rework.md` §10) were verified the same way at desktop (1280px) and 375px in October 2026, plus scripted checks of the filter-bar ↔ requirements round-trip (22 filter combinations matched the pre-rework directory except the intended career-level change), the scoring math, and the displayed rounding (20,000 random cases, re-run for the preference-weighted total); those scripts are not committed either. |
 
 ## What is mocked vs. real (the load-bearing distinction)
 
@@ -142,7 +142,8 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
     rows are evaluated by `applyMustHaves()` (`mustHaves.ts`), which reuses the
     directory filter logic exactly. It runs in the browser on the loaded pool
     today; it's the one place to turn into a database query when the pool grows.
-  - Displayed rounding (`display.ts`, largest-remainder) and persistence
+  - The displayed build-up (`display.ts`: rows show their own points; Fit part +
+    preferences = total, exactly) and persistence
     (`persist.ts`).
 - **Org History:** the tiered `met` / `partial` (peer org) / `not_met` shape is the
   contract. The placeholder matches names only, and peers only if the manager types

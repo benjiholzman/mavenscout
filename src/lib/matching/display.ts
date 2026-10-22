@@ -1,3 +1,4 @@
+import { PREFERENCE_POINTS } from './config'
 import { preferenceScoring } from './total'
 import type { Adjustment, MatchResult, Scoring } from './types'
 
@@ -5,19 +6,24 @@ import type { Adjustment, MatchResult, Scoring } from './types'
 //
 //   total = (1 − w) × Fit + 100 × w × (earned ÷ possible)      (total.ts)
 //
-// Shown as "Fit 80 × 0.92 → 74 · preferences 5 of 8 → +5 · Total 79". Every
-// displayed number is a whole number and the build-up adds up EXACTLY:
+// Shown as "Fit 83 × 0.8 → 66 · preferences 23.8 of 46 pts → +11 · Total 77".
+// Each preference row shows only its own points ("3 of 3 pts", "1.5 of 3
+// pts"); rows are never converted to score points. The conversion appears once,
+// at the preferences subtotal, and the build-up adds up exactly at that level:
 // - Fit part = round((1 − w) × Fit), from the displayed Fit;
 // - preference part = total − Fit part (always 0 … 100w, because the total is
 //   computed from the displayed Fit — see total.ts);
-// - each row's share of the preference part, 100 × w × points ÷ possible, uses
-//   LARGEST-REMAINDER rounding: floor every share, then give the leftover whole
-//   points to the shares with the largest fractional parts, so the rows sum to
-//   the preference part exactly. Not-applicable rows show 0.
+// - so Fit part + preference part = total, in whole numbers.
 
 export interface BreakdownRow {
   adjustment: Adjustment
-  points: number // integer share of the preference part, as displayed
+  /** Points this row earned (met: full, partial: × credit, else 0). */
+  earned: number
+  /** Points this row is worth — its share of the points possible. 0 when the
+   *  row doesn't apply to this candidate (not counted). From config, so a run
+   *  saved under different point values shows today's per-row values; the
+   *  subtotal and total always come from the stored scoring. */
+  possible: number
 }
 
 export interface ScoreBreakdown {
@@ -27,27 +33,10 @@ export interface ScoreBreakdown {
   /** round((1 − w) × Fit). */
   fitPart: number
   rows: BreakdownRow[] // same order as result.adjustments
-  /** total − fitPart = Σ rows. */
+  /** total − fitPart: what the preferences subtotal converts to. */
   preferencePart: number
   scoring: Scoring
   total: number
-}
-
-/** Integers summing exactly to `target`, as close as possible to `values`
- *  (largest-remainder method). Ties go to the larger value, then the earlier. */
-export function largestRemainder(values: number[], target: number): number[] {
-  const floors = values.map((v) => Math.floor(v + 1e-9))
-  let leftover = target - floors.reduce((s, v) => s + v, 0)
-  const order = values
-    .map((v, i) => ({ i, frac: v - floors[i], v }))
-    .sort((a, b) => b.frac - a.frac || b.v - a.v || a.i - b.i)
-  const out = [...floors]
-  // Normally 0 ≤ leftover ≤ number of fractional values; the loops also keep
-  // the sum exact in any edge case.
-  for (let k = 0; leftover > 0; k = (k + 1) % order.length, leftover--) out[order[k].i] += 1
-  for (let k = order.length - 1; leftover < 0; k = (k - 1 + order.length) % order.length, leftover++)
-    out[order[k].i] -= 1
-  return out
 }
 
 export function scoreBreakdown(
@@ -58,22 +47,28 @@ export function scoreBreakdown(
   const scoring = result.scoring ?? preferenceScoring(result.adjustments)
   const fitMultiplier = 1 - scoring.weight
   const fitPart = scoring.weight === 0 ? result.fit_score : Math.round(fitMultiplier * result.fit_score)
-  const preferencePart = result.total_score - fitPart
-  const shares = result.adjustments.map((a) =>
-    a.outcome === 'not_applicable' || scoring.possible === 0
-      ? 0
-      : (100 * scoring.weight * Math.max(0, a.points)) / scoring.possible,
-  )
-  const points = shares.length ? largestRemainder(shares, preferencePart) : []
   return {
     fit: result.fit_score,
     fitMultiplier,
     fitPart,
-    rows: result.adjustments.map((adjustment, i) => ({ adjustment, points: points[i] ?? 0 })),
-    preferencePart,
+    rows: result.adjustments.map((adjustment) => ({
+      adjustment,
+      earned: adjustment.outcome === 'not_applicable' ? 0 : Math.max(0, adjustment.points),
+      possible: adjustment.outcome === 'not_applicable' ? 0 : PREFERENCE_POINTS[adjustment.level],
+    })),
+    preferencePart: result.total_score - fitPart,
     scoring,
     total: result.total_score,
   }
+}
+
+/** Rows in the order the Match face lists them: heaviest rows first
+ *  (Important before Nice to have), then most points earned, then grid order. */
+export function rowsByWeight(rows: BreakdownRow[]): BreakdownRow[] {
+  return rows
+    .map((r, i) => ({ r, i }))
+    .sort((x, y) => y.r.possible - x.r.possible || y.r.earned - x.r.earned || x.i - y.i)
+    .map(({ r }) => r)
 }
 
 /** 0.92, 0.8, 1 — the Fit multiplier without trailing zeros. */
@@ -81,9 +76,16 @@ export function formatMultiplier(m: number): string {
   return String(Math.round(m * 100) / 100)
 }
 
-/** Points earned/possible: whole numbers as-is, otherwise one decimal (4.5). */
+/** Points earned/possible, exact: 3, 1.5, 2.25, 23.75. Credits are halves and
+ *  quarters of 3 or 8, so two decimals are always enough, and the rows' points
+ *  sum visibly to the subtotal's. */
 export function formatPoints(p: number): string {
-  return String(Math.round(p * 10) / 10)
+  return String(Math.round(p * 100) / 100)
+}
+
+/** "3 of 3 pts", "1.5 of 3 pts", "not counted" — one row's own points. */
+export function rowPointsLabel(r: BreakdownRow): string {
+  return r.adjustment.outcome === 'not_applicable' ? 'not counted' : `${formatPoints(r.earned)} of ${formatPoints(r.possible)} pts`
 }
 
 /** Preferences' share of the score, as a whole percent (8%, 20%). */

@@ -8,7 +8,7 @@ First baseline for Loop8. Five sample ToRs (`docs/samples/tor-0*.txt`) are score
 - **End to end (secondary):** `extractRequirements` → Add all (every suggestion at Nice to have) → `scorePool`, no Required rows.
 - **Extraction:** suggestions vs. the terms a good extractor should find (recall), plus suggestions nobody asked for.
 - In both runs, Fit reads the JD through the extraction (as `rankPool` does for a stored JD); only the grid rows differ.
-- Read-only: the harness only SELECTs and scores in memory. `job_descriptions` 2 → 2, `match_results` 130 → 130 rows during this run.
+- Read-only: the harness only SELECTs and scores in memory. `job_descriptions` 2 → 2, `match_results` 230 → 230 rows during this run.
 
 ## Summary
 

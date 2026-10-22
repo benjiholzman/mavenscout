@@ -16,9 +16,9 @@ import { Link } from 'react-router-dom'
 import { logoIconUrl } from '../../lib/brandfetch'
 import { fmtPortfolioMeta } from '../../lib/dates'
 import { resolveVideo } from '../../lib/media'
-import { preferencePercent, scoreBreakdown } from '../../lib/matching/display'
+import { preferencePercent, rowPointsLabel, rowsByWeight, scoreBreakdown } from '../../lib/matching/display'
 import type { MatchResult } from '../../lib/matching/types'
-import { OutcomeIcon, pointsLabel, ScoreEquation } from '../match/outcome'
+import { OutcomeIcon, ScoreEquation } from '../match/outcome'
 import { RankStrip } from '../match/RankStrip'
 import { PRIMARY_CAP, SECONDARY_CAP } from '../../lib/validation'
 import type { PortfolioItem, Profile, TagSelection, VideoResponse } from '../../types/db'
@@ -439,15 +439,13 @@ function BackHeader({ profile, isFirm }: { profile: Profile; isFirm: boolean }) 
 
 const MATCH_FACE_MAX_ROWS = 6
 
-/** "Match" face (spec §7.2): Fit bar, the preference rows with their shares
- *  of the score, the Required line and the equation — all from the displayed
- *  build-up, so it adds up.
+/** "Match" face (spec §7.2): Fit bar, the preference rows with their own
+ *  points ("3 of 3 pts"), the Required line and the equation — where the
+ *  preferences convert to score points once, so it adds up.
  *  Fits the face without scrolling; overflow goes to "About this result". */
 function MatchFace({ result, onMore }: { result: MatchResult; onMore?: () => void }) {
   const b = scoreBreakdown(result)
-  const rows = [...b.rows].sort(
-    (x, y) => Math.abs(y.points) - Math.abs(x.points) || Math.abs(y.adjustment.points) - Math.abs(x.adjustment.points),
-  )
+  const rows = rowsByWeight(b.rows)
   const shown = rows.slice(0, MATCH_FACE_MAX_ROWS)
   const hidden = rows.length - shown.length
   const musts = result.must_haves_passed.length
@@ -471,15 +469,18 @@ function MatchFace({ result, onMore }: { result: MatchResult; onMore?: () => voi
           <p className="text-[13px] text-ink-faint">No Nice to have or Important rows.</p>
         ) : (
           <ul className="space-y-1">
-            {shown.map(({ adjustment: a, points }) => (
+            {shown.map((r) => {
+              const a = r.adjustment
+              return (
               <li key={a.requirement_id} className="flex items-center gap-2 text-[13px] leading-5">
                 <OutcomeIcon outcome={a.outcome} />
                 <span className="min-w-0 flex-1 truncate text-ink-soft" title={`${a.label} — ${a.detail}`}>
                   {a.label}
                 </span>
-                <span className="shrink-0 tabular-nums text-ink-soft">{pointsLabel(points)}</span>
+                <span className="shrink-0 tabular-nums text-ink-faint">{rowPointsLabel(r)}</span>
               </li>
-            ))}
+              )
+            })}
           </ul>
         )}
         {hidden > 0 && (

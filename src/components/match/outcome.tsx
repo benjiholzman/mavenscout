@@ -29,7 +29,7 @@ export function pointsLabel(points: number): string {
 }
 
 /** The score equation (spec §7.2, §7.3), from the displayed build-up so it
- *  always adds up: "Fit 80 × 0.92 → 74 · preferences 5 of 8 → +5 · Total 79",
+ *  always adds up: "Fit 80 × 0.92 → 74 · preferences 5 of 8 pts → +5 · Total 79",
  *  or "Total = Fit 83" when no preference row applies. Each segment wraps as a
  *  unit on narrow cards. */
 export function ScoreEquation({ b, className = '' }: { b: ScoreBreakdown; className?: string }) {
@@ -46,7 +46,7 @@ export function ScoreEquation({ b, className = '' }: { b: ScoreBreakdown; classN
       </span>
       <span aria-hidden>·</span>
       <span className="whitespace-nowrap">
-        preferences {formatPoints(b.scoring.earned)} of {formatPoints(b.scoring.possible)} → {pointsLabel(b.preferencePart)}
+        preferences {formatPoints(b.scoring.earned)} of {formatPoints(b.scoring.possible)} pts → {pointsLabel(b.preferencePart)}
       </span>
       <span aria-hidden>·</span>
       <span className="whitespace-nowrap font-semibold">Total {b.total}</span>

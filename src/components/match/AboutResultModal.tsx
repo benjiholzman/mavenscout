@@ -1,6 +1,6 @@
 import { Check, ChevronDown } from 'lucide-react'
 import { BAND_LABELS, PREFERENCE_CAP_POINTS, PREFERENCE_POINTS } from '../../lib/matching/config'
-import { formatMultiplier, formatPoints, preferencePercent, scoreBreakdown } from '../../lib/matching/display'
+import { formatMultiplier, formatPoints, preferencePercent, rowPointsLabel, scoreBreakdown } from '../../lib/matching/display'
 import type { MatchResult } from '../../lib/matching/types'
 import type { Profile } from '../../types/db'
 import { Modal } from '../ui/Modal'
@@ -8,9 +8,10 @@ import { OutcomeIcon, pointsLabel, ScoreEquation } from './outcome'
 import { BAND_STYLES } from './RankStrip'
 
 // "About this result" (match rework spec §7.3): the full score build-up for
-// one ranked candidate. Every number comes from scoreBreakdown (largest-
-// remainder rounding), so the table always adds up to the total:
-// Fit part + Σ preference rows = Total.
+// one ranked candidate. Every number comes from scoreBreakdown. Preference
+// rows show their own points ("3 of 3 pts"); they convert to score points once,
+// at the subtotal, so the score column always adds up: Fit part + preferences
+// = Total.
 
 const LEVEL_NAMES = { slight: 'Nice to have', strong: 'Important' } as const
 
@@ -67,7 +68,9 @@ export function AboutResultModal({
                 </td>
                 <td className="py-2 text-right font-semibold tabular-nums text-ink">{b.fitPart}</td>
               </tr>
-              {b.rows.map(({ adjustment: a, points }) => (
+              {b.rows.map((r) => {
+                const a = r.adjustment
+                return (
                 <tr key={a.requirement_id} className="border-b border-line-soft align-top">
                   <td className="w-6 py-2 pr-1">
                     <OutcomeIcon outcome={a.outcome} />
@@ -77,19 +80,14 @@ export function AboutResultModal({
                     <span className="ml-1.5 rounded-full bg-paper px-1.5 py-px text-[11px] text-ink-faint">
                       {LEVEL_NAMES[a.level]}
                     </span>
-                    <span className="block text-xs text-ink-faint">
-                      {a.detail}
-                      {' · '}
-                      <span className="tabular-nums">
-                        {a.outcome === 'not_applicable'
-                          ? 'not counted'
-                          : `${formatPoints(a.points)} of ${PREFERENCE_POINTS[a.level]} pts`}
-                      </span>
-                    </span>
+                    <span className="block text-xs text-ink-faint">{a.detail}</span>
                   </td>
-                  <td className="py-2 text-right tabular-nums text-ink-soft">{pointsLabel(points)}</td>
+                  <td className="whitespace-nowrap py-2 text-right text-xs tabular-nums text-ink-faint">
+                    {rowPointsLabel(r)}
+                  </td>
                 </tr>
-              ))}
+                )
+              })}
               {b.rows.length === 0 && (
                 <tr className="border-b border-line-soft">
                   <td colSpan={3} className="py-2 text-xs text-ink-faint">
@@ -108,7 +106,10 @@ export function AboutResultModal({
                 <tr className="border-b border-line">
                   <td />
                   <td className="py-2 pr-2 text-ink-soft">
-                    Preferences: {formatPoints(b.scoring.earned)} of {formatPoints(b.scoring.possible)} points
+                    Preferences{' '}
+                    <span className="tabular-nums">
+                      {formatPoints(b.scoring.earned)} of {formatPoints(b.scoring.possible)} pts →
+                    </span>
                     <span className="block text-xs text-ink-faint">
                       Worth {preferencePercent(b.scoring)} of the score
                     </span>

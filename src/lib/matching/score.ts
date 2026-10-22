@@ -29,8 +29,7 @@ import type {
 //
 // Rounding (§5.3): Fit is computed in floats and rounded for storage/display;
 // the total is computed from that displayed Fit and rounded. The displayed
-// build-up comes from display.ts (largest-remainder rounding), so it always
-// adds up.
+// build-up comes from display.ts (Fit part + preferences = total, exactly).
 // ============================================================================
 
 function tagIndex(cats: TaxonomyCategory[], items: TaxonomyItem[], type: TaxonomyCategory['type']): TagIndex {
