@@ -2,12 +2,13 @@ import { Check, Plus } from 'lucide-react'
 import { locationLabel } from '../../lib/filters'
 import { MAX_TAG_ROWS } from '../../lib/matching/config'
 import type { ExtractedRequirements, Requirement } from '../../lib/matching/types'
-import { isSuggestionAdded, isSuggestionBlocked, tagRowCount, type Suggestion } from '../../lib/requirements/model'
+import { isSuggestionAdded, tagRowCount, type Suggestion } from '../../lib/requirements/model'
 
 // "Found in your JD" (match rework spec §2, Step 2): extraction SUGGESTS rows;
 // nothing enters the grid until the manager adds it. Each chip shows how often
 // the JD mentions it; added suggestions become Nice to have rows tagged
-// "from JD".
+// "from JD". Locations and languages go to that kind's preference row, never
+// its Required row.
 
 function suggestionLabel(s: Suggestion): string {
   if ('tag' in s) return s.tag.level === 'category' ? `${s.tag.name} (broad)` : s.tag.name
@@ -36,9 +37,7 @@ export function JdSuggestions({
 }) {
   const groups = suggestionsFrom(extracted)
   const atCap = tagRowCount(requirements) >= MAX_TAG_ROWS
-  const pending = groups
-    .flatMap((g) => g.items)
-    .filter((s) => !isSuggestionAdded(requirements, s) && !isSuggestionBlocked(requirements, s))
+  const pending = groups.flatMap((g) => g.items).filter((s) => !isSuggestionAdded(requirements, s))
   const addable = pending.filter((s) => !('tag' in s) || !atCap)
 
   return (
@@ -84,19 +83,12 @@ export function JdSuggestions({
                         </span>
                       )
                     const capped = 'tag' in s && atCap
-                    const blocked = isSuggestionBlocked(requirements, s)
                     return (
                       <button
                         key={label}
                         type="button"
-                        disabled={capped || blocked}
-                        title={
-                          blocked
-                            ? `Your ${s.kind === 'location' ? 'Location' : 'Language'} row is Required — edit that row to change it`
-                            : capped
-                              ? `Up to ${MAX_TAG_ROWS} expertise and skill rows`
-                              : undefined
-                        }
+                        disabled={capped}
+                        title={capped ? `Up to ${MAX_TAG_ROWS} expertise and skill rows` : undefined}
                         onClick={() => onAdd([s])}
                         className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-white px-2.5 py-1 text-xs font-medium text-ink hover:border-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
                       >

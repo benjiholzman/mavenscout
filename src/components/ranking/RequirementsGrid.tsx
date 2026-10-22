@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { MAX_TAG_ROWS } from '../../lib/matching/config'
 import { ALWAYS_PRESENT_KINDS, type Requirement } from '../../lib/matching/types'
 import { KIND_LABELS } from '../../lib/requirements/labels'
-import { makeRow, tagRowCount, type SingleKind, type TagKind } from '../../lib/requirements/model'
+import { canAddKind, makeRow, tagRowCount, type SingleKind, type TagKind } from '../../lib/requirements/model'
 import type { RequirementsStore } from '../../lib/requirements/store'
 import type { OptionGroup } from '../ui/MultiSelect'
 import { RequirementRow, type PickerOptions } from './RequirementRow'
@@ -11,7 +11,9 @@ import { RequirementRow, type PickerOptions } from './RequirementRow'
 // The requirements grid (match rework spec §3). Rows only exist once added:
 // expertise and skills (from JD suggestions or "+ Add"), then "Other
 // requirements", which starts empty with one add chip per kind. Filters set in
-// the filter bar arrive here as Required rows.
+// the filter bar arrive here as Required rows. A multi-value kind can show
+// two rows: its Required row and a preference row (e.g. Required: French,
+// Nice to have: English).
 
 export interface GridOptions extends PickerOptions {
   /** Taxonomy for "+ Add expertise" / "+ Add skill": category → items. */
@@ -71,10 +73,10 @@ export function RequirementsGrid({
 }) {
   const { requirements } = store.state
   const tagRows = requirements.filter((r) => r.kind === 'expertise' || r.kind === 'skill')
-  const otherRows = ALWAYS_PRESENT_KINDS.map((k) => requirements.find((r) => r.kind === k)).filter(
-    (r): r is Requirement => !!r,
-  )
-  const missing = ADD_ORDER.filter((k) => !requirements.some((r) => r.kind === k))
+  // Already in display order (normalizeRequirements): per kind, Required first.
+  const otherRows = requirements.filter((r) => (ALWAYS_PRESENT_KINDS as readonly string[]).includes(r.kind))
+  // A multi-value kind can still get a preference row next to its Required row.
+  const missing = ADD_ORDER.filter((k) => canAddKind(requirements, k))
   const atCap = tagRowCount(requirements) >= MAX_TAG_ROWS
   const [adding, setAdding] = useState<TagKind | null>(null)
 
@@ -148,7 +150,11 @@ export function RequirementsGrid({
             {missing.map((kind) => (
               <AddChip
                 key={kind}
-                label={ADD_LABELS[kind]}
+                label={
+                  requirements.some((r) => r.kind === kind && r.level === 'must')
+                    ? `${ADD_LABELS[kind]} preference`
+                    : ADD_LABELS[kind]
+                }
                 onClick={() =>
                   add(
                     kind === 'org_history'

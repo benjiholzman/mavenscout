@@ -54,7 +54,7 @@ Managers see three levels — **Nice to have**, **Important**, **Required** — 
 **Step 2 — Review requirements**
 - **Extraction suggests; it doesn't apply.** After reading, a **"Found in your JD"** box lists suggestion chips grouped as Expertise / Skills / Locations / Languages, each with its mention count (e.g. "Climate Adaptation (3×)") and a **+**, plus an **"Add all"** link. An added suggestion becomes a row at **Nice to have**, tagged "from JD". Nothing is added to the grid automatically.
 - The only rows that arrive on their own are **filters the manager already set**, which are Required rows tagged "from filters".
-- A suggestion that's already in the grid shows as added (✓). A location or language suggestion never changes a Required row of that kind (that would silently widen a filter) — its chip is disabled with an explanation, and "Add all" skips it. Expertise/skill suggestions respect the 10-row cap.
+- A suggestion that's already in the grid — in any row, at any level — shows as added (✓). A location or language suggestion goes to that kind's **preference row** (joining it, which keeps its level, or creating it at Nice to have); it **never widens a Required row**. So with Required: French set as a filter, adding the English suggestion creates "Language · Nice to have · English" alongside it. Expertise/skill suggestions respect the 10-row cap.
 - The search term shows as a pool chip ("Search: 'climate'") that also constrains the pool.
 - **Live count**, debounced: *"23 candidates meet everything marked Required"*. If 0: disable Run and say which Required rows to loosen (and how many each would admit). Under 5: show a gentle warning.
 
@@ -70,10 +70,11 @@ Managers see three levels — **Nice to have**, **Important**, **Required** — 
 
 - **One store** (`src/lib/requirements/store.ts`) holds `Requirement[]` and the search term; the active ranking id lives in the URL. The filter bar and the ranking drawer both read and write it. There is no separate copy of filter state.
 - **Rows only exist when added** — from a JD suggestion, an add chip in the grid (§3), or a filter. Removing a row (×) means no preference. There is no "No preference" level.
+- **Multi-value kinds can have two rows.** Location, Language, Type, Career level and Work arrangement allow **one Required row and one separate preference row** (Nice to have or Important) of the same kind — e.g. Required: French plus Nice to have: English. Availability, Verified and Org history have at most one row.
 - **The filter bar is the Required view.** Each filter-bar control maps to the Required rows of its kind: Type, Domain Expertise, Skills, Career Level, Work Arrangement, Location, Language, Availability, Verified only.
-  - Setting a filter creates that kind's Required row (or makes the existing row Required with the filter's value), tagged "from filters".
-  - Raising a grid row to Required makes it appear in the filter bar.
-  - Lowering a row from Required to Important or Nice to have keeps the row but removes it from the filter bar. Clearing a filter deletes its Required row.
+  - Setting a filter creates that kind's Required row, tagged "from filters", or updates it. For a multi-value kind, any preference row of that kind is a separate row and is left as is. (Availability and Verified, which have one row at most, turn that row Required.)
+  - Raising a grid row to Required makes it appear in the filter bar. If a multi-value kind already has a Required row, raising its preference row merges its values into the Required row — the manager is explicitly making them required.
+  - Lowering a row from Required to Important or Nice to have keeps the row but removes it from the filter bar. If a multi-value kind already has a preference row, the lowered values merge into it at the chosen level. Clearing a filter deletes its Required row (a preference row of that kind stays).
 - **Matching semantics are unchanged.** Required-row evaluation reuses the existing filter logic exactly (e.g. selecting a parent category matches its children). Several Required expertise (or skill) rows mean "any of", like several selections in one filter dropdown; different kinds combine with AND. Career level never excludes firms (they're not applicable).
 - **Grid-only Required rows** (Org History has no filter-bar control): show a chip at the end of the filter bar — "+1 required: Org history" — that opens the drawer at that row.
 - **Outside ranking mode** the filter bar behaves exactly as today. Nice to have / Important rows only exist once the drawer is used.
@@ -99,7 +100,9 @@ Level control: segmented control **Nice to have / Important / Required** — no 
 
 The grid has two sections:
 - **Expertise & skills** — rows from JD suggestions or "+ Expertise" / "+ Skill" (taxonomy picker). Several rows allowed.
-- **Other requirements** — **starts empty**, with one add chip per kind, in this order: **+ Location, + Language, + Availability, + Org history, + Type, + Career level, + Work arrangement, + Verified**. Adding one creates that row (at most one per kind) at Nice to have; × removes it. A chip disappears while its row exists.
+- **Other requirements** — **starts empty**, with one add chip per kind, in this order: **+ Location, + Language, + Availability, + Org history, + Type, + Career level, + Work arrangement, + Verified**. Adding one creates that row at Nice to have; × removes it.
+  - Multi-value kinds (Location, Language, Type, Career level, Work arrangement) can have **one Required row and one preference row**; a kind's Required row is listed first. While a kind has only a Required row (e.g. from a filter), its chip reads "+ Language preference" and adds the preference row; the chip disappears once the preference row exists.
+  - Availability, Verified and Org history have at most one row; their chip disappears while the row exists.
 
 Rows added by the manager start at **Nice to have**.
 
@@ -322,9 +325,10 @@ Keep the current banner: "Ranked N candidates against your JD · placeholder sco
 
 - [ ] Directory "Rank by Job Description" opens the ranking drawer from the right (~480px, full height, light scrim); Esc or a click outside closes it without losing state; header and footer stay pinned while the content scrolls; the grid stays at 3 columns.
 - [ ] Rows exist only when added: the grid starts empty apart from filters already set, which appear as Required rows tagged "from filters"; "Other requirements" offers add chips (+ Location, + Language, + Availability, + Org history, + Type, + Career level, + Work arrangement, + Verified); × removes any row; the search term shows as a pool chip.
+- [ ] Location, Language, Type, Career level and Work arrangement allow one Required row plus one separate preference row (e.g. Required: French, Nice to have: English); a filter only ever edits the Required row; level changes that would create a second Required or preference row of a kind merge into the existing one.
 - [ ] The level control has three segments — Nice to have / Important / Required — and no "No preference".
 - [ ] Filter bar and Required rows are one state: setting a filter creates a Required row; raising a row to Required adds it to the filter bar; lowering it below Required removes it from the filter bar but keeps the row; clearing a filter deletes its Required row; grid-only Required rows (Org History) show as a filter-bar chip.
-- [ ] "Read job description" shows a "Found in your JD" box of suggestion chips with mention counts, each with +, and an "Add all" link; nothing is added automatically; added suggestions become Nice to have rows tagged "from JD"; extraction never suggests Required, and suggestions never change a Required row.
+- [ ] "Read job description" shows a "Found in your JD" box of suggestion chips with mention counts, each with +, and an "Add all" link; nothing is added automatically; added suggestions become Nice to have rows tagged "from JD"; extraction never suggests Required; location/language suggestions for a kind with a Required row add to (or create) that kind's preference row and never widen the Required row.
 - [ ] After a run: tightening a Required row hides failing candidates instantly with no re-run and persists the change; loosening one offers to score only the newly eligible candidates; changing a Nice to have / Important row or the JD shows a Re-run prompt.
 - [ ] Ranking mode is held in the URL; reload and back restore the ranked view; Clear exits ranking mode and keeps Required rows as filters.
 - [ ] While ranked: Premium-first float suspended; sort dropdown locked to "Ranked by match"; Run closes the drawer and Edit requirements reopens it.

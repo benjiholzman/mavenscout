@@ -3,12 +3,14 @@ import type { FilterState } from '../filters'
 import { MAX_TAG_ROWS } from '../matching/config'
 import type { Level, Requirement } from '../matching/types'
 import {
+  addRowChecked,
   addSuggestion,
   applyFilterStateToRequirements,
   clearMustHaves,
   dropPreferences,
   EMPTY_SEARCH,
   normalizeRequirements,
+  setRowLevel,
   type SearchState,
   type Suggestion,
   type TagLevelOf,
@@ -52,15 +54,16 @@ export function requirementsReducer(state: RequirementsState, action: Requiremen
     case 'dropPreferences':
       return withRows(dropPreferences(state.requirements))
     case 'setLevel':
-      return withRows(state.requirements.map((r) => (r.id === action.id ? { ...r, level: action.level } : r)))
+      // Merges rather than ever creating a second Required (or preference)
+      // row of a multi-value kind.
+      return withRows(setRowLevel(state.requirements, action.id, action.level))
     case 'setValue':
       return withRows(
         state.requirements.map((r) => (r.id === action.id ? ({ ...r, value: action.value } as Requirement) : r)),
       )
     case 'addRow':
-      // One row per single-instance kind: adding it again is a no-op.
-      if (state.requirements.some((r) => r.id === action.row.id)) return state
-      return withRows(normalizeRequirements([...state.requirements, action.row]))
+      // Respects the row limits: adding a row that would clash is a no-op.
+      return withRows(addRowChecked(state.requirements, action.row))
     case 'removeRow':
       return withRows(state.requirements.filter((r) => r.id !== action.id))
     case 'addSuggestions':
