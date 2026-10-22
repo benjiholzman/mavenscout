@@ -28,6 +28,7 @@ import { suggestionsFrom } from '../src/components/ranking/JdSuggestions'
 import { buildTaxonomyTree, deriveOptions, locationCountry } from '../src/lib/filters'
 import { extractRequirements } from '../src/lib/matching/extract'
 import type { CandidateInput } from '../src/lib/matching/fit'
+import { bandFor } from '../src/lib/matching/config'
 import { buildTaxonomyIndex, scorePool } from '../src/lib/matching/score'
 import type { ExtractedRequirements, MatchResult, Requirement } from '../src/lib/matching/types'
 import { orgHistoryOutcome } from '../src/lib/requirements/match'
@@ -150,6 +151,12 @@ async function run() {
     singleNiceMax: 0,
     ablations: [] as string[],
   }
+  // Totals by role, across ToRs, for calibrating the band thresholds.
+  type Role = 'expected' | 'related' | 'decoy' | 'rest'
+  const dist: Record<'fixed' | 'e2e', Record<Role, number[]> & { filtered: Record<Role, number> }> = {
+    fixed: { expected: [], related: [], decoy: [], rest: [], filtered: { expected: 0, related: 0, decoy: 0, rest: 0 } },
+    e2e: { expected: [], related: [], decoy: [], rest: [], filtered: { expected: 0, related: 0, decoy: 0, rest: 0 } },
+  }
   const missing = new Set<string>()
 
   for (const tor of tors) {
@@ -166,6 +173,16 @@ async function run() {
 
     out.push(`## ${tor.id}: ${tor.title}`, '', `JD: [\`${tor.file}\`](${tor.file})`, '')
 
+    // Roles: expected top; related = profiles named by positive test cases
+    // (wrong location, untagged evidence, generalists, former staff, tie
+    // pairs); decoys = profiles that should NOT reach the top 10; rest = pool.
+    const roleOf = new Map<string, Role>()
+    for (const c of tor.checks) {
+      const negative = c.type === 'decoy' || c.type === 'right_location_wrong_fit'
+      for (const h of [c.handle, c.other].filter(Boolean) as string[]) roleOf.set(h, negative ? 'decoy' : 'related')
+    }
+    for (const e of tor.expected_top) roleOf.set(e.handle, 'expected')
+
     for (const [label, key, r] of [
       ['Fixed requirements (primary baseline)', 'fixed', fixed],
       ['End to end (extraction → Add all)', 'e2e', e2e],
@@ -175,6 +192,12 @@ async function run() {
       if (key === 'fixed') out.push(`Rows: ${tor.requirements.map(describeRow).join('; ')}.`, '')
       else out.push(`Rows added by Add all (${added.length}): ${added.map(describeRow).join('; ') || 'none'}.`, '')
       out.push(`Pool after Required rows: **${r.pool}** of ${profiles.length}.`, '')
+      for (const p of profiles) {
+        const role = roleOf.get(p.handle) ?? 'rest'
+        const m = r.rankOf.get(p.handle)
+        if (m) dist[key][role].push(m.total_score)
+        else dist[key].filtered[role]++
+      }
       const ties = tieStats(r.results)
       if (ties.atTop > 1) summary.topTies[key] += 1
       out.push(
@@ -351,6 +374,37 @@ async function run() {
     `Run ${new Date().toISOString().slice(0, 10)}. Availability-based scores depend on the run date only through availability rows, which these requirements don't use.`,
     '',
   ]
+  header.push(
+    '## Score distribution by role',
+    '',
+    'Totals across all five ToRs, for calibrating the band thresholds (`BAND_THRESHOLDS` in `config.ts`). ' +
+      '**Expected**: `expected_top`. **Related**: profiles named by positive test cases (wrong location, untagged evidence, ' +
+      'generalists, former staff, tie pairs). **Decoys**: profiles that should not reach the top 10. **Rest**: everyone else ' +
+      'scored. "Filtered" = excluded by a Required row (not scored).',
+    '',
+    '| Run | Role | n | Min | P10 | Median | P90 | Max | Filtered | Bands now (strong/good/partial/weak) |',
+    '|---|---|---|---|---|---|---|---|---|---|',
+    ...(['fixed', 'e2e'] as const).flatMap((run) =>
+      (['expected', 'related', 'decoy', 'rest'] as const).map((role) => {
+        const xs = [...dist[run][role]].sort((a, b) => a - b)
+        const q = (f: number) => (xs.length ? xs[Math.min(xs.length - 1, Math.floor(f * (xs.length - 1) + 0.5))] : '–')
+        const bands = { strong: 0, good: 0, partial: 0, weak: 0 }
+        for (const x of xs) bands[bandFor(x)]++
+        return `| ${run === 'fixed' ? 'Fixed' : 'End to end'} | ${role} | ${xs.length} | ${q(0)} | ${q(0.1)} | ${q(0.5)} | ${q(0.9)} | ${q(1)} | ${dist[run].filtered[role]} | ${bands.strong}/${bands.good}/${bands.partial}/${bands.weak} |`
+      }),
+    ),
+    '',
+    'All totals, sorted (fixed requirements):',
+    '',
+    ...(['expected', 'related', 'decoy'] as const).map((role) => `- ${role}: ${[...dist.fixed[role]].sort((a, b) => b - a).join(', ')}`),
+    `- rest, top 20: ${[...dist.fixed.rest].sort((a, b) => b - a).slice(0, 20).join(', ')}`,
+    '',
+    'All totals, sorted (end to end):',
+    '',
+    ...(['expected', 'related', 'decoy'] as const).map((role) => `- ${role}: ${[...dist.e2e[role]].sort((a, b) => b - a).join(', ')}`),
+    `- rest, top 20: ${[...dist.e2e.rest].sort((a, b) => b - a).slice(0, 20).join(', ')}`,
+    '',
+  )
   if (missing.size) header.push(`⚠ Handles in expectations.json not found in the pool: ${[...missing].join(', ')}`, '')
   writeFileSync(join(samples, 'ranking-baseline.md'), [...header, ...out].join('\n'))
   console.log(summaryLine.replace(/\*\*/g, ''))

@@ -16,6 +16,35 @@ First baseline for Loop8. Five sample ToRs (`docs/samples/tor-0*.txt`) are score
 
 Run 2026-10-22. Availability-based scores depend on the run date only through availability rows, which these requirements don't use.
 
+## Score distribution by role
+
+Totals across all five ToRs, for calibrating the band thresholds (`BAND_THRESHOLDS` in `config.ts`). **Expected**: `expected_top`. **Related**: profiles named by positive test cases (wrong location, untagged evidence, generalists, former staff, tie pairs). **Decoys**: profiles that should not reach the top 10. **Rest**: everyone else scored. "Filtered" = excluded by a Required row (not scored).
+
+| Run | Role | n | Min | P10 | Median | P90 | Max | Filtered | Bands now (strong/good/partial/weak) |
+|---|---|---|---|---|---|---|---|---|---|
+| Fixed | expected | 20 | 67 | 70 | 86 | 93 | 95 | 0 | 15/5/0/0 |
+| Fixed | related | 10 | 53 | 53 | 81 | 87 | 88 | 0 | 6/1/3/0 |
+| Fixed | decoy | 3 | 18 | 18 | 21 | 50 | 50 | 3 | 0/0/1/2 |
+| Fixed | rest | 277 | 0 | 3 | 11 | 35 | 77 | 262 | 0/5/7/265 |
+| End to end | expected | 20 | 66 | 69 | 84 | 91 | 92 | 0 | 14/6/0/0 |
+| End to end | related | 10 | 50 | 56 | 79 | 83 | 87 | 0 | 4/3/3/0 |
+| End to end | decoy | 6 | 16 | 18 | 47 | 78 | 78 | 0 | 0/1/1/4 |
+| End to end | rest | 539 | 0 | 5 | 11 | 37 | 78 | 0 | 0/7/18/514 |
+
+All totals, sorted (fixed requirements):
+
+- expected: 95, 93, 93, 91, 89, 88, 87, 87, 87, 86, 86, 85, 82, 81, 80, 78, 75, 70, 70, 67
+- related: 88, 87, 87, 82, 81, 81, 73, 64, 53, 53
+- decoy: 50, 21, 18
+- rest, top 20: 77, 76, 75, 73, 69, 58, 57, 53, 53, 53, 53, 50, 49, 49, 48, 48, 46, 45, 44, 44
+
+All totals, sorted (end to end):
+
+- expected: 92, 92, 91, 88, 88, 87, 86, 86, 84, 84, 84, 84, 81, 80, 79, 77, 74, 69, 69, 66
+- related: 87, 83, 83, 80, 79, 79, 76, 63, 56, 50
+- decoy: 78, 57, 47, 24, 18, 16
+- rest, top 20: 78, 77, 74, 73, 68, 67, 65, 64, 64, 60, 57, 56, 55, 54, 53, 53, 53, 52, 51, 51
+
 ## tor-01: Endline evaluation lead, maternal & child nutrition (Ethiopia)
 
 JD: [`tor-01-ethiopia-nutrition.txt`](tor-01-ethiopia-nutrition.txt)
