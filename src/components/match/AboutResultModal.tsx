@@ -121,7 +121,11 @@ export function AboutResultModal({
               <tr>
                 <td className="pt-2.5 pr-2 font-semibold text-ink" colSpan={2}>
                   Total
-                  <ScoreEquation b={b} className="mt-0.5 text-xs font-normal text-ink-faint" />
+                  {b.scoring.weight > 0 ? (
+                    <ScoreEquation b={b} className="mt-0.5 text-xs font-normal text-ink-faint" />
+                  ) : (
+                    <span className="ml-2 font-normal tabular-nums text-ink-faint">= Fit {b.fit}</span>
+                  )}
                 </td>
                 <td className="pt-2.5 text-right text-base font-bold tabular-nums text-ink">{b.total}</td>
               </tr>
