@@ -16,10 +16,9 @@ import { Link } from 'react-router-dom'
 import { logoIconUrl } from '../../lib/brandfetch'
 import { fmtPortfolioMeta } from '../../lib/dates'
 import { resolveVideo } from '../../lib/media'
-import { scoreBreakdown } from '../../lib/matching/display'
-import { ADJUSTMENT_CAP } from '../../lib/matching/config'
+import { preferencePercent, scoreBreakdown } from '../../lib/matching/display'
 import type { MatchResult } from '../../lib/matching/types'
-import { OutcomeIcon, pointsLabel } from '../match/outcome'
+import { OutcomeIcon, pointsLabel, ScoreEquation } from '../match/outcome'
 import { RankStrip } from '../match/RankStrip'
 import { PRIMARY_CAP, SECONDARY_CAP } from '../../lib/validation'
 import type { PortfolioItem, Profile, TagSelection, VideoResponse } from '../../types/db'
@@ -440,8 +439,9 @@ function BackHeader({ profile, isFirm }: { profile: Profile; isFirm: boolean }) 
 
 const MATCH_FACE_MAX_ROWS = 6
 
-/** "Match" face (spec §7.2): Fit bar, the largest adjustments, the Required
- *  line and the equation — all from the displayed build-up, so it adds up.
+/** "Match" face (spec §7.2): Fit bar, the preference rows with their shares
+ *  of the score, the Required line and the equation — all from the displayed
+ *  build-up, so it adds up.
  *  Fits the face without scrolling; overflow goes to "About this result". */
 function MatchFace({ result, onMore }: { result: MatchResult; onMore?: () => void }) {
   const b = scoreBreakdown(result)
@@ -464,7 +464,9 @@ function MatchFace({ result, onMore }: { result: MatchResult; onMore?: () => voi
       </div>
 
       <div className="mt-3.5 shrink-0">
-        <SectionLabel>Your preferences</SectionLabel>
+        <SectionLabel>
+          Your preferences{b.scoring.weight > 0 ? ` · ${preferencePercent(b.scoring)} of score` : ''}
+        </SectionLabel>
         {shown.length === 0 ? (
           <p className="text-[13px] text-ink-faint">No Nice to have or Important rows.</p>
         ) : (
@@ -498,13 +500,7 @@ function MatchFace({ result, onMore }: { result: MatchResult; onMore?: () => voi
             Meets {musts === 1 ? 'the Required row' : `all ${musts} Required rows`}
           </p>
         )}
-        <p className="text-[13px] text-ink">
-          <span className="font-semibold tabular-nums">
-            Fit {b.fit} {b.bonus >= 0 ? '+' : '−'} {Math.abs(b.bonus)} = {b.total}
-          </span>
-          {b.capRow !== null && <span className="text-ink-faint"> · bonus capped at +{ADJUSTMENT_CAP}</span>}
-          {b.clampRow !== null && <span className="text-ink-faint"> · capped at 100</span>}
-        </p>
+        <ScoreEquation b={b} className="text-[12.5px] leading-[18px] text-ink" />
       </div>
     </div>
   )

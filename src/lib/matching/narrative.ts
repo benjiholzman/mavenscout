@@ -1,14 +1,16 @@
-import { ADJUSTMENT_CAP, BAND_LABELS, NARRATIVE_FIT_WORDS } from './config'
-import type { ScoreBreakdown } from './display'
+import { BAND_LABELS, NARRATIVE_FIT_WORDS } from './config'
+import { formatMultiplier, formatPoints, preferencePercent, type ScoreBreakdown } from './display'
 import type { Band } from './types'
 import type { Profile } from '../../types/db'
 
 // ============================================================================
 // ⚠ PLACEHOLDER NARRATIVE (docs/MavenScout-match-rework.md §6.2) — ~100 words,
 // templated from the actual numbers so it never contradicts them: the band,
-// the Fit score, the largest positive adjustment, and the most important
-// unmet Important (strong) row. It never ranks a preference above the profile's
-// own evidence. The real generated narrative comes with Loop8's engine.
+// the Fit score and its weight, what the preferences earned (with the
+// displayed, largest-remainder points), the largest preference contribution,
+// and the most important unmet Important (strong) row. It never ranks a
+// preference above the profile's own evidence. The real generated narrative
+// comes with Loop8's engine.
 // ============================================================================
 
 // Keeps proper nouns intact: "No work history at USAID" → "no work history at USAID".
@@ -31,16 +33,14 @@ export function buildNarrative(args: {
   profile: Profile
   total: number
   band: Band
-  fit: number
-  capped: boolean
   /** The displayed build-up, so quoted points match the screen exactly. */
   breakdown: ScoreBreakdown
   /** Extracted JD terms the candidate's tags cover, best first. */
   coveredTerms: string[]
 }): string {
-  const { profile, total, band, fit, capped, breakdown, coveredTerms } = args
-  const bonus = breakdown.bonus
-  const adjustments = breakdown.rows.map((r) => r.adjustment)
+  const { profile, total, band, breakdown: b, coveredTerms } = args
+  const fit = b.fit
+  const adjustments = b.rows.map((r) => r.adjustment)
   const first = shortName(profile)
   const parts: string[] = []
 
@@ -53,17 +53,21 @@ export function buildNarrative(args: {
       (coveredTerms.length ? `, which cover ${coveredTerms.slice(0, 2).join(' and ')}.` : '.'),
   )
 
-  const gains = breakdown.rows
-    .filter((r) => r.points > 0)
-    .sort((a, b) => b.points - a.points || b.adjustment.points - a.adjustment.points)
-  if (gains.length) {
-    const top = gains[0]
-    parts.push(
-      `Your preferences added ${bonus} point${bonus === 1 ? '' : 's'}` +
-        `${capped ? ` (capped at +${ADJUSTMENT_CAP})` : ''}, the most from "${top.adjustment.label}" (+${top.points}).`,
-    )
+  if (b.scoring.weight > 0) {
+    const s = b.scoring
+    const gains = b.rows
+      .filter((r) => r.points > 0)
+      .sort((x, y) => y.points - x.points || y.adjustment.points - x.adjustment.points)
+    const weighing =
+      `Your preferences carry ${preferencePercent(s)} of the score, so Fit counts × ${formatMultiplier(b.fitMultiplier)} (${b.fitPart})`
+    if (gains.length)
+      parts.push(
+        `${weighing}; they earned ${formatPoints(s.earned)} of ${formatPoints(s.possible)} points, adding +${b.preferencePart}, ` +
+          `the most from "${gains[0].adjustment.label}" (+${gains[0].points}).`,
+      )
+    else parts.push(`${weighing}; none of them were met, so they add nothing.`)
   } else if (adjustments.length) {
-    parts.push('None of your preferences added points.')
+    parts.push('None of your preferences apply to this candidate, so the total is the Fit score.')
   }
 
   const unmetStrong = adjustments.find((a) => a.level === 'strong' && a.outcome === 'not_met')

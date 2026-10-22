@@ -1,35 +1,35 @@
-import { ADJUSTMENT_CAP } from './config'
-import type { Adjustment, MatchResult } from './types'
+import { preferenceScoring } from './total'
+import type { Adjustment, MatchResult, Scoring } from './types'
 
 // Displayed score build-up (match rework spec §5.3, §7).
 //
-// Scores are computed in floats; only displayed numbers are rounded. To make
-// the build-up always add up exactly — "Fit 72 + 10 = 82", and every table
-// row summing to the total — the displayed adjustment points use
-// LARGEST-REMAINDER rounding: each value is floored, and the leftover whole
-// points go to the values with the largest fractional parts, so the rounded
-// values sum to an exact target.
+//   total = (1 − w) × Fit + 100 × w × (earned ÷ possible)      (total.ts)
 //
-// Target for the adjustment rows:
-// - no cap: exactly (displayed total − displayed Fit);
-// - cap or 100-clamp applied: the rounded uncapped sum, followed by a cap row
-//   ("Preference bonus capped at +20") and, if the total hit 100, a clamp row,
-//   which together bring the build-up to exactly (total − Fit).
+// Shown as "Fit 80 × 0.92 → 74 · preferences 5 of 8 → +5 · Total 79". Every
+// displayed number is a whole number and the build-up adds up EXACTLY:
+// - Fit part = round((1 − w) × Fit), from the displayed Fit;
+// - preference part = total − Fit part (always 0 … 100w, because the total is
+//   computed from the displayed Fit — see total.ts);
+// - each row's share of the preference part, 100 × w × points ÷ possible, uses
+//   LARGEST-REMAINDER rounding: floor every share, then give the leftover whole
+//   points to the shares with the largest fractional parts, so the rows sum to
+//   the preference part exactly. Not-applicable rows show 0.
 
 export interface BreakdownRow {
   adjustment: Adjustment
-  points: number // integer, as displayed
+  points: number // integer share of the preference part, as displayed
 }
 
 export interface ScoreBreakdown {
   fit: number
+  /** 1 − w: what Fit is multiplied by (1 with no applicable preference rows). */
+  fitMultiplier: number
+  /** round((1 − w) × Fit). */
+  fitPart: number
   rows: BreakdownRow[] // same order as result.adjustments
-  /** Negative points removed by the +20 cap; null when the cap didn't bite. */
-  capRow: number | null
-  /** Negative points removed because the total can't exceed 100; else null. */
-  clampRow: number | null
-  /** The preference term of the equation: Σ rows + capRow + clampRow. */
-  bonus: number
+  /** total − fitPart = Σ rows. */
+  preferencePart: number
+  scoring: Scoring
   total: number
 }
 
@@ -50,32 +50,43 @@ export function largestRemainder(values: number[], target: number): number[] {
   return out
 }
 
-export function scoreBreakdown(result: Pick<MatchResult, 'fit_score' | 'total_score' | 'adjustments' | 'adjustments_capped'>): ScoreBreakdown {
-  const target = result.total_score - result.fit_score
-  const raw = result.adjustments.map((a) => a.points)
-  const sum = raw.reduce((s, v) => s + v, 0)
-  const clamped = result.fit_score + Math.min(sum, ADJUSTMENT_CAP) > 100 + 0.5
-  const exact = !result.adjustments_capped && !clamped
-
-  const rowTarget = exact ? target : Math.round(sum)
-  const points = raw.length ? largestRemainder(raw, rowTarget) : []
-  const rowSum = points.reduce((s, v) => s + v, 0)
-
-  let capRow: number | null = null
-  let clampRow: number | null = null
-  if (!exact) {
-    const afterCap = result.adjustments_capped ? Math.min(rowSum, ADJUSTMENT_CAP) : rowSum
-    if (result.adjustments_capped && afterCap !== rowSum) capRow = afterCap - rowSum
-    const rest = target - afterCap
-    if (rest !== 0) clampRow = rest
-  }
-
+export function scoreBreakdown(
+  result: Pick<MatchResult, 'fit_score' | 'total_score' | 'adjustments'> & { scoring?: Scoring | null },
+): ScoreBreakdown {
+  // Legacy rows (scored before 008) carry no scoring; derive it from the
+  // adjustments so the screen still renders until 008 removes them.
+  const scoring = result.scoring ?? preferenceScoring(result.adjustments)
+  const fitMultiplier = 1 - scoring.weight
+  const fitPart = scoring.weight === 0 ? result.fit_score : Math.round(fitMultiplier * result.fit_score)
+  const preferencePart = result.total_score - fitPart
+  const shares = result.adjustments.map((a) =>
+    a.outcome === 'not_applicable' || scoring.possible === 0
+      ? 0
+      : (100 * scoring.weight * Math.max(0, a.points)) / scoring.possible,
+  )
+  const points = shares.length ? largestRemainder(shares, preferencePart) : []
   return {
     fit: result.fit_score,
+    fitMultiplier,
+    fitPart,
     rows: result.adjustments.map((adjustment, i) => ({ adjustment, points: points[i] ?? 0 })),
-    capRow,
-    clampRow,
-    bonus: target,
+    preferencePart,
+    scoring,
     total: result.total_score,
   }
+}
+
+/** 0.92, 0.8, 1 — the Fit multiplier without trailing zeros. */
+export function formatMultiplier(m: number): string {
+  return String(Math.round(m * 100) / 100)
+}
+
+/** Points earned/possible: whole numbers as-is, otherwise one decimal (4.5). */
+export function formatPoints(p: number): string {
+  return String(Math.round(p * 10) / 10)
+}
+
+/** Preferences' share of the score, as a whole percent (8%, 20%). */
+export function preferencePercent(s: Scoring): string {
+  return `${Math.round(s.weight * 100)}%`
 }

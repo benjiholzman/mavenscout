@@ -2,6 +2,7 @@ import { DEMO_HIRING_MANAGER_ID } from '../session'
 import { supabase } from '../supabase'
 import type { JobDescription, MatchResultRow, Profile } from '../../types/db'
 import { orderResults, rankPool } from './score'
+import { preferenceScoring } from './total'
 import type { ExtractedRequirements, MatchResult, Requirement } from './types'
 
 // Ranking runs in the database (match rework spec §2.2, §6.3).
@@ -28,7 +29,8 @@ function fromRow(r: MatchResultRow): MatchResult {
     band: r.band ?? 'weak',
     fit_score: r.fit_score ?? r.total_score,
     adjustments: r.adjustments ?? [],
-    adjustments_capped: r.adjustments_capped ?? false,
+    // Legacy rows (pre-008) have no scoring; 008 deletes them.
+    scoring: r.scoring ?? preferenceScoring(r.adjustments ?? []),
     must_haves_passed: r.must_haves_passed ?? [],
     narrative: r.narrative ?? '',
   }
@@ -43,7 +45,7 @@ function toRow(jobDescriptionId: string, r: MatchResult) {
     band: r.band,
     fit_score: r.fit_score,
     adjustments: r.adjustments,
-    adjustments_capped: r.adjustments_capped,
+    scoring: r.scoring,
     must_haves_passed: r.must_haves_passed,
     narrative: r.narrative,
   }

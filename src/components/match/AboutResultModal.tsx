@@ -1,15 +1,16 @@
 import { Check, ChevronDown } from 'lucide-react'
-import { ADJUSTMENT_CAP, BAND_LABELS, PREFERENCE_POINTS } from '../../lib/matching/config'
-import { scoreBreakdown } from '../../lib/matching/display'
+import { BAND_LABELS, PREFERENCE_CAP_POINTS, PREFERENCE_POINTS } from '../../lib/matching/config'
+import { formatMultiplier, formatPoints, preferencePercent, scoreBreakdown } from '../../lib/matching/display'
 import type { MatchResult } from '../../lib/matching/types'
 import type { Profile } from '../../types/db'
 import { Modal } from '../ui/Modal'
-import { OutcomeIcon, pointsLabel } from './outcome'
+import { OutcomeIcon, pointsLabel, ScoreEquation } from './outcome'
 import { BAND_STYLES } from './RankStrip'
 
 // "About this result" (match rework spec §7.3): the full score build-up for
 // one ranked candidate. Every number comes from scoreBreakdown (largest-
-// remainder rounding), so the table always adds up to the total.
+// remainder rounding), so the table always adds up to the total:
+// Fit part + Σ preference rows = Total.
 
 const LEVEL_NAMES = { slight: 'Nice to have', strong: 'Important' } as const
 
@@ -52,9 +53,19 @@ export function AboutResultModal({
               <tr className="border-b border-line">
                 <td className="py-2 pr-2" colSpan={2}>
                   <span className="font-medium text-ink">Fit to the job description</span>
-                  <span className="block text-xs text-ink-faint">The engine's judgment of fit — not adjustable</span>
+                  <span className="block text-xs text-ink-faint">
+                    The engine's judgment of fit — not adjustable
+                    {b.scoring.weight > 0 && (
+                      <>
+                        {' · '}
+                        <span className="tabular-nums">
+                          Fit {b.fit} × {formatMultiplier(b.fitMultiplier)}
+                        </span>
+                      </>
+                    )}
+                  </span>
                 </td>
-                <td className="py-2 text-right font-semibold tabular-nums text-ink">{b.fit}</td>
+                <td className="py-2 text-right font-semibold tabular-nums text-ink">{b.fitPart}</td>
               </tr>
               {b.rows.map(({ adjustment: a, points }) => (
                 <tr key={a.requirement_id} className="border-b border-line-soft align-top">
@@ -66,7 +77,15 @@ export function AboutResultModal({
                     <span className="ml-1.5 rounded-full bg-paper px-1.5 py-px text-[11px] text-ink-faint">
                       {LEVEL_NAMES[a.level]}
                     </span>
-                    <span className="block text-xs text-ink-faint">{a.detail}</span>
+                    <span className="block text-xs text-ink-faint">
+                      {a.detail}
+                      {' · '}
+                      <span className="tabular-nums">
+                        {a.outcome === 'not_applicable'
+                          ? 'not counted'
+                          : `${formatPoints(a.points)} of ${PREFERENCE_POINTS[a.level]} pts`}
+                      </span>
+                    </span>
                   </td>
                   <td className="py-2 text-right tabular-nums text-ink-soft">{pointsLabel(points)}</td>
                 </tr>
@@ -78,26 +97,31 @@ export function AboutResultModal({
                   </td>
                 </tr>
               )}
-              {b.capRow !== null && (
+              {b.rows.length > 0 && b.scoring.weight === 0 && (
                 <tr className="border-b border-line-soft">
-                  <td />
-                  <td className="py-2 pr-2 text-ink-soft">Preference bonus capped at +{ADJUSTMENT_CAP}</td>
-                  <td className="py-2 text-right tabular-nums text-ink-soft">{pointsLabel(b.capRow)}</td>
+                  <td colSpan={3} className="py-2 text-xs text-ink-faint">
+                    None of these rows apply to this candidate — the total is the Fit score.
+                  </td>
                 </tr>
               )}
-              {b.clampRow !== null && (
-                <tr className="border-b border-line-soft">
+              {b.scoring.weight > 0 && (
+                <tr className="border-b border-line">
                   <td />
-                  <td className="py-2 pr-2 text-ink-soft">Total capped at 100</td>
-                  <td className="py-2 text-right tabular-nums text-ink-soft">{pointsLabel(b.clampRow)}</td>
+                  <td className="py-2 pr-2 text-ink-soft">
+                    Preferences: {formatPoints(b.scoring.earned)} of {formatPoints(b.scoring.possible)} points
+                    <span className="block text-xs text-ink-faint">
+                      Worth {preferencePercent(b.scoring)} of the score
+                    </span>
+                  </td>
+                  <td className="py-2 text-right font-medium tabular-nums text-ink-soft">
+                    {pointsLabel(b.preferencePart)}
+                  </td>
                 </tr>
               )}
               <tr>
                 <td className="pt-2.5 pr-2 font-semibold text-ink" colSpan={2}>
                   Total
-                  <span className="ml-2 font-normal text-ink-faint">
-                    Fit {b.fit} {b.bonus >= 0 ? '+' : '−'} {Math.abs(b.bonus)} = {b.total}
-                  </span>
+                  <ScoreEquation b={b} className="mt-0.5 text-xs font-normal text-ink-faint" />
                 </td>
                 <td className="pt-2.5 text-right text-base font-bold tabular-nums text-ink">{b.total}</td>
               </tr>
@@ -142,10 +166,16 @@ export function AboutResultModal({
               description. You can't adjust it.
             </li>
             <li>
-              Rows marked <b className="font-medium text-ink">Nice to have</b> add {PREFERENCE_POINTS.slight} points
-              when met and <b className="font-medium text-ink">Important</b> rows add {PREFERENCE_POINTS.strong};
-              partial matches earn part of that. Together they add at most +{ADJUSTMENT_CAP}, so preferences reorder
-              close candidates but can't lift a weak fit past a strong one.
+              Preferences carry weight equal to their points, up to {PREFERENCE_CAP_POINTS}% of the score. A{' '}
+              <b className="font-medium text-ink">Nice to have</b> row is worth {PREFERENCE_POINTS.slight} points and an{' '}
+              <b className="font-medium text-ink">Important</b> row {PREFERENCE_POINTS.strong}; partial matches earn part
+              of a row's points. One Important row alone makes preferences {PREFERENCE_POINTS.strong}% of the score, so Fit
+              counts × {formatMultiplier(1 - PREFERENCE_POINTS.strong / 100)}.
+            </li>
+            <li>
+              A candidate's preference score is the points they earned out of the points possible. Rows that don't
+              apply to them (career level for a firm) don't count. With no Nice to have or Important rows, the total
+              is the Fit score.
             </li>
             <li>
               Rows marked <b className="font-medium text-ink">Required</b> exclude candidates before anything is
