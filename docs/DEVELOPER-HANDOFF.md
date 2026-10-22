@@ -156,6 +156,19 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
 - The placeholder Fit is calibrated in `config.ts` (`FIT_CALIBRATION`) against the
   sample ToR in `docs/samples/` — on-topic profiles ~75, related ~55, unrelated
   13–37. Real calibration is the engine's job.
+- **Open calibration question: "Strong" becomes rare with many preference rows.**
+  Bands are fixed at Strong ≥ 80 / Good ≥ 65 / Partial ≥ 50 (`BAND_THRESHOLDS`),
+  kept after the preference weighting because on the five sample ToRs they separate
+  expected profiles from everyone else cleanly (Strong admits no non-expected
+  profile; every expected profile is at least Good — see "Score distribution by
+  role" in `docs/samples/ranking-baseline.md`). But with many Nice to have / Important
+  rows, w hits the 20% cap and the earned ÷ possible ratio falls, because few
+  candidates meet most of a long list: the Sahel ranking (Add all: 12 rows, 46 points
+  possible) tops out at 77, so nobody there is Strong, although its #1 has Fit 83.
+  The UI nudges managers ("Adding many preferences spreads their weight; keep the
+  ones that matter" under Add all), but the engine should decide whether bands
+  should account for the number of rows (or the ratio should be normalized), and
+  re-check against the baseline.
 - **Baseline to beat:** `npm run baseline` scores five sample ToRs
   (`docs/samples/tor-0*.txt`) against the live pool with the current engine and
   rewrites `docs/samples/ranking-baseline.md`: whether the expected profiles land in

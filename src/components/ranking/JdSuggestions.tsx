@@ -54,6 +54,13 @@ export function JdSuggestions({
           </button>
         )}
       </div>
+      {/* Preferences share up to 20% of the score (spec §5.3), so adding every
+          suggestion dilutes the ones that matter. */}
+      {addable.length > 0 && (
+        <p className="mt-0.5 text-[11px] leading-snug text-ink-faint sm:text-right">
+          Adding many preferences spreads their weight; keep the ones that matter.
+        </p>
+      )}
       {groups.length === 0 ? (
         <p className="mt-1 text-xs text-ink-faint">
           Nothing from the expertise and skills list, or known places and languages, was found in
