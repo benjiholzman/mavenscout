@@ -12,7 +12,7 @@ RLS notes) — the PRD defines *what* was intended; this defines *where the seam
 |---|---|
 | Stack | React 18 + TypeScript + Vite, Tailwind 3, Framer Motion, React Router 6, Supabase (Postgres + Storage) |
 | Run | `npm install && npm run dev` — needs `.env` with `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (see `.env.example`) |
-| Database | `supabase/000_schema.sql` → `001` → `002` → `003` → `004` → `005`, run in order in the Supabase SQL editor. 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data; 004 fills portfolio organization/years and work-history logo links on the seeded rows; 005 adds the match-rework columns (`job_descriptions.requirements/extracted`; `match_results.rank/band/fit_score/adjustments/adjustments_capped/must_haves_passed`) and deletes pre-rework rankings. A fresh project bootstraps from just these six files. An existing database only needs the migrations it hasn't run — 004 and 005 use `ADD COLUMN IF NOT EXISTS`, so they're no-ops on fresh projects, where 000 already creates the columns. |
+| Database | `supabase/000_schema.sql` → `001` → `002` → `003` → `004` → `005` → `006` → `007_seed_demo_profiles_1` … `_4`, run in order in the Supabase SQL editor. 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data; 004 fills portfolio organization/years and work-history logo links on the seeded rows; 005 adds the match-rework columns (`job_descriptions.requirements/extracted`; `match_results.rank/band/fit_score/adjustments/adjustments_capped/must_haves_passed`) and deletes pre-rework rankings; 006 adds `profiles.is_demo` (flags the original 15 and normalizes their country names); the four 007 files add 100 synthetic `demo-*` profiles (generated — see *Demo data* below). A fresh project bootstraps from these files. An existing database only needs the migrations it hasn't run — 004 and 005 use `ADD COLUMN IF NOT EXISTS`, so they're no-ops on fresh projects, where 000 already creates the columns. |
 | Verification baseline | Every PRD Definition-of-Done item (Section 13) was verified in-browser at desktop and 375px before handoff. The Playwright scripts lived in a temp scratchpad and are **not** committed — if you want a regression suite, the DoD checklist is the spec to automate against. The match rework's acceptance criteria (`docs/MavenScout-match-rework.md` §10) were verified the same way at desktop (1280px) and 375px in October 2026, plus scripted checks of the filter-bar ↔ requirements round-trip (22 filter combinations matched the pre-rework directory except the intended career-level change), the scoring math, and the largest-remainder rounding (20,000 random cases); those scripts are not committed either. |
 
 ## What is mocked vs. real (the load-bearing distinction)
@@ -150,6 +150,14 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
 - The placeholder Fit is calibrated in `config.ts` (`FIT_CALIBRATION`) against the
   sample ToR in `docs/samples/` — on-topic profiles ~75, related ~55, unrelated
   13–37. Real calibration is the engine's job.
+- **Baseline to beat:** `npm run baseline` scores five sample ToRs
+  (`docs/samples/tor-0*.txt`) against the live pool with the current engine and
+  rewrites `docs/samples/ranking-baseline.md`: whether the expected profiles land in
+  the top 5 / top 10 with fixed manager rows and end to end (extraction → Add all),
+  deliberate test cases (wrong location, specialist vs generalist, untagged evidence,
+  current vs former staff, tie pairs, decoys) and extraction recall. Expectations live
+  in `docs/samples/expectations.json`. The harness is read-only (SELECTs and in-memory
+  `scorePool`); run it after every engine change.
 - Narratives are templated (~100 words, grounded in the shown numbers); the engine
   supplies real ones.
 
@@ -175,6 +183,19 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   then shows "This ranking is no longer available". With real auth, scope that
   delete to the signed-in manager (it already filters by `hiring_manager_id`).
 - The owner plans to upload licensed stock clips for videos (PRD Decisions table).
+- **Synthetic demo profiles (`is_demo`).** `007_seed_demo_profiles_{1..4}.sql` add 100
+  fictional profiles (handles `demo-*`): 80 individuals, 20 firms, spread across UN M49
+  sub-regions, 30 Premium/verified, some with stale availability. They are generated —
+  edit `scripts/demo-seed/data/*.mjs` and run `node scripts/demo-seed/build.mjs` (it
+  validates taxonomy names, tag caps, canonical countries/languages in
+  `scripts/demo-seed/vocab.mjs`, and coverage). Re-running a 007 file is idempotent.
+  Locations follow "City, Country" with the common English country names in
+  `vocab.mjs`; languages use standard English names.
+- **Purging demo data:** `supabase/purge_demo.sql` (`DELETE FROM profiles WHERE
+  is_demo`) removes the 100 synthetic profiles *and* the original 15 — including
+  `amara-diallo`, the role switcher's demo consultant — and cascades to their
+  portfolio, media rows, opening entries and match results. Run it only when real
+  profiles replace the demo set.
 
 ## Known deliberate non-goals (don't "fix" these)
 

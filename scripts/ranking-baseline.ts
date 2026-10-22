@@ -1,0 +1,330 @@
+// Ranking baseline for Loop8 (docs/samples/ranking-baseline.md).
+//
+//   npm run baseline
+//
+// Scores the five sample ToRs in docs/samples/ against the live directory pool
+// with the app's own placeholder engine, and rewrites
+// docs/samples/ranking-baseline.md with the results.
+//
+// READ-ONLY: it only SELECTs (profiles, portfolio, taxonomy, plus row counts of
+// job_descriptions / match_results to prove nothing was written) and scores in
+// memory with scorePool. It never calls rankPool or anything in persist.ts, so
+// no ranking runs are stored.
+//
+// Three checks per ToR:
+//   1. Fixed requirements (primary baseline): exactly the rows in
+//      docs/samples/expectations.json; Required rows pre-filter the pool through
+//      applyMustHaves, as in the app. No extraction rows, no Add all.
+//   2. End to end: extractRequirements → "Add all" (every suggestion at Nice to
+//      have, via the requirements reducer) → scorePool.
+//   3. Extraction: suggestions vs. the terms a good extractor should find.
+// In both runs Fit reads the JD through the extraction (that is how rankPool
+// receives a stored JD); only the grid rows differ.
+
+import { createClient } from '@supabase/supabase-js'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { suggestionsFrom } from '../src/components/ranking/JdSuggestions'
+import { buildTaxonomyTree, deriveOptions, locationCountry } from '../src/lib/filters'
+import { extractRequirements } from '../src/lib/matching/extract'
+import type { CandidateInput } from '../src/lib/matching/fit'
+import { buildTaxonomyIndex, scorePool } from '../src/lib/matching/score'
+import type { ExtractedRequirements, MatchResult, Requirement } from '../src/lib/matching/types'
+import { orgHistoryOutcome } from '../src/lib/requirements/match'
+import { EMPTY_SEARCH } from '../src/lib/requirements/model'
+import { applyMustHaves } from '../src/lib/requirements/mustHaves'
+import { requirementsReducer } from '../src/lib/requirements/store'
+import type { PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../src/types/db'
+
+const root = process.cwd()
+const samples = join(root, 'docs', 'samples')
+
+// ---- inputs -------------------------------------------------------------------
+
+interface Check {
+  type: string
+  handle: string
+  other?: string
+  org?: string
+  expect: string
+  why: string
+}
+interface Tor {
+  id: string
+  title: string
+  file: string
+  requirements: Requirement[]
+  expected_top: { handle: string; why: string }[]
+  expected_extraction: { expertise: string[]; skills: string[]; locations: string[]; languages: string[] }
+  checks: Check[]
+}
+const { tors } = JSON.parse(readFileSync(join(samples, 'expectations.json'), 'utf8')) as { tors: Tor[] }
+
+function readEnv(): Record<string, string> {
+  const env: Record<string, string> = {}
+  for (const line of readFileSync(join(root, '.env'), 'utf8').split('\n')) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/)
+    if (m) env[m[1]] = m[2].replace(/^['"]|['"]$/g, '')
+  }
+  return env
+}
+const env = readEnv()
+const db = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY)
+
+async function select<T>(table: string, build?: (q: any) => any): Promise<T[]> {
+  const rows: T[] = []
+  for (let from = 0; ; from += 1000) {
+    let q = db.from(table).select('*')
+    if (build) q = build(q)
+    const { data, error } = await q.range(from, from + 999)
+    if (error) throw new Error(`${table}: ${error.message}`)
+    rows.push(...(data as T[]))
+    if (!data || data.length < 1000) return rows
+  }
+}
+async function rowCount(table: string): Promise<number> {
+  const { count, error } = await db.from(table).select('id', { count: 'exact', head: true })
+  if (error) throw new Error(`${table}: ${error.message}`)
+  return count ?? 0
+}
+
+// ---- scoring --------------------------------------------------------------------
+
+interface Ranked {
+  results: MatchResult[]
+  pool: number
+  rankOf: Map<string, MatchResult>
+}
+
+function main() {
+  return run().catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+}
+
+async function run() {
+  const writesBefore = { jd: await rowCount('job_descriptions'), mr: await rowCount('match_results') }
+  const [profiles, portfolio, categories, items] = await Promise.all([
+    select<Profile>('profiles', (q) => q.eq('approval_status', 'approved').eq('subscription_status', 'active')),
+    select<PortfolioItem>('portfolio_items', (q) => q.order('sort_order')),
+    select<TaxonomyCategory>('taxonomy_categories'),
+    select<TaxonomyItem>('taxonomy_items'),
+  ])
+  const byHandle = new Map(profiles.map((p) => [p.handle, p]))
+  const byId = new Map(profiles.map((p) => [p.id, p]))
+  const portfolioBy = new Map<string, PortfolioItem[]>()
+  for (const it of portfolio) portfolioBy.set(it.profile_id, [...(portfolioBy.get(it.profile_id) ?? []), it])
+  const taxonomy = buildTaxonomyIndex(categories, items)
+  const trees = {
+    expertise: buildTaxonomyTree(categories, items, 'domain_expertise'),
+    skills: buildTaxonomyTree(categories, items, 'technical_skills'),
+  }
+  const options = deriveOptions(profiles)
+  const ctx = {
+    taxonomy: { categories, items },
+    locationOptions: options.locations.flatMap((g) => [g.label, ...g.items]),
+    languageOptions: options.languages,
+  }
+  // No video/audio transcripts: the demo seed has none, and the original
+  // seeds' intro videos carry no transcript.
+  const candidate = (p: Profile): CandidateInput => ({ profile: p, portfolio: portfolioBy.get(p.id) ?? [], transcripts: [] })
+
+  function rank(rawText: string, extracted: ExtractedRequirements, requirements: Requirement[]): Ranked {
+    const survivors = applyMustHaves(profiles, portfolioBy, requirements, EMPTY_SEARCH, trees)
+    const results = scorePool({ rawText, extracted, requirements, candidates: survivors.map(candidate), taxonomy })
+    return { results, pool: survivors.length, rankOf: new Map(results.map((r) => [byId.get(r.profile_id)!.handle, r])) }
+  }
+
+  const out: string[] = []
+  const summary = {
+    fixed: { top5: 0, top10: 0, checks: 0, passed: 0 },
+    e2e: { top5: 0, top10: 0, checks: 0, passed: 0 },
+    expected: 0,
+    recallFound: 0,
+    recallTotal: 0,
+    orgChecks: 0,
+    orgPassed: 0,
+  }
+  const missing = new Set<string>()
+
+  for (const tor of tors) {
+    const rawText = readFileSync(join(samples, tor.file), 'utf8')
+    const extracted = await extractRequirements(rawText, ctx)
+    const fixed = rank(rawText, extracted, tor.requirements)
+    const added = requirementsReducer(
+      { requirements: [], search: EMPTY_SEARCH },
+      { type: 'addSuggestions', suggestions: suggestionsFrom(extracted).flatMap((g) => g.items) },
+    ).requirements
+    const e2e = rank(rawText, extracted, added)
+    for (const h of [...tor.expected_top.map((e) => e.handle), ...tor.checks.flatMap((c) => [c.handle, c.other ?? ''])])
+      if (h && !byHandle.has(h)) missing.add(h)
+
+    out.push(`## ${tor.id}: ${tor.title}`, '', `JD: [\`${tor.file}\`](${tor.file})`, '')
+
+    for (const [label, key, r] of [
+      ['Fixed requirements (primary baseline)', 'fixed', fixed],
+      ['End to end (extraction → Add all)', 'e2e', e2e],
+    ] as const) {
+      const s = summary[key]
+      out.push(`### ${label}`, '')
+      if (key === 'fixed') out.push(`Rows: ${tor.requirements.map(describeRow).join('; ')}.`, '')
+      else out.push(`Rows added by Add all (${added.length}): ${added.map(describeRow).join('; ') || 'none'}.`, '')
+      out.push(`Pool after Required rows: **${r.pool}** of ${profiles.length}.`, '')
+      out.push('| Expected | Rank | Total | Fit | Top 5 | Top 10 |', '|---|---|---|---|---|---|')
+      for (const e of tor.expected_top) {
+        const m = r.rankOf.get(e.handle)
+        const in5 = !!m && m.rank <= 5
+        const in10 = !!m && m.rank <= 10
+        s.top5 += in5 ? 1 : 0
+        s.top10 += in10 ? 1 : 0
+        out.push(`| ${nameOf(e.handle)} | ${m ? m.rank : 'filtered'} | ${m?.total_score ?? '–'} | ${m?.fit_score ?? '–'} | ${in5 ? '✓' : '✗'} | ${in10 ? '✓' : '✗'} |`)
+      }
+      out.push('')
+      const checks = tor.checks.filter((c) => c.type !== 'current_vs_former')
+      if (checks.length) {
+        out.push('| Check | Profile(s) | Expect | Result | |', '|---|---|---|---|---|')
+        for (const c of checks) {
+          const { pass, detail } = judgeCheck(c, r)
+          s.checks += 1
+          s.passed += pass ? 1 : 0
+          out.push(`| ${c.type.replace(/_/g, ' ')} | ${nameOf(c.handle)}${c.other ? ` vs ${nameOf(c.other)}` : ''} | ${c.expect.replace(/_/g, ' ')} | ${detail} | ${pass ? '✓' : '✗'} |`)
+        }
+        out.push('')
+      }
+      out.push('<details><summary>Top 10</summary>', '', '| # | Profile | Type | Location | Total | Fit | Band |', '|---|---|---|---|---|---|---|')
+      for (const m of r.results.slice(0, 10)) {
+        const p = byId.get(m.profile_id)!
+        out.push(`| ${m.rank} | ${p.name} (\`${p.handle}\`) | ${p.consultant_type} | ${p.location ?? '–'} | ${m.total_score} | ${m.fit_score} | ${m.band} |`)
+      }
+      out.push('', '</details>', '')
+    }
+
+    // Current vs former staff: how the Org History scopes judge the pair.
+    for (const c of tor.checks.filter((c) => c.type === 'current_vs_former')) {
+      const a = byHandle.get(c.handle)
+      const b = c.other ? byHandle.get(c.other) : undefined
+      if (!a || !b || !c.org) continue
+      const ev = (p: Profile, scope: 'current' | 'ever') => orgHistoryOutcome(p, { org: c.org!, scope, peers: [] }).outcome
+      const res = { aEver: ev(a, 'ever'), bEver: ev(b, 'ever'), aCur: ev(a, 'current'), bCur: ev(b, 'current') }
+      const pass = res.aEver === 'met' && res.bEver === 'met' && res.aCur === 'met' && res.bCur === 'not_met'
+      summary.orgChecks += 1
+      summary.orgPassed += pass ? 1 : 0
+      out.push(
+        `### Current vs former staff: ${c.org}`,
+        '',
+        '| Profile | Ever at | Currently at |',
+        '|---|---|---|',
+        `| ${a.name} (current) | ${res.aEver} | ${res.aCur} |`,
+        `| ${b.name} (former) | ${res.bEver} | ${res.bCur} |`,
+        '',
+        `${pass ? '✓' : '✗'} ${c.why}`,
+        '',
+      )
+    }
+
+    // Extraction recall.
+    const got = {
+      expertise: extracted.expertise.map((t) => t.name),
+      skills: extracted.skills.map((t) => t.name),
+      locations: extracted.locations.map((l) => l.value),
+      languages: extracted.languages.map((l) => l.value),
+    }
+    out.push('### Extraction', '', '| Kind | Found / expected | Missed | Unexpected suggestions |', '|---|---|---|---|')
+    for (const kind of ['expertise', 'skills', 'locations', 'languages'] as const) {
+      const want = tor.expected_extraction[kind]
+      const hit = (w: string) =>
+        kind === 'locations' ? got.locations.some((v) => v === w || locationCountry(v) === w) : got[kind].includes(w)
+      const found = want.filter(hit)
+      const missed = want.filter((w) => !hit(w))
+      const unexpected =
+        kind === 'locations'
+          ? got.locations.filter((v) => !want.includes(v) && !want.includes(locationCountry(v)))
+          : got[kind].filter((g) => !want.includes(g))
+      summary.recallFound += found.length
+      summary.recallTotal += want.length
+      out.push(`| ${kind} | ${found.length} / ${want.length} | ${missed.join(', ') || '–'} | ${unexpected.join(', ') || '–'} |`)
+    }
+    out.push('')
+  }
+
+  const writesAfter = { jd: await rowCount('job_descriptions'), mr: await rowCount('match_results') }
+  const readOnly = writesBefore.jd === writesAfter.jd && writesBefore.mr === writesAfter.mr
+  summary.expected = tors.reduce((n, t) => n + t.expected_top.length, 0)
+  const pct = (a: number, b: number) => `${Math.round((100 * a) / Math.max(1, b))}%`
+  const summaryLine =
+    `**Fixed requirements:** ${summary.fixed.top10}/${summary.expected} expected in top 10, ${summary.fixed.top5}/${summary.expected} in top 5, ` +
+    `checks ${summary.fixed.passed}/${summary.fixed.checks}. ` +
+    `**End to end:** ${summary.e2e.top10}/${summary.expected} in top 10, ${summary.e2e.top5}/${summary.expected} in top 5, ` +
+    `checks ${summary.e2e.passed}/${summary.e2e.checks}. ` +
+    `**Extraction recall:** ${summary.recallFound}/${summary.recallTotal} (${pct(summary.recallFound, summary.recallTotal)}). ` +
+    `**Org History scopes:** ${summary.orgPassed}/${summary.orgChecks}.`
+
+  const header = [
+    '# Ranking baseline: placeholder engine',
+    '',
+    '<!-- GENERATED by `npm run baseline` (scripts/ranking-baseline.ts). Edit docs/samples/expectations.json, not this file. -->',
+    '',
+    `First baseline for Loop8. Five sample ToRs (\`docs/samples/tor-0*.txt\`) are scored against the live directory pool (${profiles.length} approved + active profiles) by the placeholder engine in \`src/lib/matching/\`. Expected top profiles, fixed requirement rows, expected extraction and deliberate test cases live in [\`expectations.json\`](expectations.json).`,
+    '',
+    '- **Fixed requirements (primary):** the exact rows a sensible manager would set for the ToR. Required rows pre-filter through `applyMustHaves`; nothing from extraction is added to the grid.',
+    '- **End to end (secondary):** `extractRequirements` → Add all (every suggestion at Nice to have) → `scorePool`, no Required rows.',
+    '- **Extraction:** suggestions vs. the terms a good extractor should find (recall), plus suggestions nobody asked for.',
+    '- In both runs, Fit reads the JD through the extraction (as `rankPool` does for a stored JD); only the grid rows differ.',
+    '- Read-only: the harness only SELECTs and scores in memory. ' +
+      `\`job_descriptions\` ${writesBefore.jd} → ${writesAfter.jd}, \`match_results\` ${writesBefore.mr} → ${writesAfter.mr} rows during this run${readOnly ? '' : ' ⚠ CHANGED (something else wrote during the run)'}.`,
+    '',
+    '## Summary',
+    '',
+    summaryLine,
+    '',
+    `Run ${new Date().toISOString().slice(0, 10)}. Availability-based scores depend on the run date only through availability rows, which these requirements don't use.`,
+    '',
+  ]
+  if (missing.size) header.push(`⚠ Handles in expectations.json not found in the pool: ${[...missing].join(', ')}`, '')
+  writeFileSync(join(samples, 'ranking-baseline.md'), [...header, ...out].join('\n'))
+  console.log(summaryLine.replace(/\*\*/g, ''))
+  console.log(`read-only: job_descriptions ${writesBefore.jd}→${writesAfter.jd}, match_results ${writesBefore.mr}→${writesAfter.mr}`)
+  console.log('wrote docs/samples/ranking-baseline.md')
+
+  function nameOf(handle: string): string {
+    const p = byHandle.get(handle)
+    return p ? `${p.name} (\`${handle}\`)` : `\`${handle}\` (missing)`
+  }
+
+  function judgeCheck(c: Check, r: Ranked): { pass: boolean; detail: string } {
+    const a = r.rankOf.get(c.handle)
+    const at = (m: MatchResult | undefined) => (m ? `#${m.rank} (${m.total_score}/${m.fit_score})` : 'filtered')
+    switch (c.expect) {
+      case 'top10':
+        return { pass: !!a && a.rank <= 10, detail: at(a) }
+      case 'not_top10':
+        return { pass: !a || a.rank > 10, detail: at(a) }
+      case 'above': {
+        const b = r.rankOf.get(c.other!)
+        return { pass: !!a && (!b || a.rank < b.rank), detail: `${at(a)} vs ${at(b)}` }
+      }
+      case 'adjacent_fresher_first': {
+        const b = r.rankOf.get(c.other!)
+        if (!a || !b) return { pass: false, detail: `${at(a)} vs ${at(b)}` }
+        const tied = a.total_score === b.total_score && a.fit_score === b.fit_score
+        return {
+          pass: b.rank - a.rank === 1,
+          detail: `${at(a)} vs ${at(b)}${tied ? ', tied on total and Fit' : ', not tied'}`,
+        }
+      }
+      default:
+        return { pass: false, detail: `unknown expectation ${c.expect}` }
+    }
+  }
+}
+
+function describeRow(r: Requirement): string {
+  const lvl = { slight: 'Nice', strong: 'Important', must: 'Required' }[r.level]
+  const v = r.value as any
+  const what =
+    'name' in v ? v.name : 'values' in v ? v.values.join('/') : 'org' in v ? `${v.scope} at ${v.org}${v.peers?.length ? ` (+${v.peers.join(', ')})` : ''}` : r.kind
+  return `${r.kind} ${what} (${lvl})`
+}
+
+void main()

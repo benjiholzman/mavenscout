@@ -96,6 +96,7 @@ export interface Profile {
   custom_domain: string | null
   subscription_status: SubscriptionStatus
   approval_status: ApprovalStatus
+  is_demo: boolean // synthetic/demo data; purge with supabase/purge_demo.sql
   created_at: string
   updated_at: string
 }

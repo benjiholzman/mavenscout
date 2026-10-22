@@ -1,0 +1,32 @@
+Terms of Reference — Endline Evaluation Lead, Maternal and Child Nutrition Programme, Ethiopia
+
+Background
+A five-year maternal and child nutrition programme, co-financed by a bilateral donor and UNICEF, has worked with the Federal Ministry of Health and regional health bureaus in the Somali and Amhara regions since 2021. The programme combines community-based management of acute malnutrition, infant and young child feeding counselling delivered through health extension workers, nutrition-sensitive cash transfers linked to the Productive Safety Net Programme, and support to primary health care facilities on growth monitoring and supply chains for therapeutic food. It reaches roughly 180,000 households across 14 woredas, including pastoralist communities in the Somali region.
+
+Purpose
+The programme is commissioning an independent endline evaluation to measure changes in stunting, wasting and minimum acceptable diet against the 2021 baseline, assess contribution to these changes, and draw lessons for the health system on integrating nutrition services into routine primary health care.
+
+Scope of work
+The evaluation lead will:
+- Design a quasi-experimental impact evaluation using the existing baseline and comparison woredas (difference-in-differences or matching), with a clear theory-based contribution analysis.
+- Lead survey design for the endline household survey: sampling, anthropometric measurement protocols, questionnaire adaptation, translation and enumerator training.
+- Oversee data collection with a national survey firm and run the statistical analysis, including disaggregation by sex, region and livelihood zone.
+- Assess health systems factors affecting service quality: staffing, supplies of therapeutic food, referral pathways and data quality in the health management information system.
+- Review how the programme applied its gender strategy, in particular women's decision-making over food and cash.
+- Facilitate a validation workshop with the Ministry of Health, regional health bureaus and UNICEF.
+
+Deliverables
+1. Inception report with evaluation matrix and survey design.
+2. Cleaned endline dataset and analysis code.
+3. Draft and final endline evaluation report (max. 60 pages) with an executive summary in English and Amharic.
+4. Two-page policy brief for the Ministry of Health.
+
+Qualifications
+- At least 10 years of experience in nutrition programme evaluation, including at least two impact evaluations with anthropometric outcomes.
+- Strong statistical analysis skills (Stata or R); experience with SMART or similar nutrition surveys.
+- Experience working with health systems in East Africa; Ethiopia experience strongly preferred.
+- Amharic or Somali language skills are a strong asset; English required.
+- Based in Ethiopia or able to spend at least eight weeks in country, including in the Somali region.
+
+Duration and timing
+Approximately 70 working days over five months, starting in the next quarter.

@@ -100,6 +100,7 @@ CREATE TABLE profiles (
   custom_domain                 text,                         -- reserved; no live DNS integration this build
   subscription_status           text NOT NULL DEFAULT 'none' CHECK (subscription_status IN ('active','past_due','canceled','paused','none')),
   approval_status               text NOT NULL DEFAULT 'pending' CHECK (approval_status IN ('pending','approved','rejected')),
+  is_demo                       bool NOT NULL DEFAULT false,  -- seeded demo data (006); removed by purge_demo.sql
   created_at                    timestamptz NOT NULL DEFAULT now(),
   updated_at                    timestamptz NOT NULL DEFAULT now()
 );
