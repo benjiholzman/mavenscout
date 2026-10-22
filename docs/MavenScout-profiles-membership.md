@@ -287,10 +287,13 @@ A progress checklist shows what's done and what's waiting (e.g. "Testimonial: wa
 
 ## 13. Build order
 
-1. **Structured data:** canonical organizations (§8); locations as country + city via Mapbox with UN M49 sub-regions; canonical language list with Fluent/Working proficiency; unified expertise list with tiers (§6).
+Everything below is built **before** the handoff to Loop8, so their engine is built against the final data model. The handoff point is tagged `loop8-handoff`.
+
+**Deferred until after Loop8:** structured locations (country + city via Mapbox, UN M49 sub-regions) and the map view. Location stays the existing free-text field until then.
+
+1. **Data foundations:** canonical organizations table (§8); canonical language list with Fluent/Working proficiency; unified expertise list with tiers (§6), plus the ranking changes that depend on it (§11: filters, requirement rows, extraction, preference credits, Fit inputs without transcripts, baseline update).
 2. **Profiles and membership:** firms hidden (§1), Member/Featured Member (§2), new editor and minimums (§7), portfolio fields, video Q&As for Featured only (§5), removals listed in §2.2.
 3. **Testimonial flow** (§4), including in-browser recording, the code check (email delivery mocked in development: code shown on screen), instant transcript, removal/withdrawal.
-4. **Hiring-manager accounts** with institutional-email gating (§9).
-5. **Verification:** admin queue, labels, AI-review and ID-provider placeholders (§3).
-6. **Ranking updates** (§11) and the ranking UI review.
-7. **Re-seed demo data** once, at the end: individuals only, testimonials on employer entries, logos from the organizations list, gender-matched photos.
+4. **Hiring-manager accounts** with institutional-email gating (§9), and the **verification** admin queue, labels, AI-review and ID-provider placeholders (§3).
+5. **Re-seed demo data** once, at the end: individuals only, testimonials on employer entries, organizations linked, gender-matched photos, tags in the new tier model. Re-run `npm run baseline` and update `expectations.json`.
+6. **Handoff to Loop8:** tag `loop8-handoff`; update the Loop8 section of `DEVELOPER-HANDOFF.md`.
