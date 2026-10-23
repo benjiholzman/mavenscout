@@ -2,15 +2,13 @@ import { Check, Inbox, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { fmtDate } from '../../lib/dates'
 import { ACCOUNT_STATUS_LABELS, decideException } from '../../lib/managers'
+import { DEMO_ADMIN_NAME } from '../../lib/session'
 import { supabase } from '../../lib/supabase'
 import type { HiringManager } from '../../types/db'
 
 // Hiring-manager accounts (docs/MavenScout-profiles-membership.md §9):
 // exception requests from hirers without an institutional email, approved or
 // declined by hand (target: within a day), then every account and its state.
-// The admin's name is mocked with auth.
-
-const ADMIN_NAME = 'Demo Admin'
 
 export function ManagersAdmin() {
   const [rows, setRows] = useState<HiringManager[] | null>(null)
@@ -89,7 +87,7 @@ function RequestCard({ hm, onDecided }: { hm: HiringManager; onDecided: () => vo
   const [busy, setBusy] = useState(false)
   const decide = async (approve: boolean) => {
     setBusy(true)
-    await decideException(hm, approve, note, ADMIN_NAME)
+    await decideException(hm, approve, note, DEMO_ADMIN_NAME)
     setBusy(false)
     onDecided()
   }

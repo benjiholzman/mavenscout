@@ -24,6 +24,8 @@ export const DEMO_REVIEWER_IDS = [
 // Demo consultant impersonates the seeded profile "amara-diallo".
 export const DEMO_CONSULTANT_PROFILE_ID = '388093d4-21e1-413a-a718-4296a10a44fc'
 export const DEMO_CONSULTANT_HANDLE = 'amara-diallo'
+/** Who admin decisions are recorded as, while admin sign-in is mocked. */
+export const DEMO_ADMIN_NAME = 'Demo Admin'
 
 const STORAGE_KEY = 'ms_dev_role'
 /** The signed-up hiring manager the session is pinned to; none = the demo

@@ -81,6 +81,18 @@ export function VerificationSection({
         </div>
       )}
 
+      {state.removedCertifications.map((c) => (
+        <p key={c.id} className="flex items-start gap-2 rounded-lg bg-paper px-3 py-2 text-sm text-ink-soft">
+          <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-700" />
+          <span>
+            We couldn’t verify <strong className="text-ink">{c.item_summary}</strong>, so it was taken off your profile on{' '}
+            {fmtDate(c.created_at.slice(0, 10))}.
+            {typeof c.detail.note === 'string' && c.detail.note ? ` ${c.detail.note}` : ''} Every certification listed must
+            be checked; add it again with a credential ID or certificate if you can.
+          </span>
+        </p>
+      ))}
+
       {state.missing.map((m) => (
         <p key={m} className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950">
           <AlertTriangle size={15} className="mt-0.5 shrink-0" /> {m}

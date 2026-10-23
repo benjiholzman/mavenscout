@@ -1,3 +1,4 @@
+import { fmtDate } from '../dates'
 import { resolveOrganization, type OrgIndex } from '../organizations'
 import type {
   AudioTestimonial,
@@ -48,6 +49,9 @@ export interface ItemState extends VerificationItem {
   note: string
   /** Evidence awaiting review for this item. */
   evidence: VerificationEvidence[]
+  /** While waiting: MavenScout checks next, or a referee's testimonial will
+   *  confirm it once published. */
+  waitingFor?: 'admin' | 'referee'
 }
 
 export interface VerificationInput {
@@ -76,6 +80,8 @@ export interface VerificationState {
   identityResult: VerificationCheck | null
   /** An admin's request to edit the bio, while the bio is unchanged. */
   bioEditRequest: VerificationCheck | null
+  /** Certifications an admin couldn't verify and took off the profile. */
+  removedCertifications: VerificationCheck[]
 }
 
 const DECISIONS = new Set(['confirmed', 'document_reviewed', 'unverifiable'])
@@ -132,29 +138,47 @@ export function verificationState(input: VerificationInput, now = new Date()): V
     const mark = itemMark(item, input)
     const own = evidence.filter((e) => e.item_kind === item.kind && e.item_id === item.id)
     const base = { ...item, mark, evidence: own }
-    if (mark) return { ...base, status: 'labelled', note: mark.testimonial ? `Confirmed by ${mark.testimonial.reference_name}'s work email` : LABEL_TEXT[mark.label] }
-    const lost = checksFor(checks, item.kind, item.id).some((c) => DECISIONS.has(c.outcome) && c.outcome !== 'unverifiable')
+    if (mark)
+      return {
+        ...base,
+        status: 'labelled',
+        note: mark.testimonial ? `Confirmed by ${mark.testimonial.reference_name}’s work email.` : `Checked ${fmtDate(mark.at.slice(0, 10))}.`,
+      }
+    const history = checksFor(checks, item.kind, item.id)
+    const lost = history.some((c) => DECISIONS.has(c.outcome) && c.outcome !== 'unverifiable')
     const edited = lost ? 'Edited since it was checked. ' : ''
+    // An admin couldn't verify it from what was sent: the consultant's turn
+    // again, until they send something new (or, for identity, check again).
+    const latest = history.find((c) => DECISIONS.has(c.outcome))
+    const rejected =
+      latest?.outcome === 'unverifiable' &&
+      !own.some((e) => e.created_at > latest.created_at) &&
+      !(item.kind === 'identity' && identityResult && identityResult.created_at > latest.created_at)
+    if (rejected) {
+      const note = typeof latest.detail.note === 'string' && latest.detail.note ? ` ${latest.detail.note}` : ''
+      const again = item.kind === 'identity' ? 'Check your photo and verify your identity again.' : 'Send something else.'
+      return { ...base, status: 'action', note: `We couldn’t verify this.${note} ${again}` }
+    }
     switch (item.kind) {
       case 'identity':
         if (identityResult?.outcome === 'provider_passed')
-          return { ...base, status: 'waiting', note: `${edited}ID check passed; we compare your photo next.` }
+          return { ...base, status: 'waiting', waitingFor: 'admin', note: `${edited}ID check passed; we compare your photo next.` }
         if (identityResult?.outcome === 'provider_failed')
           return { ...base, status: 'action', note: 'The ID check didn’t pass. Try again with a clear photo of your ID.' }
         return { ...base, status: 'action', note: `${edited}Verify your identity with an ID and a selfie.` }
       case 'employer': {
         const pending = matchingTestimonials(profile, item.id, testimonials, orgs).some((t) => t.status === 'pending' && !t.withdrawn_at && !t.removed_at)
-        if (own.length) return { ...base, status: 'waiting', note: `${edited}Evidence sent; we review it next.` }
-        if (pending) return { ...base, status: 'waiting', note: `${edited}Your testimonial request will confirm it once published.` }
+        if (own.length) return { ...base, status: 'waiting', waitingFor: 'admin', note: `${edited}Evidence sent; we review it next.` }
+        if (pending) return { ...base, status: 'waiting', waitingFor: 'referee', note: `${edited}Your testimonial request will confirm it once published.` }
         return { ...base, status: 'action', note: `${edited}Add a testimonial from someone there, an employment letter or contract, or a public document naming you.` }
       }
       case 'degree':
-        if (own.length) return { ...base, status: 'waiting', note: `${edited}Certificate sent; we review it next.` }
+        if (own.length) return { ...base, status: 'waiting', waitingFor: 'admin', note: `${edited}Certificate sent; we review it next.` }
         return { ...base, status: 'action', note: `${edited}Upload your degree certificate.` }
       case 'certification': {
         const ref = profile.accreditations.find((a) => a.id === item.id)?.credential_id_or_url?.trim()
-        if (own.length) return { ...base, status: 'waiting', note: `${edited}Certificate sent; we review it next.` }
-        if (ref) return { ...base, status: 'waiting', note: `${edited}We check the issuer’s public register with your credential ID.` }
+        if (own.length) return { ...base, status: 'waiting', waitingFor: 'admin', note: `${edited}Certificate sent; we review it next.` }
+        if (ref) return { ...base, status: 'waiting', waitingFor: 'admin', note: `${edited}We check the issuer’s public register with your credential ID.` }
         return { ...base, status: 'action', note: `${edited}Add your credential ID or URL, or upload the certificate.` }
       }
     }
@@ -179,5 +203,8 @@ export function verificationState(input: VerificationInput, now = new Date()): V
     identityResult,
     bioEditRequest:
       bioRow?.outcome === 'edits_requested' && bioRow.item_fingerprint === bioFingerprint(profile) ? bioRow : null,
+    removedCertifications: checks
+      .filter((c) => c.item_kind === 'certification' && c.outcome === 'unverifiable' && !profile.accreditations.some((a) => a.id === c.item_id))
+      .sort(newestFirst),
   }
 }

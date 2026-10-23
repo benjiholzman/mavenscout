@@ -6,6 +6,7 @@ import { QuestionsManager } from '../components/admin/QuestionsManager'
 import { ReviewQueue } from '../components/admin/ReviewQueue'
 import { TaxonomyManager } from '../components/admin/TaxonomyManager'
 import { TierOverview } from '../components/admin/TierOverview'
+import { VerificationQueue } from '../components/admin/VerificationQueue'
 
 // /admin — INTENTIONALLY AN OPEN, UNPROTECTED ROUTE this build (PRD 7.9/7.10):
 // auth is mocked, so there is no real role check keeping non-admins out.
@@ -14,6 +15,7 @@ import { TierOverview } from '../components/admin/TierOverview'
 
 const TABS = [
   ['review', 'Review queue'],
+  ['verification', 'Verification'],
   ['taxonomy', 'Taxonomy'],
   ['organizations', 'Organizations'],
   ['tiers', 'Tiers & subscriptions'],
@@ -55,6 +57,7 @@ export default function Admin() {
 
       <div className="py-6">
         {tab === 'review' && <ReviewQueue />}
+        {tab === 'verification' && <VerificationQueue />}
         {tab === 'taxonomy' && <TaxonomyManager />}
         {tab === 'organizations' && <OrganizationsManager />}
         {tab === 'tiers' && <TierOverview />}
