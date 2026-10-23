@@ -6,7 +6,7 @@ import { supabase } from '../supabase'
 import type { AudioTestimonial, PortfolioItem, Profile, TestimonialRelationship } from '../../types/db'
 import { diffFields, logEvent } from './audit'
 import { codeExpiry, generateCode, hashSecret, normalizeCodeInput } from './code'
-import { sendMockEmail } from './outbox'
+import { isDemoTestimonial, sendMockEmail } from './outbox'
 import { newToken } from './requests'
 
 // The referee's side of a testimonial (docs/MavenScout-profiles-membership.md
@@ -278,6 +278,8 @@ export async function createManagerAccount(t: AudioTestimonial): Promise<AudioTe
         email: t.referee_email,
         updates_opt_in: t.referee_opt_in,
         ...confirmed,
+        // A referee of a demo profile is demo data too: purge_demo.sql removes it.
+        ...((await isDemoTestimonial(t.id)) ? { is_demo: true } : {}),
       })
       .select('id')
       .single()

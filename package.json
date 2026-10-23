@@ -8,7 +8,9 @@
     "dev:lan": "vite --host --mode lan",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "baseline": "esbuild scripts/ranking-baseline.ts --bundle --platform=node --format=esm --packages=external --jsx=automatic --log-level=warning --outfile=node_modules/.cache/ranking-baseline.mjs && node node_modules/.cache/ranking-baseline.mjs"
+    "baseline": "esbuild scripts/ranking-baseline.ts --bundle --platform=node --format=esm --packages=external --jsx=automatic --log-level=warning --outfile=node_modules/.cache/ranking-baseline.mjs && node node_modules/.cache/ranking-baseline.mjs",
+    "demo:snapshot": "esbuild scripts/demo-seed/snapshot.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/demo-snapshot.mjs && node node_modules/.cache/demo-snapshot.mjs",
+    "demo:build": "esbuild scripts/demo-seed/build.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/demo-build.mjs && node node_modules/.cache/demo-build.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
