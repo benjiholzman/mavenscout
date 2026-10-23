@@ -5,7 +5,7 @@ import { searchExpertise, type ExpertiseIndex } from '../../lib/expertise'
 // Picks one item from the unified expertise list (profiles-membership §6).
 // Search covers names, aliases ('M&E', 'PFM') and old names; with no query the
 // whole list shows under its browsing-group subheadings. Used by the profile
-// editor's tier sections and the ranking grid's "+ Expertise".
+// editor's tier sections and the ranking drawer's Expertise editor.
 
 export function ExpertisePicker({
   index,
@@ -15,6 +15,7 @@ export function ExpertisePicker({
   placeholder = 'Search, e.g. Nutrition, M&E, PFM',
   label = 'Add expertise',
   autoFocus = false,
+  inline = false,
 }: {
   index: ExpertiseIndex
   onPick: (name: string) => void
@@ -25,10 +26,14 @@ export function ExpertisePicker({
   /** Accessible name of the search box. */
   label?: string
   autoFocus?: boolean
+  /** The ranking drawer's Expertise editor: the list stays open below the
+   *  box (grouped browse until something is typed). */
+  inline?: boolean
 }) {
   const listId = useId()
   const [query, setQuery] = useState('')
-  const [open, setOpen] = useState(autoFocus)
+  const [openState, setOpen] = useState(autoFocus)
+  const open = inline || openState
   const [active, setActive] = useState(0)
 
   const matches = useMemo(() => searchExpertise(index, query, exclude), [index, query, exclude])
@@ -84,7 +89,7 @@ export function ExpertisePicker({
         <ul
           id={`${listId}-list`}
           role="listbox"
-          className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border border-line bg-white py-1 shadow-card"
+          className={`${inline ? 'max-h-80' : 'absolute left-0 right-0 top-full z-30 max-h-72 shadow-card'} mt-1 overflow-y-auto rounded-lg border border-line bg-white py-1`}
         >
           {matches.map((item, i) => {
             const heading = browsing && (i === 0 || matches[i - 1]!.group !== item.group)

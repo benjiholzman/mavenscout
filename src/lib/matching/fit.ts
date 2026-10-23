@@ -1,6 +1,6 @@
 import { expertiseTags } from '../expertise'
 import { CREDIT, FIT_BLEND, FIT_CALIBRATION, TAG_COVERAGE_SATURATION } from './config'
-import { contentWords, normalizeText } from './text'
+import { contentWords, escapeRe, isAcronym, normalizeText } from './text'
 import type { ExtractedRequirements } from './types'
 import type { PortfolioItem, Profile } from '../../types/db'
 
@@ -45,9 +45,36 @@ const CONDITION_WORDS = new Set(
   ).split(' '),
 )
 
-export function buildJdSignature(rawText: string, extracted: ExtractedRequirements | null): JdSignature {
+/** The JD with canonical organization names and aliases set aside: employer
+ *  names never score in Fit. Acronyms ("WB", "WHO") match only as written;
+ *  other names match as whole phrases, longest first, so "UN Women" goes
+ *  before "UN". The words around them stay ("development" in "the World Bank's
+ *  development programme" still counts). */
+function withoutOrgNames(rawText: string, orgNames: string[]): string {
+  const plain = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  let raw = plain(rawText)
+  const names = [...new Set(orgNames.map(plain))].sort((a, b) => b.length - a.length)
+  for (const a of names.filter(isAcronym))
+    raw = raw.replace(new RegExp(`(?<![A-Za-z0-9])${escapeRe(a)}(?![A-Za-z0-9])`, 'g'), ' ')
+  let text = normalizeText(raw)
+  for (const name of names.filter((n) => !isAcronym(n))) {
+    const phrase = normalizeText(name).trim()
+    if (phrase.length < 2) continue
+    text = text.replace(new RegExp(`(?<= )${escapeRe(phrase)}(?= )`, 'g'), ' ')
+  }
+  return text
+}
+
+export function buildJdSignature(
+  rawText: string,
+  extracted: ExtractedRequirements | null,
+  /** Canonical organization names and aliases (organizations list). */
+  orgNames: string[] = [],
+): JdSignature {
   // Location and language words go to criteria, not Fit — unless they're part
   // of an extracted expertise item (e.g. translation, a country specialism).
+  // Region names and demonyms stay: regional experience is substance. Employer
+  // names never count (withoutOrgNames).
   const termWords = (extracted?.expertise ?? []).flatMap((t) => contentWords(t.name))
   const expertiseWords = new Set(termWords)
   const conditionWords = new Set([
@@ -56,7 +83,7 @@ export function buildJdSignature(rawText: string, extracted: ExtractedRequiremen
     ...contentWords(extracted?.hiring_organization ?? ''),
   ])
   const freq = new Map<string, number>()
-  const words = contentWords(rawText).filter((w) => expertiseWords.has(w) || !conditionWords.has(w))
+  const words = contentWords(withoutOrgNames(rawText, orgNames)).filter((w) => expertiseWords.has(w) || !conditionWords.has(w))
   words.forEach((w) => freq.set(w, (freq.get(w) ?? 0) + 1))
   const firstSeen = new Map<string, number>()
   words.forEach((w, i) => firstSeen.has(w) || firstSeen.set(w, i))

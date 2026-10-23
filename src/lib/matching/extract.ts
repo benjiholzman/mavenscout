@@ -1,6 +1,6 @@
 import { buildExpertiseIndex, type ExpertiseItem } from '../expertise'
 import { EXTRACTION_STRONG_MIN_OCCURRENCES, MAX_TAG_ROWS } from './config'
-import { countTerm as countOccurrences, normalizeText as normalize } from './text'
+import { countTerm as countOccurrences, escapeRe, isAcronym, normalizeText as normalize } from './text'
 import type { ExtractedRequirements, ExtractedTag, ExtractedValue, ExtractRequirementsFn } from './types'
 
 // ============================================================================
@@ -30,11 +30,6 @@ import type { ExtractedRequirements, ExtractedTag, ExtractedValue, ExtractRequir
 // results as chips and nothing enters the grid until the manager adds it.
 // It never suggests Required.
 // ============================================================================
-
-/** "M&E", "PFM", "NTDs", "P/CVE", "REDD+": all-caps, matched as written. */
-const isAcronym = (term: string) => /^[A-Z][A-Z0-9&+/-]*[A-Z0-9+]s?$/.test(term)
-
-const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** Mentions of one item in the JD, each occurrence counted once. */
 function itemMentions(rawJd: string, normalizedJd: string, item: ExpertiseItem): number {

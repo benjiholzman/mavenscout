@@ -75,7 +75,7 @@ export function scorePool(args: {
 }): JdMatchResult[] {
   const { rawText, extracted, requirements, candidates, expertise, orgs } = args
   // The JD is read once per run, here — never per candidate.
-  const sig = buildJdSignature(rawText, extracted)
+  const sig = buildJdSignature(rawText, extracted, orgs.list.flatMap((o) => [o.name, ...o.aliases]))
 
   const scored: Scored[] = candidates.map((c) => {
     const fb = computeFit(c, sig, rawText)

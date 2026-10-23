@@ -287,17 +287,20 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   - Preference credits (`CREDIT` in `config.ts`): Core 1, Strong 0.75, Working 0.4,
     untagged mention 0.4; a row takes the better of its tag and text credit.
   - Fit inputs exclude video and audio transcripts (§11).
-  - **Fit is capability only** (§11; match-rework §4): Fit judges capability for the work only. It must not score the practical conditions handled by criteria: location, language proficiency, availability, career level, work arrangement and organizational history. When a JD states them, extraction routes them to criteria (pre-filled at Nice to have, never Required). Exception: a language or place that is itself the expertise (e.g. translation, deep country knowledge) counts as substance.
-    The placeholder drops extracted location/language words, the hiring org and
-    condition words (`CONDITION_WORDS` in `fit.ts`) from its salient JD terms,
-    keeping any word that is part of an extracted expertise item.
+  - **Fit is capability only** (§11; match-rework §4): Fit judges capability for the work only. It must not score the practical conditions handled by priorities: location, language proficiency, availability, career level, work arrangement and organizational history (employer names never score in Fit). When a JD states them, extraction routes them to priorities (pre-filled at Nice to have, never Must have). Exception: a language or place that is itself the expertise (e.g. translation, deep country knowledge) counts as substance. Fit may value experience working in a region, but not where the candidate is based.
+    The placeholder drops extracted location/language words, the hiring org,
+    canonical organization names and aliases (`withoutOrgNames` in `fit.ts`) and
+    condition words (`CONDITION_WORDS`) from its salient JD terms, keeping any
+    word that is part of an extracted expertise item. Region names and demonyms
+    stay: regional experience is substance.
 - **Two entry points, both placeholders today:**
   - `extractRequirements(jdText, ctx) → ExtractedRequirements` (`extract.ts`) — reads
     the JD **once** and returns *suggestions* (items from the unified expertise
     list with mention counts and a slight/strong lean, locations, languages,
     optional hiring org).
-    The UI shows them as chips; nothing enters the grid until the manager adds it,
-    and nothing is ever suggested as Required. Output is stored on
+    The ranking drawer pre-fills the locations and languages into "Your
+    priorities" at Nice to have ("from JD", with "Clear suggestions"); expertise
+    items only inform Fit; nothing is ever suggested as Must have. Output is stored on
     `job_descriptions.extracted`.
   - `rankPool(jobDescriptionId, requirements, pool) → MatchResult[]` (`score.ts`) —
     receives the stored JD by id (never the full text per candidate) plus the
@@ -306,8 +309,8 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
     Important row (`met | partial | not_met | not_applicable`, points earned),
     `scoring` (`{weight, earned, possible}`), `must_haves_passed`, `band`, `rank`,
     `narrative`.
-- **The engine is never called without a JD** (spec §11). A run with an empty
-  JD box is a *preferences-only* run (`job_descriptions.mode = 'preferences'`,
+- **The engine is never called without a JD** (spec §11). A run from the
+  drawer's "Rank by priorities" tab is a *preferences-only* run (`job_descriptions.mode = 'preferences'`,
   `019_ranking_mode.sql`): it is scored app-side in `preferences.ts` as the share
   of preference points met (`round(100 × earned ÷ possible)`, ties → availability
   freshness → id), with no Fit, band or engine narrative. `extractRequirements`

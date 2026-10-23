@@ -69,7 +69,7 @@ export function AboutResultModal({
         {result.must_haves_passed.length > 0 && (
           <section>
             <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint">
-              Required rows met
+              Must haves met
             </h3>
             <ul className="space-y-1">
               {result.must_haves_passed.map((m) => (
@@ -118,7 +118,7 @@ export function AboutResultModal({
               is the Fit score.
             </li>
             <li>
-              Rows marked <b className="font-medium text-ink">Required</b> exclude candidates before anything is
+              Anything marked <b className="font-medium text-ink">Must have</b> exclude candidates before anything is
               scored; they add no points.
             </li>
             <li>Ties go to the higher Fit, then the more recently updated availability, then a fixed order.</li>
@@ -271,7 +271,7 @@ function PreferenceScoringNotes() {
       </li>
       <li>Rows that don't apply to a candidate (career level for a firm) don't count.</li>
       <li>
-        Rows marked <b className="font-medium text-ink">Required</b> exclude candidates before anything is scored;
+        Anything marked <b className="font-medium text-ink">Must have</b> exclude candidates before anything is scored;
         they add no points.
       </li>
       <li>Ties go to the more recently updated availability, then a fixed order.</li>

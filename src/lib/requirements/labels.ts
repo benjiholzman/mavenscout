@@ -1,6 +1,6 @@
 import { locationLabel } from '../filters'
 import { orgNames } from './match'
-import type { Requirement, RequirementKind } from '../matching/types'
+import type { Level, Requirement, RequirementKind } from '../matching/types'
 
 // Display labels for requirement rows: grid row titles, the live count's
 // "loosen" suggestions, and the filter-bar chip.
@@ -16,6 +16,14 @@ export const KIND_LABELS: Record<RequirementKind, string> = {
   video_qna: 'Video Q&As only',
   audio_testimonial: 'Audio testimonials only',
   work_arrangement: 'Work arrangement',
+}
+
+/** Level names managers see. Internally 'must' stays 'must' (once
+ *  "Required"). */
+export const LEVEL_LABELS: Record<Level, string> = {
+  slight: 'Nice to have',
+  strong: 'Important',
+  must: 'Must have',
 }
 
 export const CAREER_LEVEL_SHORT: Record<string, string> = {

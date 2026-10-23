@@ -443,7 +443,7 @@ function MatchFace({ result, onMore }: { result: MatchResult; onMore?: () => voi
   const mustLine = musts > 0 && (
     <p className="flex items-center gap-1.5 text-xs text-ink-soft">
       <span className="text-brand-600" aria-hidden>✓</span>
-      Meets {musts === 1 ? 'the Required row' : `all ${musts} Required rows`}
+      Meets {musts === 1 ? 'the Must have' : `all ${musts} Must haves`}
     </p>
   )
 

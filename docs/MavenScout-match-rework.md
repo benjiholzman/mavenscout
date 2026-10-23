@@ -165,13 +165,13 @@ interface ExtractedRequirements {
 }
 ```
 
-Everything here is a **suggestion** shown in the "Found in your JD" box (§2); `mentions` is the count on each chip. Added suggestions become Nice to have rows regardless of `suggested`, which only informs the placeholder Fit (§5.2).
+Everything here is a **suggestion**. "Read job description" pre-fills the stated locations and languages into "Your priorities" at Nice to have, marked "from JD", with a "Clear suggestions" action; never Must have. Expertise items are not pre-filled (pending a decision on double counting with Fit); they inform the placeholder Fit only (§5.2), through `suggested`.
 
 Placeholder behavior: case-insensitive whole-word match of taxonomy item and category names in the JD text (`strong` if the term appears 2+ times, else `slight`); match known location and language options; `hiring_organization` is null. Cap output at 10 expertise + skill suggestions, highest-frequency first.
 
 **Contract requirement for Loop8 (write as a code comment):** the JD is read **once**, here. Scoring receives the extracted requirements plus the stored JD reference — it must not re-send the full JD text per candidate. This keeps a 15,000-character JD from multiplying cost across hundreds of candidates.
 
-**Contract rule for Loop8 — Fit vs. criteria:** Fit judges capability for the work only. It must not score the practical conditions handled by criteria: location, language proficiency, availability, career level, work arrangement and organizational history. When a JD states them, extraction routes them to criteria (pre-filled at Nice to have, never Required). Exception: a language or place that is itself the expertise (e.g. translation, deep country knowledge) counts as substance. (profiles-membership §11.)
+**Contract rule for Loop8 — Fit vs. priorities:** Fit judges capability for the work only. It must not score the practical conditions handled by priorities: location, language proficiency, availability, career level, work arrangement and organizational history (employer names never score in Fit). When a JD states them, extraction routes them to priorities (pre-filled at Nice to have, never Must have). Exception: a language or place that is itself the expertise (e.g. translation, deep country knowledge) counts as substance. Fit may value experience working in a region, but not where the candidate is based. (profiles-membership §11.)
 
 Persist the extraction output with the job description (§6.3).
 

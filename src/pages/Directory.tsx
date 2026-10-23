@@ -11,7 +11,7 @@ import { useSaveCandidate } from '../components/openings/SaveCandidateFlow'
 import type { CountFn } from '../components/ranking/LiveCount'
 import { RankingBanner } from '../components/ranking/RankingBanner'
 import { RankingPanel } from '../components/ranking/RankingPanel'
-import type { GridOptions } from '../components/ranking/RequirementsGrid'
+import type { PickerOptions } from '../components/ranking/PriorityEditors'
 import { SignupPrompt } from '../components/ui/SignupPrompt'
 import { DirectorySkeleton } from '../components/ui/Skeletons'
 import { useDirectoryData } from '../hooks/useDirectoryData'
@@ -31,11 +31,13 @@ import {
   updateRunRequirements,
   type RankingRecord,
 } from '../lib/matching/persist'
-import { rankingModeFor, runBlockerFor } from '../lib/matching/preferences'
-import type { ExtractedRequirements } from '../lib/matching/types'
+import { runBlockerFor } from '../lib/matching/preferences'
+import type { ExtractedRequirements, RankingMode } from '../lib/matching/types'
 import {
+  clearJdSuggestions,
   gridOnlyMustHaves,
   isMust,
+  jdPrefills,
   mustHavesToFilterState,
   preferenceKey,
   sameRows,
@@ -89,6 +91,8 @@ export default function Directory() {
   const [jdText, setJdText] = useState('')
   const [jdCollapsed, setJdCollapsed] = useState(false)
   const [extracted, setExtracted] = useState<ExtractedRequirements | null>(null)
+  /** The drawer's tab, which decides the run's mode. */
+  const [rankTab, setRankTab] = useState<RankingMode>('jd')
   const [reading, setReading] = useState(false)
   const [orgPrefill, setOrgPrefill] = useState('')
 
@@ -148,7 +152,7 @@ export default function Directory() {
   const profilesById = useMemo(() => new Map((data?.profiles ?? []).map((p) => [p.id, p])), [data])
 
   /** Picker options for the requirements grid. */
-  const gridOptions = useMemo<GridOptions | null>(() => {
+  const gridOptions = useMemo<PickerOptions | null>(() => {
     if (!data || !options || !expertise) return null
     const typeOf = (id: string) => data.taxonomyCategories.find((c) => c.id === id)?.type
     return {
@@ -241,13 +245,15 @@ export default function Directory() {
     [ranking, requirements],
   )
 
-  /** Preference rows or the JD differ from what was scored → Re-run prompt. */
+  /** Preference rows, the tab or (on the JD tab) the JD differ from what was
+   *  scored → Re-run prompt. */
   const requirementsChanged = useMemo(
     () =>
       !!ranking &&
       (preferenceKey(requirements) !== preferenceKey(ranking.jd.requirements ?? []) ||
-        jdText.trim() !== ranking.jd.raw_text.trim()),
-    [ranking, requirements, jdText],
+        rankTab !== (ranking.jd.mode ?? 'jd') ||
+        (rankTab === 'jd' && jdText.trim() !== ranking.jd.raw_text.trim())),
+    [ranking, requirements, jdText, rankTab],
   )
 
   const results = useMemo(
@@ -349,6 +355,7 @@ export default function Directory() {
       const text = draft?.jdText ?? rec.jd.raw_text
       setJdText(text)
       setExtracted(draft ? upgradeLegacyExtracted(draft.extracted, expertise) : jd.extracted)
+      setRankTab(draft?.tab ?? jd.mode ?? 'jd')
       // A preferences run has no JD to preview: leave the box open for one.
       setJdCollapsed(!!text.trim())
       setEpoch((e) => e + 1)
@@ -371,9 +378,9 @@ export default function Directory() {
   // survive leaving and returning; matching the run again discards it.
   useEffect(() => {
     if (!ranking) return
-    if (requirementsChanged) writeDraft(ranking.jd.id, { requirements, jdText, extracted })
+    if (requirementsChanged) writeDraft(ranking.jd.id, { requirements, jdText, extracted, tab: rankTab })
     else clearDraft(ranking.jd.id)
-  }, [ranking, requirementsChanged, requirements, jdText, extracted])
+  }, [ranking, requirementsChanged, requirements, jdText, extracted, rankTab])
 
   // Tightening (or loosening) a Required row after a run is written back to
   // the run — without re-scoring — so a reload keeps it.
@@ -429,13 +436,15 @@ export default function Directory() {
     if (!data || !options) return
     setReading(true)
     try {
-      setExtracted(
-        await extractRequirements(jdText, {
-          taxonomy: { categories: data.taxonomyCategories, items: data.taxonomyItems },
-          locationOptions: options.locations.flatMap((g) => [g.label, ...g.items]),
-          languageOptions: options.languages,
-        }),
-      )
+      const found = await extractRequirements(jdText, {
+        taxonomy: { categories: data.taxonomyCategories, items: data.taxonomyItems },
+        locationOptions: options.locations.flatMap((g) => [g.label, ...g.items]),
+        languageOptions: options.languages,
+      })
+      setExtracted(found)
+      // Stated places and languages are pre-filled at Nice to have; expertise
+      // only feeds Fit.
+      reqs.addSuggestions(jdPrefills(found))
       setJdCollapsed(true)
     } finally {
       setReading(false)
@@ -448,14 +457,15 @@ export default function Directory() {
     [data, expertise],
   )
 
-  const runBlocker = runBlockerFor({ jdText, read: !!extracted, requirements, poolCount: filtered.length })
+  const runBlocker = runBlockerFor({ mode: rankTab, jdText, read: !!extracted, requirements, poolCount: filtered.length })
 
   /** Run: Required rows pre-filter the pool, the survivors are scored, the
-   *  grid turns into the ranked list and the drawer closes. With a JD the
-   *  engine scores it; without one it's sorted by preferences (spec §11). */
+   *  grid turns into the ranked list and the drawer closes. On the JD tab the
+   *  engine scores it; on the priorities tab it's sorted by priorities alone
+   *  (spec §11). */
   const run = async () => {
     if (runBlocker) return
-    const mode = rankingModeFor(jdText)
+    const mode = rankTab
     setRunning(true)
     try {
       const rec = await runRanking({
@@ -660,6 +670,8 @@ export default function Directory() {
         <RankingPanel
           open={drawerOpen}
           onClose={closeDrawer}
+          tab={rankTab}
+          onTab={setRankTab}
           jd={{
             text: jdText,
             setText: changeJdText,
@@ -668,13 +680,13 @@ export default function Directory() {
             reading,
             onRead: readJd,
             extracted,
+            onClearSuggestions: () => reqs.apply((rows) => clearJdSuggestions(rows, extracted)),
           }}
           store={reqs}
           options={gridOptions}
           countFn={countFn}
           poolSize={data?.profiles.length ?? 0}
           focusId={focusId}
-          onFocusRow={setFocusId}
           orgPrefill={orgPrefill}
           onRun={run}
           running={running}

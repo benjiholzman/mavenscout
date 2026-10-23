@@ -1,50 +1,53 @@
 import type { Level } from '../../lib/matching/types'
+import { LEVEL_LABELS } from '../../lib/requirements/labels'
 
-// Importance control for a requirement row (match rework spec §3): three
-// levels, labelled for managers. There's no "no preference" — removing the
-// row means that.
+// Importance control for a priority (match rework spec §3), labelled for
+// managers. "No preference" (null) means the priority has no row; the other
+// levels are a row's level. A priority's Preferred section offers only Nice to
+// have / Important.
 
-export const LEVEL_LABELS: Record<Level, string> = {
-  slight: 'Nice to have',
-  strong: 'Important',
-  must: 'Required',
-}
+export const NO_PREFERENCE = 'No preference'
 
-const LEVELS: Level[] = ['slight', 'strong', 'must']
+const ALL: (Level | null)[] = [null, 'slight', 'strong', 'must']
 
 export function LevelControl({
   value,
   onChange,
   rowLabel,
+  levels = ALL,
 }: {
-  value: Level
-  onChange: (level: Level) => void
+  value: Level | null
+  onChange: (level: Level | null) => void
   rowLabel: string
+  levels?: (Level | null)[]
 }) {
   return (
     <div
       role="radiogroup"
       aria-label={`${rowLabel}: importance`}
-      className="grid grid-cols-3 gap-0.5 rounded-full border border-line bg-paper p-0.5"
+      className="grid gap-0.5 rounded-full border border-line bg-paper p-0.5"
+      style={{ gridTemplateColumns: `repeat(${levels.length}, minmax(0, 1fr))` }}
     >
-      {LEVELS.map((level) => {
+      {levels.map((level) => {
         const active = value === level
         return (
           <button
-            key={level}
+            key={level ?? 'none'}
             type="button"
             role="radio"
             aria-checked={active}
             onClick={() => onChange(level)}
-            className={`whitespace-nowrap rounded-full px-1 py-1.5 text-xs font-medium leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+            className={`rounded-full px-1 py-1.5 text-xs font-medium leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
               active
                 ? level === 'must'
                   ? 'bg-ink text-white shadow-sm'
-                  : 'bg-white text-brand-700 shadow-sm ring-1 ring-brand-200'
+                  : level === null
+                    ? 'bg-white text-ink shadow-sm ring-1 ring-line'
+                    : 'bg-white text-brand-700 shadow-sm ring-1 ring-brand-200'
                 : 'text-ink-faint hover:text-ink'
             }`}
           >
-            {LEVEL_LABELS[level]}
+            {level ? LEVEL_LABELS[level] : NO_PREFERENCE}
           </button>
         )
       })}

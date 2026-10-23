@@ -1,4 +1,5 @@
-import type { ExtractedRequirements, Requirement } from '../matching/types'
+import { rankingModeFor } from '../matching/preferences'
+import type { ExtractedRequirements, RankingMode, Requirement } from '../matching/types'
 
 // Unsaved edits to a ranking (match rework spec §2.2). After a run, changes to
 // Nice to have / Important rows or the JD aren't scored until the manager
@@ -14,6 +15,9 @@ export interface RankingDraft {
   requirements: Requirement[]
   jdText: string
   extracted: ExtractedRequirements | null
+  /** The drawer's tab. Drafts kept before the tabs have none: read from the
+   *  JD text, as the mode was then. */
+  tab: RankingMode
 }
 
 const key = (rankingId: string) => `ms_ranking_draft:${rankingId}`
@@ -22,8 +26,9 @@ export function readDraft(rankingId: string): RankingDraft | null {
   try {
     const raw = sessionStorage.getItem(key(rankingId))
     if (!raw) return null
-    const draft = JSON.parse(raw) as RankingDraft
-    return Array.isArray(draft.requirements) && typeof draft.jdText === 'string' ? draft : null
+    const draft = JSON.parse(raw) as Omit<RankingDraft, 'tab'> & { tab?: RankingMode }
+    if (!Array.isArray(draft.requirements) || typeof draft.jdText !== 'string') return null
+    return { ...draft, tab: draft.tab ?? rankingModeFor(draft.jdText) }
   } catch {
     return null
   }

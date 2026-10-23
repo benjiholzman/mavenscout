@@ -48,6 +48,7 @@ export function MultiSelect({
   open,
   onToggle,
   onClear,
+  inline = false,
 }: {
   label: string
   options?: string[]
@@ -80,6 +81,9 @@ export function MultiSelect({
   /** Filter-bar chips: an × clears the selection without opening the panel,
    *  and a single selection shows its own name instead of the label. */
   onClear?: () => void
+  /** The ranking drawer's editors: no chip, the panel always shown in place
+   *  (pass open). */
+  inline?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [query, setQuery] = useState('')
@@ -311,32 +315,34 @@ export function MultiSelect({
 
   return (
     <div ref={ref} className="relative">
-      <FilterChip
-        active={selected.length > 0}
-        open={open}
-        onClick={() => onToggle(!open)}
-        onClear={onClear}
-        clearLabel={`Clear ${label}`}
-        disabled={disabled}
-        title={disabled ? disabledNote : undefined}
-      >
-        {onClear && selected.length === 1 ? (
-          <span className="max-w-[12rem] truncate sm:max-w-[16rem]" title={formatValue(selected[0])}>
-            {formatValue(selected[0])}
-          </span>
-        ) : (
-          <>
-            {label}
-            {selected.length > 0 && <CountBadge n={selected.length} />}
-          </>
-        )}
-      </FilterChip>
+      {!inline && (
+        <FilterChip
+          active={selected.length > 0}
+          open={open}
+          onClick={() => onToggle(!open)}
+          onClear={onClear}
+          clearLabel={`Clear ${label}`}
+          disabled={disabled}
+          title={disabled ? disabledNote : undefined}
+        >
+          {onClear && selected.length === 1 ? (
+            <span className="max-w-[12rem] truncate sm:max-w-[16rem]" title={formatValue(selected[0])}>
+              {formatValue(selected[0])}
+            </span>
+          ) : (
+            <>
+              {label}
+              {selected.length > 0 && <CountBadge n={selected.length} />}
+            </>
+          )}
+        </FilterChip>
+      )}
 
       {open && (
         <div
-          className={`fixed inset-x-0 bottom-0 z-40 max-h-[70vh] overflow-y-auto rounded-t-2xl border border-line bg-white p-2 shadow-xl sm:absolute sm:inset-x-auto sm:bottom-auto ${alignRight ? 'sm:right-0' : 'sm:left-0'} sm:top-full sm:mt-2 sm:max-h-96 sm:w-72 sm:rounded-xl`}
+          className={inline ? 'rounded-xl border border-line bg-white p-2' : `fixed inset-x-0 bottom-0 z-40 max-h-[70vh] overflow-y-auto rounded-t-2xl border border-line bg-white p-2 shadow-xl sm:absolute sm:inset-x-auto sm:bottom-auto ${alignRight ? 'sm:right-0' : 'sm:left-0'} sm:top-full sm:mt-2 sm:max-h-96 sm:w-72 sm:rounded-xl`}
         >
-          <div className="mb-1 flex items-center justify-between px-2 pt-1 sm:hidden">
+          <div className={`mb-1 flex items-center justify-between px-2 pt-1 sm:hidden ${inline ? 'hidden' : ''}`}>
             <span className="text-sm font-semibold">{label}</span>
             <button className="text-sm text-brand-600" onClick={() => onToggle(false)}>
               Done

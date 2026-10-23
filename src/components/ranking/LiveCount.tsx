@@ -55,7 +55,7 @@ export function LiveCount({
       <div className="rounded-lg bg-gold-300/20 px-3 py-2 text-xs leading-snug text-ink">
         <p className="flex items-center gap-1.5 font-semibold">
           <AlertTriangle size={13} className="text-gold-700" aria-hidden />
-          No candidates meet everything marked Required
+          No candidates meet everything marked Must have
         </p>
         {loosen.length > 0 ? (
           <p className="mt-1 text-ink-soft">
@@ -75,7 +75,7 @@ export function LiveCount({
             ))}
           </p>
         ) : (
-          <p className="mt-1 text-ink-soft">Loosen more than one Required row, or clear the search term.</p>
+          <p className="mt-1 text-ink-soft">Loosen more than one Must have, or clear the search term.</p>
         )}
       </div>
     )
@@ -85,11 +85,11 @@ export function LiveCount({
       <p className="flex items-center gap-1.5 font-medium text-ink">
         <Users size={13} className="text-ink-faint" aria-hidden />
         {count} candidate{count === 1 ? '' : 's'}{' '}
-        {mustCount > 0 ? `meet${count === 1 ? 's' : ''} everything marked Required` : 'in the pool — nothing marked Required'}
+        {mustCount > 0 ? `meet${count === 1 ? 's' : ''} everything marked Must have` : 'in the pool — nothing marked Must have'}
       </p>
       {count < LOW_POOL_WARNING && (
         <p className="mt-0.5 text-gold-700">
-          That's a small pool — consider loosening a Required row to compare more people.
+          That's a small pool — consider loosening a Must have to compare more people.
         </p>
       )}
     </div>

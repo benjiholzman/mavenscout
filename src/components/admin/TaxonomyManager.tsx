@@ -164,7 +164,7 @@ export function TaxonomyManager() {
       <section>
         <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-ink-faint">Expertise</h3>
         <p className="mb-3 text-xs text-ink-faint">
-          Groups are for browsing. Kind decides matching: Required items of the same kind count as any of;
+          Groups are for browsing. Kind decides matching: Must have items of the same kind count as any of;
           different kinds must all be met. Aliases are search terms (comma-separated).
         </p>
         <div className="space-y-3">

@@ -35,6 +35,7 @@ export type RequirementsAction =
   | { type: 'addRow'; row: Requirement }
   | { type: 'removeRow'; id: string }
   | { type: 'addSuggestions'; suggestions: Suggestion[] }
+  | { type: 'apply'; fn: (rows: Requirement[]) => Requirement[] }
   | { type: 'clearSearch' }
   | { type: 'hydrate'; state: RequirementsState }
   | { type: 'reset' }
@@ -75,6 +76,9 @@ export function requirementsReducer(state: RequirementsState, action: Requiremen
           action.suggestions.reduce((rows, s) => addSuggestion(rows, s, MAX_TAG_ROWS), state.requirements),
         ),
       )
+    case 'apply':
+      // Any model edit (the priority editors): the result is normalized.
+      return withRows(normalizeRequirements(action.fn(state.requirements)))
     case 'clearSearch':
       return { ...state, search: { ...EMPTY_SEARCH, mode: state.search.mode } }
     case 'hydrate':
@@ -101,6 +105,7 @@ export function useRequirements(init?: () => RequirementsState) {
     (suggestions: Suggestion[]) => dispatch({ type: 'addSuggestions', suggestions }),
     [],
   )
+  const apply = useCallback((fn: (rows: Requirement[]) => Requirement[]) => dispatch({ type: 'apply', fn }), [])
   const clearSearch = useCallback(() => dispatch({ type: 'clearSearch' }), [])
   const hydrate = useCallback((s: RequirementsState) => dispatch({ type: 'hydrate', state: s }), [])
   const reset = useCallback(() => dispatch({ type: 'reset' }), [])
@@ -116,6 +121,7 @@ export function useRequirements(init?: () => RequirementsState) {
       addRow,
       removeRow,
       addSuggestions,
+      apply,
       clearSearch,
       hydrate,
       reset,
@@ -130,6 +136,7 @@ export function useRequirements(init?: () => RequirementsState) {
       addRow,
       removeRow,
       addSuggestions,
+      apply,
       clearSearch,
       hydrate,
       reset,

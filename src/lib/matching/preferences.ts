@@ -20,7 +20,8 @@ import type { PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../
 // Membership level never enters into it.
 // ============================================================================
 
-/** A run's mode follows the JD box: any text means a JD run. */
+/** The mode a draft or run saved before the drawer's tabs implies: any JD
+ *  text meant a JD run. Today the drawer's tab decides. */
 export function rankingModeFor(jdText: string): RankingMode {
   return jdText.trim() ? 'jd' : 'preferences'
 }
@@ -32,16 +33,20 @@ export function hasPreferenceRows(requirements: Requirement[]): boolean {
 
 /** Why Run (or Re-run) is disabled, or null when it can run. */
 export function runBlockerFor(args: {
+  /** The drawer's tab. */
+  mode: RankingMode
   jdText: string
   /** Whether the current JD has been read. */
   read: boolean
   requirements: Requirement[]
   poolCount: number
 }): string | null {
-  if (rankingModeFor(args.jdText) === 'jd') {
-    if (!args.read) return 'Read the job description first, or clear it to rank by preferences.'
-  } else if (!hasPreferenceRows(args.requirements)) return 'Add at least one preference to rank.'
-  if (args.poolCount === 0) return 'No candidates meet everything marked Required.'
+  if (args.mode === 'jd') {
+    if (!args.jdText.trim()) return 'Paste a job description, or switch to Rank by priorities.'
+    if (!args.read) return 'Read the job description first.'
+  } else if (!hasPreferenceRows(args.requirements))
+    return 'Set at least one priority to Nice to have or Important to rank.'
+  if (args.poolCount === 0) return 'No candidates meet everything marked Must have.'
   return null
 }
 

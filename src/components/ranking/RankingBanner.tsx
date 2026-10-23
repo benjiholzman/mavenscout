@@ -59,7 +59,7 @@ export function RankingBanner({
               <>Ranked {rankedCount} candidate{rankedCount === 1 ? '' : 's'} against your JD</>
             )}
             {excludedCount > 0 && (
-              <span className="text-white/70"> · {excludedCount} excluded by Required rows</span>
+              <span className="text-white/70"> · {excludedCount} excluded by Must haves</span>
             )}
             {mode === 'jd' && <span className="ml-2 text-white/50">placeholder scorer</span>}
           </p>

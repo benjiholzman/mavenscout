@@ -46,3 +46,8 @@ export function contentWords(text: string): string[] {
     .split(' ')
     .filter((w) => w.length > 2 && !STOPWORDS.has(w))
 }
+
+/** "M&E", "PFM", "WHO", "REDD+": all-caps, matched as written. */
+export const isAcronym = (term: string) => /^[A-Z][A-Z0-9&+/-]*[A-Z0-9+]s?$/.test(term)
+
+export const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

@@ -10,6 +10,7 @@ import {
 import { orgTargets } from './match'
 import {
   ALWAYS_PRESENT_KINDS,
+  type ExtractedRequirements,
   type ExtractedTag,
   type ExtractedValue,
   type Level,
@@ -503,6 +504,72 @@ export function addSuggestion(reqs: Requirement[], s: Suggestion, maxTagRows: nu
       r === pref ? ({ ...pref, value: { ...pref.value, values: [...pref.value.values, s.item.value] } } as Requirement) : r,
     )
   return normalizeRequirements([...reqs, makeRow(s.kind, { values: [s.item.value] }, { source: 'jd' })])
+}
+
+/** Everything "Read job description" found, grouped. */
+export function suggestionsFrom(extracted: ExtractedRequirements): { title: string; items: Suggestion[] }[] {
+  return [
+    { title: 'Expertise', items: extracted.expertise.map((tag) => ({ kind: 'expertise' as const, tag })) },
+    { title: 'Locations', items: extracted.locations.map((item) => ({ kind: 'location' as const, item })) },
+    { title: 'Languages', items: extracted.languages.map((item) => ({ kind: 'language' as const, item })) },
+  ].filter((g) => g.items.length > 0)
+}
+
+/** What "Read job description" pre-fills: the places and languages the JD
+ *  states, at Nice to have, "from JD". Never expertise (pending a decision on
+ *  double counting with Fit) and never Must have. */
+export function jdPrefills(extracted: ExtractedRequirements): Suggestion[] {
+  return suggestionsFrom(extracted)
+    .flatMap((g) => g.items)
+    .filter((s) => s.kind !== 'expertise')
+}
+
+/** Places and languages the JD pre-filled that are still in a preference row. */
+export function jdSuggestedValues(
+  reqs: Requirement[],
+  extracted: ExtractedRequirements | null,
+): { kind: 'location' | 'language'; value: string }[] {
+  if (!extracted) return []
+  return jdPrefills(extracted).flatMap((s) => {
+    if ('tag' in s) return []
+    const pref = preferenceRowOf(reqs, s.kind)
+    return pref && 'values' in pref.value && pref.value.values.includes(s.item.value)
+      ? [{ kind: s.kind, value: s.item.value }]
+      : []
+  })
+}
+
+/** "Clear suggestions": takes the JD's places and languages back out of the
+ *  preference rows, dropping a row left empty. */
+export function clearJdSuggestions(reqs: Requirement[], extracted: ExtractedRequirements | null): Requirement[] {
+  if (!extracted) return reqs
+  const found = new Set(jdPrefills(extracted).map((s) => ('tag' in s ? '' : `${s.kind}:${s.item.value}`)))
+  return reqs.flatMap((r) => {
+    if (isMust(r) || (r.kind !== 'location' && r.kind !== 'language')) return [r]
+    const kept = r.value.values.filter((v) => !found.has(`${r.kind}:${v}`))
+    if (kept.length === r.value.values.length) return [r]
+    return kept.length === 0 ? [] : [{ ...r, value: { ...r.value, values: kept } } as Requirement]
+  })
+}
+
+/**
+ * Sets one of a kind's rows from the priority editors: its Must have row
+ * (`must`) or its preference row. A null value, or no values, removes that
+ * row (no row = no preference); otherwise the row is updated, or created at
+ * `level` (Nice to have unless given).
+ */
+export function setKindRow(
+  reqs: Requirement[],
+  kind: SingleKind,
+  must: boolean,
+  value: Requirement['value'] | null,
+  level: Level = must ? 'must' : 'slight',
+): Requirement[] {
+  const row = must ? requiredRowOf(reqs, kind) : isValuesKind(kind) ? preferenceRowOf(reqs, kind) : reqs.find((r) => r.kind === kind)
+  const empty = !value || ('values' in value && value.values.length === 0)
+  if (empty) return row ? reqs.filter((r) => r !== row) : reqs
+  if (row) return reqs.map((r) => (r === row ? ({ ...r, value } as Requirement) : r))
+  return normalizeRequirements([...reqs, makeRow(kind, value as never, { level })])
 }
 
 // ---- after a run (spec §2.2) ------------------------------------------------

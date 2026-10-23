@@ -56,7 +56,7 @@ export function JdStep({
         out what matters.
       </p>
       <p className="mt-1 text-xs font-medium leading-snug text-ink-soft">
-        No job description? Skip this and set your preferences below.
+        No job description? Use Rank by priorities instead.
       </p>
       <textarea
         id="jd-text"
