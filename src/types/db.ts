@@ -399,6 +399,9 @@ export interface HiringManager {
   exception_decided_by: string | null
   /** The admin's note, shown to the requester. */
   exception_note: string | null
+  /** Demo data (018): the role switcher's managers and referees of demo
+   *  profiles. Removed by supabase/purge_demo.sql. */
+  is_demo: boolean
   created_at: string
 }
 

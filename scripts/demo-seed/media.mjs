@@ -1,12 +1,16 @@
 // Demo media for the step 5 re-seed (docs/MavenScout-profiles-membership.md
 // §13 step 5): clearly labelled, with no real person's voice or likeness.
 //
-//   node scripts/demo-seed/media.mjs            generate into node_modules/.cache/demo-media
-//   node scripts/demo-seed/media.mjs --upload   generate, then upload to Storage
+//   node scripts/demo-seed/media.mjs                     generate into node_modules/.cache/demo-media
+//   node scripts/demo-seed/media.mjs --upload            generate, then upload to Storage
+//   node scripts/demo-seed/media.mjs --clean [--yes]     list (with --yes, delete) leftover uploads
+//                                                        in demo profiles' folders (test recordings)
+//   node scripts/demo-seed/media.mjs --remove-demo [--yes]  list (with --yes, delete) the demo/ clips,
+//                                                        before purge_demo.sql
 //
-// Needs ffmpeg. --upload reads .env (VITE_SUPABASE_URL / _ANON_KEY) and uses
-// the dev storage policies (anon upload, 000_schema.sql). Behind a proxy, run
-// with NODE_USE_ENV_PROXY=1.
+// Needs ffmpeg to generate. The Storage options read .env (VITE_SUPABASE_URL /
+// _ANON_KEY) and use the dev storage policies (anon upload and delete,
+// 000_schema.sql). Behind a proxy, run with NODE_USE_ENV_PROXY=1.
 //
 //   audio-testimonials/demo/testimonial-1..6.m4a
 //     No speech: a soft synthetic tone bed with a chime at the start and end,
@@ -18,7 +22,7 @@
 //     "DEMO ANSWER" banner and a waveform of the same kind of tone bed, 20 s,
 //     720×1280 H.264. Every Featured demo profile shares these five.
 //
-// 018_reseed_demo.sql points audio_path / video_path at these paths, and
+// 018_reseed_demo_*.sql points audio_path / video_path at these paths, and
 // purge_demo.sql says to clear the two demo/ folders.
 
 import { execFileSync } from 'node:child_process'
@@ -96,13 +100,17 @@ function videoClip({ name, seconds }, index) {
   return out
 }
 
-const files = [
-  ...AUDIO_CLIPS.map((c) => ({ bucket: 'audio-testimonials', path: `demo/${c.name}`, file: audioClip(c), type: 'audio/mp4' })),
-  ...VIDEO_CLIPS.map((c, i) => ({ bucket: 'videos', path: `demo/${c.name}`, file: videoClip(c, i), type: 'video/mp4' })),
-]
+const args = new Set(process.argv.slice(2))
+const storageOnly = (args.has('--clean') || args.has('--remove-demo')) && !args.has('--upload')
+const files = storageOnly
+  ? []
+  : [
+      ...AUDIO_CLIPS.map((c) => ({ bucket: 'audio-testimonials', path: `demo/${c.name}`, file: audioClip(c), type: 'audio/mp4' })),
+      ...VIDEO_CLIPS.map((c, i) => ({ bucket: 'videos', path: `demo/${c.name}`, file: videoClip(c, i), type: 'video/mp4' })),
+    ]
 for (const f of files) console.log(`${f.bucket}/${f.path}  ${(readFileSync(f.file).length / 1024).toFixed(0)} KB`)
 
-if (process.argv.includes('--upload')) {
+async function storage() {
   const { createClient } = await import('@supabase/supabase-js')
   const env = Object.fromEntries(
     readFileSync(join(root, '.env'), 'utf8').split('\n')
@@ -110,10 +118,43 @@ if (process.argv.includes('--upload')) {
       .filter(Boolean)
       .map((m) => [m[1], m[2].replace(/^['"]|['"]$/g, '')]),
   )
-  const db = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY)
+  return createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY)
+}
+
+async function list(db, bucket, folder) {
+  const { data, error } = await db.storage.from(bucket).list(folder, { limit: 1000 })
+  if (error) throw new Error(`${bucket}/${folder}: ${error.message}`)
+  return (data ?? []).filter((o) => o.id).map((o) => `${folder}/${o.name}`)
+}
+
+// Lists the objects, and deletes them only with --yes.
+async function remove(db, bucket, paths) {
+  for (const p of paths) console.log(`${args.has('--yes') ? 'deleting' : 'would delete'} ${bucket}/${p}`)
+  if (!args.has('--yes') || !paths.length) return
+  const { error } = await db.storage.from(bucket).remove(paths)
+  if (error) throw new Error(`${bucket}: ${error.message}`)
+}
+
+if (args.has('--upload')) {
+  const db = await storage()
   for (const f of files) {
     const { error } = await db.storage.from(f.bucket).upload(f.path, readFileSync(f.file), { contentType: f.type, upsert: true })
     if (error) throw new Error(`${f.bucket}/${f.path}: ${error.message}`)
     console.log(`uploaded ${f.bucket}/${f.path}`)
   }
+}
+
+if (args.has('--clean')) {
+  // Uploads live at <profileId>/<file>: everything in a demo profile's folder
+  // is a test upload (the re-seed points only at demo/).
+  const db = await storage()
+  const { data, error } = await db.from('profiles').select('id').eq('is_demo', true)
+  if (error) throw new Error(`profiles: ${error.message}`)
+  for (const bucket of ['audio-testimonials', 'videos'])
+    for (const { id } of data) await remove(db, bucket, await list(db, bucket, id))
+}
+
+if (args.has('--remove-demo')) {
+  const db = await storage()
+  for (const bucket of ['audio-testimonials', 'videos']) await remove(db, bucket, await list(db, bucket, 'demo'))
 }

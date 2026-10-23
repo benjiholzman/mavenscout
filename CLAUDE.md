@@ -22,7 +22,7 @@ Two ready-to-run SQL files provide all seed data. Create tables matching the PRD
 1. `001_seed_taxonomy.sql` — domain expertise + technical skills taxonomy (two-tier), work arrangements, and the 5 Premium Video Q&A standard questions.
 2. `002_seed_profiles.sql` — 15 realistic consultant/firm profiles (individuals + firms, mix of Standard/Premium) with full portfolio items (project name, role, description, results, links, captioned carousel images), plus intro videos for a few.
 
-These predate the profiles/membership spec (two-list taxonomy, firms, Standard/Premium, intro videos). The existing demo data stays as-is until that spec's §13 step 5, which re-seeds it once, at the end of that work (individuals only, testimonials on employer entries); until then, don't hand-edit these files or the seeded rows.
+These predate the profiles/membership spec (two-list taxonomy, firms, Standard/Premium, intro videos) and are kept as history; don't edit them. That spec's §13 step 5 re-seed is done: the demo data is now `scripts/demo-seed/profiles/*.mjs`, built by `npm run demo:build` into `supabase/018_reseed_demo_*.sql` (see `docs/DEVELOPER-HANDOFF.md`, *Demo data*). Change demo profiles there, not in the SQL or by hand in the database.
 
 Location stays the existing free-text field on `profiles` for now; structured locations (country + city via Mapbox, UN M49 sub-regions) and the map view come after the Loop8 handoff. Built now, in profiles-membership §13 step 1: the canonical organizations table (§8), a canonical language list with Fluent/Working proficiency, and the unified expertise list with tiers (§6).
 

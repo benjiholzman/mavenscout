@@ -1,5 +1,5 @@
 {
-  "_about": "Ranking baseline expectations for the five sample ToRs. `requirements` are the exact grid rows a sensible hiring manager would set (app Requirement shape; levels: slight = Nice to have, strong = Important, must = Required; expertise rows name items of the unified list, profiles-membership §6; language rows carry `min`: working = Working or above, fluent = Fluent only). `expected_top` should land in the top 10 (ideally top 5). `expected_extraction` is what a good extractor should suggest from the JD. `checks` are deliberate test cases; `tier_order` and `fluent_only` score in-memory variants of one profile (Core / Strong / Working on one item; the Required language at Working). `ablate` lists rows to drop as a what-if (the report shows the top 10 with and without them). Read by scripts/ranking-baseline.ts. While firm listings are hidden (FIRMS_ENABLED = false, profiles-membership §1) the pool is individuals only: firm profiles, tor-05's Type row (and its what-if) and the firm-only checks (Kivi wrong-location fit, the Lagune/Plateau tie pair) were removed from this file; the step 5 re-seed brings individual test cases for them.",
+  "_about": "Ranking baseline expectations for the five sample ToRs. `requirements` are the exact grid rows a sensible hiring manager would set (app Requirement shape; levels: slight = Nice to have, strong = Important, must = Required; expertise rows name items of the unified list, profiles-membership §6; language rows carry `min`: working = Working or above, fluent = Fluent only). `expected_top` should land in the top 10 (ideally top 5). `expected_extraction` is what a good extractor should suggest from the JD. `checks` are deliberate test cases; `tier_order` and `fluent_only` score in-memory variants of one profile (Core / Strong / Working on one item; the Required language at Working). `ablate` lists rows to drop as a what-if (the report shows the top 10 with and without them). Read by scripts/ranking-baseline.ts. While firm listings are hidden (FIRMS_ENABLED = false, profiles-membership §1) the pool is individuals only: firm profiles, tor-05's Type row and its what-if are out of this file, and the step 5 re-seed (supabase/018) restored tor-05's firm-only cases with six individuals: two more expected top profiles, a wrong-location strong fit (Montréal), a tie pair and an untagged-evidence case.",
   "tors": [
     {
       "id": "tor-01",
@@ -138,7 +138,9 @@
         { "id": "location", "kind": "location", "level": "slight", "source": "manual", "value": { "values": ["Senegal", "Côte d'Ivoire"] } }
       ],
       "expected_top": [
-        { "handle": "demo-cheikh-tidiane-sarr", "why": "Dakar e-procurement architect: Digital Governance and Public Procurement specialist, fluent French, in Senegal." }
+        { "handle": "demo-cheikh-tidiane-sarr", "why": "Dakar e-procurement architect: Digital Governance and Public Procurement specialist, fluent French, in Senegal." },
+        { "handle": "demo-aminata-kone-traore", "why": "Abidjan; led Côte d'Ivoire's national e-procurement roll-out at the procurement directorate, now a World Bank e-procurement specialist." },
+        { "handle": "demo-ousmane-ndiaye-fall", "why": "Dakar govtech product lead: e-tendering and e-evaluation modules of Senegal's platform, change management with procurement officers." }
       ],
       "expected_extraction": {
         "expertise": ["Digital Governance", "Public Procurement", "Anti-Corruption", "Information Systems", "Software Development", "Cybersecurity", "Change Management", "Capacity Building"],
@@ -146,7 +148,10 @@
         "languages": ["French", "English"]
       },
       "checks": [
+        { "type": "wrong_location_strong_fit", "handle": "demo-claire-mbarga-lefevre", "expect": "top10", "why": "Location is only Nice to have; Montréal-based, French-speaking e-procurement systems adviser for Francophone Africa." },
         { "type": "right_location_wrong_fit", "handle": "demo-ndeye-astou-faye", "expect": "not_top10", "why": "Dakar, French and Wolof, but a gender/GBV specialist." },
+        { "type": "tie_pair", "handle": "demo-yao-kouassi-nguessan", "other": "demo-serge-kouame-ndri", "expect": "adjacent_fresher_first", "why": "Identical evidence, tags and languages; Yao updated availability 5 days ago, Serge 48." },
+        { "type": "untagged_text_evidence", "handle": "demo-mariam-coulibaly-sanogo", "expect": "top10", "why": "Treasury systems specialist who connected budget controls to the e-procurement platform and supplier tax clearance, but tags only public finance items." },
         { "type": "tier_order", "handle": "demo-cheikh-tidiane-sarr", "item": "Digital Governance", "expect": "core_above_strong_above_working", "why": "Same profile with Digital Governance (an Important row) as Core, Strong and Working knowledge: the higher tier must score higher." }
       ]
     }

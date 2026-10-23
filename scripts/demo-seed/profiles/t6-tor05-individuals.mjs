@@ -94,8 +94,8 @@ export default [
     bio: `Aminata Koné-Traoré led the roll-out of Côte d'Ivoire's national e-procurement platform, first as head of the e-procurement unit at the Direction des Marchés Publics and now as an e-procurement specialist for the World Bank. She has written functional requirements for e-tendering, e-evaluation and e-contract management, overseen the vendor that built the platform, and designed the change management programme that moved more than 1,200 procurement officers and 6,000 suppliers from paper to online tenders. She works closely with treasury and tax teams on interoperability, and with integrity bodies on open contracting data. Before government she spent four years in KPMG's public sector advisory practice in Abidjan. She trains national trainers, works in French and English, and has supported procurement reforms in Senegal, Guinea and Togo.`,
     tiers: {
       core: ['Public Procurement', 'Digital Governance', 'Change Management'],
-      strong: ['Information Systems', 'Anti-Corruption', 'Capacity Building', 'Project Management', 'Stakeholder Engagement'],
-      working: ['Public Financial Management', 'Cybersecurity', 'Workshop Facilitation', 'Grants & Contract Management'],
+      strong: ['Grants & Contract Management', 'Anti-Corruption', 'Capacity Building', 'Project Management', 'Stakeholder Engagement'],
+      working: ['Information Systems', 'Public Financial Management', 'Cybersecurity', 'Workshop Facilitation'],
     },
     accreditations: [['CIPS Level 6 Diploma in Procurement and Supply', 'Chartered Institute of Procurement & Supply', 2016, null], ['PMP', 'Project Management Institute', 2014, null]],
     history: [

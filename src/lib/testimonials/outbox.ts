@@ -37,7 +37,7 @@ export async function sendMockEmail(testimonialId: string, email: MockEmail): Pr
 
 /** True when the testimonial belongs to an is_demo profile, or when that
  *  can't be established. */
-async function isDemoTestimonial(testimonialId: string): Promise<boolean> {
+export async function isDemoTestimonial(testimonialId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from('audio_testimonials')
     .select('profile:profiles(is_demo)')

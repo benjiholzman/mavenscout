@@ -582,7 +582,7 @@ function childrenSql(p: any): string {
     out.push(
       `INSERT INTO video_responses (id, profile_id, kind, question_id, video_url, video_path, transcript, duration_seconds) VALUES\n` +
         p.videos
-          .map((v: any) => `  ('${v.id}', '${p.id}', 'question', (SELECT id FROM interview_questions WHERE sort_order = ${v.question} AND active), NULL, ${q(v.video_path)}, ${q(v.transcript)}, ${v.duration_seconds})`)
+          .map((v: any) => `  ('${v.id}', '${p.id}', 'question', (SELECT id FROM interview_questions WHERE sort_order = ${v.question} AND active ORDER BY id LIMIT 1), NULL, ${q(v.video_path)}, ${q(v.transcript)}, ${v.duration_seconds})`)
           .join(',\n') +
         ';',
     )

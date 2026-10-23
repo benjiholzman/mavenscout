@@ -12,7 +12,7 @@ RLS notes) — the PRD defines *what* was intended; this defines *where the seam
 |---|---|
 | Stack | React 18 + TypeScript + Vite, Tailwind 3, Framer Motion, React Router 6, Supabase (Postgres + Storage) |
 | Run | `npm install && npm run dev` — needs `.env` with `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (see `.env.example`). `npm run dev:lan` serves HTTPS on the local network (self-signed certificate) for testing on a phone: browsers allow the microphone and `crypto.subtle` only on secure origins |
-| Database | `supabase/000_schema.sql` → `001` → `002` → `003` → `004` → `005` → `006` → `007_seed_demo_profiles_1` … `_4` → `008` → `009` → `010` → `011`, run in order in the Supabase SQL editor; then `012` once the `data-foundations` branch is merged (never before: it drops what older code reads); then `013`; `014` once the `profiles-membership` branch is merged; then `015`. 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data; 004 fills portfolio organization/years and work-history logo links on the seeded rows; 005 adds the match-rework columns (`job_descriptions.requirements/extracted`; `match_results.rank/band/fit_score/adjustments/adjustments_capped/must_haves_passed`) and deletes pre-rework rankings; 006 adds `profiles.is_demo` (flags the original 15 and normalizes their country names); the four 007 files add 100 synthetic `demo-*` profiles (generated — see *Demo data* below); 008 adds `match_results.scoring` for the preference-weighted total and deletes rankings scored under the old additive formula; 009 adds the canonical `organizations` list (200 seeded) and `portfolio_items.organization_id`; 010 adds the canonical `languages` list and `profiles.spoken_languages` (Fluent/Working), backfilled at Fluent, plus logo fixes for four organizations; 011 adds the unified expertise list (140 items in 15 groups, each with a kind, aliases and the old names it absorbs) and `profiles.tiered_expertise`, filled by `ms_migrate_expertise`. 009–011 are additive (old columns and taxonomies untouched); 012 re-migrates any stragglers, then drops `profiles.languages/expertise/skills`, the old taxonomies and the migration helpers. 013 adds portfolio video links, the single portfolio image list and `profiles.submitted_at`; 014 removes `portfolio_items.cover_image` and the intro and portfolio video rows. 015 (additive) adds the testimonial flow: a stable `id` on every `work_history` entry, the request, referee, code and lifecycle columns on `audio_testimonials`, the `testimonial_events` audit table, `profiles.email` and `profiles.testimonial_grace_until`, and `hiring_managers.email` / `updates_opt_in`. A fresh project bootstraps from these files. An existing database only needs the migrations it hasn't run — 004 and 005 use `ADD COLUMN IF NOT EXISTS`, so they're no-ops on fresh projects, where 000 already creates the columns. |
+| Database | `supabase/000_schema.sql` → `001` → `002` → `003` → `004` → `005` → `006` → `007_seed_demo_profiles_1` … `_4` → `008` → `009` → `010` → `011`, run in order in the Supabase SQL editor; then `012` once the `data-foundations` branch is merged (never before: it drops what older code reads); then `013`; `014` once the `profiles-membership` branch is merged; then `015`, `016`; `017` once the `verification` branch is merged; then the demo re-seed `018_reseed_demo_0` → `_4`. 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data; 004 fills portfolio organization/years and work-history logo links on the seeded rows; 005 adds the match-rework columns (`job_descriptions.requirements/extracted`; `match_results.rank/band/fit_score/adjustments/adjustments_capped/must_haves_passed`) and deletes pre-rework rankings; 006 adds `profiles.is_demo` (flags the original 15 and normalizes their country names); the four 007 files add 100 synthetic `demo-*` profiles (generated — see *Demo data* below); 008 adds `match_results.scoring` for the preference-weighted total and deletes rankings scored under the old additive formula; 009 adds the canonical `organizations` list (200 seeded) and `portfolio_items.organization_id`; 010 adds the canonical `languages` list and `profiles.spoken_languages` (Fluent/Working), backfilled at Fluent, plus logo fixes for four organizations; 011 adds the unified expertise list (140 items in 15 groups, each with a kind, aliases and the old names it absorbs) and `profiles.tiered_expertise`, filled by `ms_migrate_expertise`. 009–011 are additive (old columns and taxonomies untouched); 012 re-migrates any stragglers, then drops `profiles.languages/expertise/skills`, the old taxonomies and the migration helpers. 013 adds portfolio video links, the single portfolio image list and `profiles.submitted_at`; 014 removes `portfolio_items.cover_image` and the intro and portfolio video rows. 015 (additive) adds the testimonial flow: a stable `id` on every `work_history` entry, the request, referee, code and lifecycle columns on `audio_testimonials`, the `testimonial_events` audit table, `profiles.email` and `profiles.testimonial_grace_until`, and `hiring_managers.email` / `updates_opt_in`. 016 adds hiring-manager sign-up and the `verification_checks` audit table; 017 drops `profiles.verification_status`. 018 is the step 5 demo re-seed (see *Demo data* below): part 0 adds `hiring_managers.is_demo`, parts 1–4 are generated. A fresh project bootstraps from these files. An existing database only needs the migrations it hasn't run — 004 and 005 use `ADD COLUMN IF NOT EXISTS`, so they're no-ops on fresh projects, where 000 already creates the columns. |
 | Verification baseline | Every PRD Definition-of-Done item (Section 13) was verified in-browser at desktop and 375px before handoff. The Playwright scripts lived in a temp scratchpad and are **not** committed — if you want a regression suite, the DoD checklist is the spec to automate against. The match rework's acceptance criteria (`docs/MavenScout-match-rework.md` §10) were verified the same way at desktop (1280px) and 375px in October 2026, plus scripted checks of the filter-bar ↔ requirements round-trip (22 filter combinations matched the pre-rework directory except the intended career-level change), the scoring math, and the displayed rounding (20,000 random cases, re-run for the preference-weighted total); those scripts are not committed either. |
 
 ## What is mocked vs. real (the load-bearing distinction)
@@ -351,14 +351,37 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
 
 - Fixed demo UUIDs (`aaaaaaaa-…`, `bbbbbbbb-…`, `cccccccc-…`) come from
   `003_seed_demo_accounts.sql` and are referenced in `session.tsx`.
-- The four seeded intro videos (YouTube placeholder URLs) are no longer shown — the
-  intro video is removed for everyone — and `014_cleanup_profiles_membership.sql`
-  deletes them. Amara Diallo additionally
-  has: a test-PDF résumé, one published legacy audio testimonial with a placeholder
-  tone clip ("Jean-Baptiste Kouassi", on a portfolio item, made before the referee
-  flow and shown as a legacy reference), a submitted async video response (YouTube URL), and the
-  Sahel opening holds a persisted full-pool AI ranking. All are safe to replace/delete;
-  they exist so every feature demos without setup.
+- **The demo data is the step 5 re-seed** (profiles-membership §13 step 5):
+  `supabase/018_reseed_demo_0.sql` → `_1` … `_4`, run after 017. Part 0 adds
+  `hiring_managers.is_demo`, flags the demo managers and removes a test account;
+  parts 1–4 are generated by `npm run demo:build` from
+  `scripts/demo-seed/profiles/*.mjs` (edit those, never the SQL). The build validates
+  every profile with the app's own rules before writing anything: completeness
+  (bio, 3 Core / 5 Strong / ≤10 Working, languages, portfolio per level, the employer
+  testimonial), verification labels, testimonial confirmation lines and referee email
+  rules, Featured status and the listing rule. A baseline guard keeps each profile's
+  role in `docs/samples/expectations.json` (no ToR item added as a tag to an existing
+  profile, Required languages stay Fluent, tie pairs identical). The parts are
+  idempotent: they upsert the profiles on id and replace their portfolio items,
+  testimonials, Video Q&As and verification rows with fixed ids.
+- **What it contains:** 98 listed individuals (the 92 that existed, ids and handles
+  kept, plus six for tor-05), all `is_demo`. 24 are Featured Members with all five
+  Video Q&A answers; every profile has a published testimonial on an employer entry
+  (Featured: several, some on portfolio items) from a fictional referee at a real
+  organization's domain, gender-matched randomuser.me photos (never repeated), and
+  verification checks so labels show. Demo states for admin: four certifications
+  Pending check (credential ID, in the queue), two with link-only evidence awaiting
+  review, one profile in a re-check window (a new 2026 employer not yet checked). The
+  23 firm profiles are untouched (hidden, `FIRMS_ENABLED = false`).
+- **Demo media** (`scripts/demo-seed/media.mjs`, ffmpeg): six speech-free tone clips
+  for testimonials (`audio-testimonials/demo/`) and five Video Q&A title cards marked
+  "DEMO ANSWER — no real person" (`videos/demo/`), shared by every demo row; no real
+  person's voice or likeness. `--upload` puts them in Storage; `--clean` lists (with
+  `--yes`, deletes) leftover test uploads in demo profiles' folders. Transcripts are
+  fictional and labelled "[Demo testimonial…]" / "[Demo answer]".
+- **Demo email is never sent** — see the hardening checklist: demo referees have
+  made-up addresses at real organization domains. Demo consultants' own emails use
+  the reserved `example.org`.
 - **The Sahel ranking is not in the seed files** — the app created it, and
   `005_match_rework.sql` and `008_score_normalization.sql` each delete rankings
   scored under an older formula. To re-create it (or on a
@@ -372,43 +395,19 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   that manager's previous unsaved ones, so they don't accumulate; an old ad-hoc URL
   then shows "This ranking is no longer available". With real auth, scope that
   delete to the signed-in manager (it already filters by `hiring_manager_id`).
-- The owner plans to upload licensed stock clips for videos (PRD Decisions table).
-- **The seed files predate the data foundations.** 002 and the 007 files still
-  write `languages`, `expertise` and `skills` in the old shapes, and the generator
-  (`scripts/demo-seed/build.mjs`) still validates against the old two taxonomies in
-  `001` (including its "generalist" category-tag profiles). 010 and 011 migrate
-  that data on load; the one-time re-seed in profiles-membership §13 step 5
-  rewrites the seeds in the new model (individuals only, tiered tags, linked
-  organizations) and should then update `000_schema.sql` to drop the old columns.
-- The Sahel ranking above was saved before the unified expertise list; it opens
-  through the read-time translation (its 5 `skill` rows show as expertise rows) and
-  its stored scores display as scored. Re-run it to score under the new list.
-- **Demo data and the new minimums.** 84 of the 92 listed individuals miss a
-  profile minimum (Strong tag count, portfolio not exactly 3, Core tag count). They
-  stay listed and editable (edits can't make a section worse) and see the gaps in the
-  editor's completeness panel. No profile has Video Q&A answers yet, so no one has
-  Featured status until the re-seed adds them. The step 5 re-seed fixes both.
-- **Testimonial test data.** The `testimonials` branch was tested on the live demo
-  database: Amara Diallo has a removed request (Dr. Amina Bello, replaced) and a
-  withdrawn testimonial (Grace Mwangi), so her profile shows the "none published"
-  gap; Dr. Priya Nair has a recorded, unpublished testimonial (Dr. Lena Okafor,
-  recorded on a phone); and one hiring-manager row (Dr. Amina Bello) exists from the referee
-  thank-you screen. All are safe to delete; the step 5 re-seed replaces them.
-- **After 014** the seed files and `scripts/demo-seed` no longer match the schema
-  (they write `cover_image` and intro videos); the step 5 re-seed rewrites them.
-- **Synthetic demo profiles (`is_demo`).** `007_seed_demo_profiles_{1..4}.sql` add 100
-  fictional profiles (handles `demo-*`): 80 individuals, 20 firms, spread across UN M49
-  sub-regions, 30 with `is_premium` (Featured chosen) and `verified`, some with stale availability. They are generated —
-  edit `scripts/demo-seed/data/*.mjs` and run `node scripts/demo-seed/build.mjs` (it
-  validates taxonomy names, tag caps, canonical countries/languages in
-  `scripts/demo-seed/vocab.mjs`, and coverage). Re-running a 007 file is idempotent.
-  Locations follow "City, Country" with the common English country names in
-  `vocab.mjs`; languages use standard English names.
-- **Purging demo data:** `supabase/purge_demo.sql` (`DELETE FROM profiles WHERE
-  is_demo`) removes the 100 synthetic profiles *and* the original 15 — including
-  `amara-diallo`, the role switcher's demo consultant — and cascades to their
-  portfolio, media rows, opening entries and match results. Run it only when real
-  profiles replace the demo set.
+- **Fresh projects:** `000_schema.sql` has the current shape, so the pre-spec seeds
+  (`002`, the four `007` files, `scripts/demo-seed/build-007.mjs`, frozen) no longer
+  load on it. They are kept as history. A fresh project needs the demo profiles
+  created before 003's openings and 018 can run; until a fresh-install seed exists,
+  copy the demo rows from an existing project.
+- **Purging demo data:** `supabase/purge_demo.sql` deletes every `is_demo` hiring
+  manager (cascading their openings, notes, shares, reviewer grants and rankings) and
+  every `is_demo` profile (cascading portfolio, media rows, testimonials and their
+  audit trail, verification rows, opening entries and match results). That includes
+  `amara-diallo` and the `aaaaaaaa-…` managers behind the dev role switcher, which then
+  has no rows to act as. Clear Storage first with
+  `node scripts/demo-seed/media.mjs --clean --remove-demo --yes`. Run it only when real
+  profiles and accounts replace the demo set.
 
 ## Known deliberate non-goals (don't "fix" these)
 

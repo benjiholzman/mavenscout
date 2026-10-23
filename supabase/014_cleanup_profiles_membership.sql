@@ -12,7 +12,7 @@
 --
 -- Seed files: 002_seed_profiles.sql, the 007 demo seeds and
 -- scripts/demo-seed write cover_image and intro videos. They predate this
--- spec and are replaced by the step 5 re-seed; don't re-run them after 014.
+-- spec and are replaced by the step 5 re-seed (018_reseed_demo_*.sql); don't re-run them after 014.
 --
 -- Storage: SQL can't delete Storage objects. Before running, list any
 -- uploaded intro / portfolio videos and remove those files from the 'videos'

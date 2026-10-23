@@ -13,7 +13,7 @@
 -- were never checks, so they don't become labels.
 --
 -- Seed files: 002_seed_profiles.sql and the 007 demo seeds write the column.
--- They predate this spec and are replaced by the step 5 re-seed; don't re-run
+-- They predate this spec and are replaced by the step 5 re-seed (018); don't re-run
 -- them after 017.
 --
 -- Safe to re-run (IF EXISTS).
