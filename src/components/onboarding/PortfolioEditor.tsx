@@ -83,8 +83,6 @@ export function PortfolioEditor({
         profile_id: profileId,
         sort_order: i + 1,
         video_url: item.video_url?.trim() || null,
-        // Kept in step with the image list until 014 drops the column.
-        cover_image: item.images[0]?.url ?? null,
       }
       const { error } = item.id
         ? await supabase.from('portfolio_items').update(row).eq('id', item.id)
@@ -327,7 +325,6 @@ export function PortfolioEditor({
                 role: '',
                 description: '',
                 results: null,
-                cover_image: null,
                 images: [],
                 links: [],
                 video_url: null,

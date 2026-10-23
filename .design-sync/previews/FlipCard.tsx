@@ -1,5 +1,5 @@
 import { FlipCard } from 'mavenscout'
-import type { Profile, PortfolioItem, VideoResponse } from '../../src/types/db'
+import type { Profile, PortfolioItem } from '../../src/types/db'
 
 // Realistic data lifted from this repo's own seed set
 // (supabase/002_seed_profiles.sql) — not invented placeholders.
@@ -39,6 +39,8 @@ function baseProfile(overrides: Partial<Profile>): Profile {
     custom_domain: null,
     subscription_status: 'active',
     approval_status: 'approved',
+    submitted_at: '2026-01-01T00:00:00Z',
+    is_demo: false,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -84,6 +86,7 @@ const amara = baseProfile({
     },
   ],
   is_premium: true,
+  video_qnas_complete: true, // Featured status: every Video Q&A answered
   verification_status: 'verified',
 })
 
@@ -96,24 +99,18 @@ const amaraPortfolio: PortfolioItem[] = [
     description:
       'Designed a comprehensive performance monitoring plan with 42 indicators aligned to USAID CDCS priorities.',
     results: 'Framework adopted as the program’s system of record; 42 indicators tracked quarterly across 6 districts.',
-    cover_image: 'https://picsum.photos/seed/amara-portfolio-1/600/400',
-    images: [{ url: 'https://picsum.photos/seed/amara-portfolio-1-img1/900/600', caption: 'Baseline enumeration in Ashanti region' }],
+    organization: 'USAID',
+    start_year: 2022,
+    end_year: 2023,
+    images: [
+      { url: 'https://picsum.photos/seed/amara-portfolio-1/600/400', caption: null },
+      { url: 'https://picsum.photos/seed/amara-portfolio-1-img1/900/600', caption: 'Baseline enumeration in Ashanti region' },
+    ],
+    video_url: null,
     links: [{ label: 'Program page (USAID)', url: 'https://www.usaid.gov/ghana' }],
     sort_order: 1,
   },
 ]
-
-const amaraIntro: VideoResponse = {
-  id: 'v1',
-  profile_id: amara.id,
-  kind: 'intro',
-  question_id: null,
-  portfolio_item_id: null,
-  video_url: null,
-  video_path: 'intro.mp4',
-  transcript: null,
-  duration_seconds: 62,
-}
 
 const ifeoma = baseProfile({
   id: '27a9dee9-67c0-4867-9922-8746254e504a',
@@ -160,8 +157,14 @@ const ifeomaPortfolio: PortfolioItem[] = [
     role: 'Value Chain Lead',
     description: 'Designed market linkage models connecting 12,000 smallholder rice farmers to agro-processors and export buyers.',
     results: 'Value-chain program linked 12,000+ smallholders to structured off-take arrangements.',
-    cover_image: 'https://picsum.photos/seed/ifeoma-portfolio-1/600/400',
-    images: [{ url: 'https://picsum.photos/seed/ifeoma-portfolio-1-img1/900/600', caption: 'Smallholder rice cooperative, Nigeria' }],
+    organization: 'IFAD',
+    start_year: 2019,
+    end_year: null,
+    images: [
+      { url: 'https://picsum.photos/seed/ifeoma-portfolio-1/600/400', caption: null },
+      { url: 'https://picsum.photos/seed/ifeoma-portfolio-1-img1/900/600', caption: 'Smallholder rice cooperative, Nigeria' },
+    ],
+    video_url: null,
     links: [{ label: 'IFAD', url: 'https://www.ifad.org/' }],
     sort_order: 1,
   },
@@ -200,7 +203,7 @@ const rohan = baseProfile({
 export function Default() {
   return (
     <div className="w-[320px]">
-      <FlipCard profile={amara} portfolio={amaraPortfolio} intro={amaraIntro} audioCount={2} onFavorite={() => {}} onTopPick={() => {}} />
+      <FlipCard profile={amara} portfolio={amaraPortfolio} audioCount={2} onFavorite={() => {}} onTopPick={() => {}} />
     </div>
   )
 }
@@ -208,7 +211,7 @@ export function Default() {
 export function Firm() {
   return (
     <div className="w-[320px]">
-      <FlipCard profile={ifeoma} portfolio={ifeomaPortfolio} intro={null} audioCount={0} onFavorite={() => {}} onTopPick={() => {}} />
+      <FlipCard profile={ifeoma} portfolio={ifeomaPortfolio} audioCount={0} onFavorite={() => {}} onTopPick={() => {}} />
     </div>
   )
 }
@@ -216,7 +219,7 @@ export function Firm() {
 export function MinimalUnverified() {
   return (
     <div className="w-[320px]">
-      <FlipCard profile={rohan} portfolio={[]} intro={null} audioCount={0} onFavorite={() => {}} onTopPick={() => {}} />
+      <FlipCard profile={rohan} portfolio={[]} audioCount={0} onFavorite={() => {}} onTopPick={() => {}} />
     </div>
   )
 }

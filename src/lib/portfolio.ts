@@ -6,14 +6,11 @@ import type { PortfolioItem } from '../types/db'
 // optional results, up to 3 captioned images (the first is the cover), up to
 // 3 labelled links and one YouTube/Vimeo video link.
 
-type ItemImages = Pick<PortfolioItem, 'images' | 'cover_image'>
+type ItemImages = Pick<PortfolioItem, 'images'>
 
-/** The images shown: the first 3, cover first. Falls back to cover_image for
- *  an item saved by code from before 013 with no image list (014 drops it). */
+/** The images shown: the first 3, cover first. */
 export function portfolioImages(item: ItemImages): { url: string; caption?: string | null }[] {
-  const images = item.images.filter((i) => i.url.trim() !== '')
-  if (images.length === 0 && item.cover_image) return [{ url: item.cover_image, caption: null }]
-  return images.slice(0, PORTFOLIO_FIELD_LIMITS.images)
+  return item.images.filter((i) => i.url.trim() !== '').slice(0, PORTFOLIO_FIELD_LIMITS.images)
 }
 
 export function portfolioCover(item: ItemImages): string | null {

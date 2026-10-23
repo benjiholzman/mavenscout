@@ -30,7 +30,10 @@ function toEmbedUrl(raw: string): string | null {
   }
 }
 
-export function resolveVideo(video: VideoResponse): PlayableVideo | null {
+/** The fields a player needs: Video Q&A answers and opening video requests. */
+export type VideoSource = Pick<VideoResponse, 'video_url' | 'video_path'>
+
+export function resolveVideo(video: VideoSource): PlayableVideo | null {
   if (video.video_path) {
     const { data } = supabase.storage.from('videos').getPublicUrl(video.video_path)
     return { kind: 'file', src: data.publicUrl }

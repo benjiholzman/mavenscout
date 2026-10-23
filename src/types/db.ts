@@ -191,9 +191,6 @@ export interface PortfolioItem {
   role: string
   description: string
   results: string | null
-  /** LEGACY: the cover is images[0] (013). Kept in step on save until 014
-   *  drops it; read only through lib/portfolio's fallback. */
-  cover_image: string | null
   /** Up to 3, the first is the cover (spec §7.2). */
   images: { url: string; caption?: string | null }[]
   links: { label: string; url: string }[]
@@ -220,12 +217,9 @@ export interface InterviewQuestion {
 export interface VideoResponse {
   id: string
   profile_id: string
-  /** Only 'question' is written now (Video Q&As, profiles-membership §5).
-   *  'intro' (removed for everyone) and 'portfolio' (replaced by
-   *  portfolio_items.video_url) are legacy rows that 014 deletes. */
-  kind: 'intro' | 'question' | 'portfolio'
+  /** Video Q&A answers only (profiles-membership §5; 014). */
+  kind: 'question'
   question_id: string | null
-  portfolio_item_id: string | null
   video_url: string | null
   video_path: string | null
   transcript: string | null
