@@ -1,9 +1,11 @@
-import { Check, Clock, Copy, Mail, MessageCircle, Mic, Share2, Sparkles } from 'lucide-react'
+import { AlertTriangle, Check, Clock, Copy, Mail, MessageCircle, Mic, RefreshCw, Share2, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { loadOrgIndex } from '../../lib/organizations'
 import { membershipLimits } from '../../lib/membership'
 import { firstName } from '../../lib/names'
 import { supabase } from '../../lib/supabase'
+import { fmtDate } from '../../lib/dates'
+import { canRemove, publishTestimonial, removeTestimonial } from '../../lib/testimonials/lifecycle'
 import { PRECHECK_IS_PLACEHOLDER } from '../../lib/testimonials/precheck'
 import {
   cancelRequest,
@@ -14,10 +16,13 @@ import {
 } from '../../lib/testimonials/requests'
 import { holdsLink } from '../../lib/testimonials/integrity'
 import {
+  canReplace,
   isActive,
   isLegacy,
+  isRequired,
   periodLabel,
   PROGRESS_STAGES,
+  replacementTargets,
   requestBlock,
   rowTargetKey,
   STAGE_LABELS,
@@ -30,7 +35,8 @@ import type { AudioTestimonial, PortfolioItem, Profile, TestimonialRelationship 
 import { Modal } from '../ui/Modal'
 import { OrgPicker } from '../ui/OrgPicker'
 import { Segmented } from '../ui/Segmented'
-import { audioPublicUrl } from '../../lib/media'
+import { StreamingAudio } from '../media/AudioPlayer'
+import { TranscriptDisclosure } from '../media/VideoPlayer'
 import { FieldRow, TextArea, TextField } from './fields'
 
 // Audio testimonials in the editor (docs/MavenScout-profiles-membership.md
@@ -44,6 +50,7 @@ export function TestimonialsSection({
   rows,
   reload,
   portfolioCount,
+  onProfileChanged,
 }: {
   /** The SAVED profile: requests attach to saved employer entries. */
   profile: Profile
@@ -51,9 +58,11 @@ export function TestimonialsSection({
   reload: () => void
   /** Changes when portfolio items are added or removed, to refetch them. */
   portfolioCount: number
+  /** Publishing can end a withdrawal grace period on the profile row. */
+  onProfileChanged: (patch: Partial<Profile>) => void
 }) {
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([])
-  const [requesting, setRequesting] = useState<TestimonialTarget | null>(null)
+  const [requesting, setRequesting] = useState<{ target: TestimonialTarget; replaces?: AudioTestimonial } | null>(null)
   const limits = membershipLimits(profile).testimonials
 
   useEffect(() => {
@@ -92,6 +101,18 @@ export function TestimonialsSection({
         You send the link yourself; your referee confirms it's them with a code sent to their work email.
       </p>
 
+      {profile.testimonial_grace_until && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3.5 text-sm text-red-900" role="alert">
+          <p className="flex items-center gap-1.5 font-semibold">
+            <AlertTriangle size={15} /> Replace your required testimonial by {fmtDate(profile.testimonial_grace_until)}
+          </p>
+          <p className="mt-0.5 text-xs text-red-900/80">
+            Your referee withdrew it. Publish a new testimonial on an employer entry by then, or your profile
+            is unlisted until you do.
+          </p>
+        </div>
+      )}
+
       {employers.length === 0 && (
         <p className="rounded-lg bg-paper px-3.5 py-3 text-sm text-ink-faint">
           Save at least one employer in Work history first. Testimonials attach to an employer entry.
@@ -107,8 +128,10 @@ export function TestimonialsSection({
             target={target}
             title={title}
             sub={sub}
-            onRequest={() => setRequesting(target)}
+            onRequest={() => setRequesting({ target })}
+            onReplace={(t) => setRequesting({ target, replaces: t })}
             reload={reload}
+            onProfileChanged={onProfileChanged}
           />
         ))}
       </ul>
@@ -138,9 +161,7 @@ export function TestimonialsSection({
                     {[t.reference_title, t.reference_org].filter(Boolean).join(', ')}
                   </span>
                 </p>
-                {t.audio_path && (
-                  <audio controls controlsList="nodownload" preload="metadata" src={audioPublicUrl(t.audio_path)} className="mt-2 w-full" />
-                )}
+                <StreamingAudio t={t} className="mt-2" />
               </li>
             ))}
           </ul>
@@ -157,7 +178,9 @@ export function TestimonialsSection({
       {requesting && (
         <RequestModal
           profile={profile}
-          target={requesting}
+          rows={rows}
+          target={requesting.target}
+          replaces={requesting.replaces}
           onClose={() => setRequesting(null)}
           onCreated={() => {
             setRequesting(null)
@@ -178,7 +201,9 @@ function EntryRow({
   title,
   sub,
   onRequest,
+  onReplace,
   reload,
+  onProfileChanged,
 }: {
   profile: Profile
   rows: AudioTestimonial[]
@@ -186,13 +211,25 @@ function EntryRow({
   title: string
   sub: string
   onRequest: () => void
+  onReplace: (t: AudioTestimonial) => void
   reload: () => void
+  onProfileChanged: (patch: Partial<Profile>) => void
 }) {
   const key = targetKey(target)
   const mine = rows.filter((t) => rowTargetKey(t) === key)
-  const active = mine.find(isActive) ?? null
-  const lastEnded = !active ? mine[0] ?? null : null
-  const block = active ? null : requestBlock(target, profile, rows)
+  const active = mine.filter(isActive)
+  // A published one stays primary while its replacement is under way here.
+  const published = active.find((t) => testimonialStage(t) === 'published') ?? null
+  const primary = published ?? active[0] ?? null
+  const replacement = published ? rows.find((r) => r.replaces_id === published.id && isActive(r)) ?? null : null
+  const replacementHere = replacement && rowTargetKey(replacement) === key ? replacement : null
+  const lastEnded = !primary ? mine.find((t) => !isActive(t)) ?? null : null
+  const block = primary ? null : requestBlock(target, profile, rows)
+  const about = target.kind === 'employer' ? target.entry.organization : target.item.project_name
+  const statusProps = { profile, rows, about, reload, onReplace, onProfileChanged }
+  const replacedEntry = replacement && !replacementHere
+    ? profile.work_history.find((w) => w.id === replacement.work_history_entry_id)?.organization
+    : null
 
   return (
     <li className="rounded-xl border border-line bg-white p-3.5 sm:p-4">
@@ -201,11 +238,27 @@ function EntryRow({
           <p className="text-sm font-semibold">{title}</p>
           {sub && <p className="text-xs text-ink-faint">{sub}</p>}
         </div>
-        {active && <StageChip stage={testimonialStage(active)} />}
+        {primary && <StageChip stage={testimonialStage(primary)} />}
       </div>
 
-      {active ? (
-        <RequestStatus profile={profile} t={active} about={target.kind === 'employer' ? target.entry.organization : target.item.project_name} reload={reload} />
+      {primary ? (
+        <>
+          <RequestStatus t={primary} {...statusProps} />
+          {replacement && !replacementHere && (
+            <p className="mt-2 text-xs text-ink-faint">
+              Being replaced by your request to {replacement.reference_name}
+              {replacedEntry ? ` (${replacedEntry})` : ''}. This one stays live until that one is published.
+            </p>
+          )}
+          {replacementHere && (
+            <div className="mt-4 border-t border-line pt-3">
+              <p className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                Replacement <StageChip stage={testimonialStage(replacementHere)} />
+              </p>
+              <RequestStatus t={replacementHere} {...statusProps} />
+            </div>
+          )}
+        </>
       ) : block === 'upgrade' ? (
         <p className="mt-3 rounded-lg border border-gold-300 bg-paper px-3 py-2 text-xs text-ink-soft">
           <Sparkles size={12} className="mr-1 inline text-gold-500" />
@@ -219,6 +272,11 @@ function EntryRow({
           {lastEnded && testimonialStage(lastEnded) === 'rejected' && (
             <p className="mb-2 text-xs text-ink-faint">
               Your request to {lastEnded.reference_name} wasn't approved after review. You can ask someone else.
+            </p>
+          )}
+          {lastEnded && testimonialStage(lastEnded) === 'withdrawn' && (
+            <p className="mb-2 text-xs text-ink-faint">
+              {lastEnded.reference_name} withdrew their testimonial on {fmtDate(lastEnded.withdrawn_at!)}.
             </p>
           )}
           <button
@@ -267,14 +325,20 @@ function Progress({ stage }: { stage: TestimonialStage }) {
 
 function RequestStatus({
   profile,
+  rows,
   t,
   about,
   reload,
+  onReplace,
+  onProfileChanged,
 }: {
   profile: Profile
+  rows: AudioTestimonial[]
   t: AudioTestimonial
   about: string
   reload: () => void
+  onReplace: (t: AudioTestimonial) => void
+  onProfileChanged: (patch: Partial<Profile>) => void
 }) {
   const stage = testimonialStage(t)
   const referee = (
@@ -328,9 +392,16 @@ function RequestStatus({
       <div>
         {referee}
         <Progress stage={stage} />
-        {t.audio_path && (
-          <audio controls controlsList="nodownload" preload="metadata" src={audioPublicUrl(t.audio_path)} className="mt-3 w-full" />
-        )}
+        <StreamingAudio t={t} className="mt-3" />
+        <TranscriptDisclosure transcript={t.transcript} />
+        <PublishedActions
+          t={t}
+          profile={profile}
+          rows={rows}
+          reload={reload}
+          onReplace={onReplace}
+          onProfileChanged={onProfileChanged}
+        />
       </div>
     )
 
@@ -341,6 +412,94 @@ function RequestStatus({
       <Progress stage={stage} />
       {t.submission_token && <SendLink profile={profile} t={t} about={about} />}
       <div className="mt-2">{cancel}</div>
+    </div>
+  )
+}
+
+/** Publish, decline, remove or replace (§4.4–4.5). */
+function PublishedActions({
+  t,
+  profile,
+  rows,
+  reload,
+  onReplace,
+  onProfileChanged,
+}: {
+  t: AudioTestimonial
+  profile: Profile
+  rows: AudioTestimonial[]
+  reload: () => void
+  onReplace: (t: AudioTestimonial) => void
+  onProfileChanged: (patch: Partial<Profile>) => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await fn()
+      reload()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const stage = testimonialStage(t)
+  const required = isRequired(t, profile, rows)
+  const replacesName = t.replaces_id ? rows.find((r) => r.id === t.replaces_id)?.reference_name : null
+  const btn = 'flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-medium disabled:opacity-50'
+
+  return (
+    <div className="mt-3">
+      {stage === 'recorded' && (
+        <p className="mb-2 text-xs text-ink-soft">
+          Recorded {t.submitted_at && fmtDate(t.submitted_at)}. Listen, then publish it to your profile.
+          {replacesName && ` Publishing replaces your testimonial from ${replacesName}.`}
+        </p>
+      )}
+      {stage === 'published' && t.published_at && (
+        <p className="mb-2 text-xs text-ink-faint">
+          Published {fmtDate(t.published_at)}
+          {required && ' · your required testimonial: it can be replaced, not removed'}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {stage === 'recorded' && (
+          <button
+            disabled={busy}
+            onClick={() =>
+              run(async () => {
+                await publishTestimonial(t)
+                if (t.work_history_entry_id && profile.testimonial_grace_until) onProfileChanged({ testimonial_grace_until: null })
+              })
+            }
+            className={`${btn} bg-brand-500 text-white hover:bg-brand-600`}
+          >
+            <Check size={13} /> Publish
+          </button>
+        )}
+        {stage === 'published' && canReplace(t, profile, rows) && (
+          <button disabled={busy} onClick={() => onReplace(t)} className={`${btn} border border-line text-ink-soft hover:border-brand-400`}>
+            <RefreshCw size={13} /> Replace
+          </button>
+        )}
+        {canRemove(t, profile, rows) && (
+          <button
+            disabled={busy}
+            onClick={() => {
+              const what = stage === 'recorded' ? "Don't publish this testimonial?" : 'Remove this testimonial from your profile?'
+              if (window.confirm(`${what} The recording is deleted; ${t.reference_name} isn't notified.`))
+                run(() => removeTestimonial(t, 'consultant'))
+            }}
+            className={`${btn} text-ink-faint hover:text-red-600`}
+          >
+            <Trash2 size={13} /> {stage === 'recorded' ? "Don't publish" : 'Remove'}
+          </button>
+        )}
+      </div>
+      {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
     </div>
   )
 }
@@ -400,17 +559,22 @@ function SendLink({ profile, t, about }: { profile: Profile; t: AudioTestimonial
 
 function RequestModal({
   profile,
-  target,
+  rows,
+  target: initialTarget,
   replaces = null,
   onClose,
   onCreated,
 }: {
   profile: Profile
+  rows: AudioTestimonial[]
   target: TestimonialTarget
   replaces?: AudioTestimonial | null
   onClose: () => void
   onCreated: () => void
 }) {
+  // A replacement can go on the same employer entry or any free one.
+  const choices = replaces ? replacementTargets(replaces, profile, rows) : []
+  const [target, setTarget] = useState<TestimonialTarget>(initialTarget)
   const span = target.kind === 'employer' ? target.entry : target.item
   const [d, setD] = useState<RequestDetails>({
     name: '',
@@ -440,10 +604,39 @@ function RequestModal({
   return (
     <Modal open onClose={onClose} title={replaces ? 'Replace your testimonial' : 'Request audio testimonial'} wide fullScreenMobile>
       <div className="space-y-3.5">
-        <p className="text-sm text-ink-soft">
-          For <strong>{about}</strong>. Ask someone who supervised or contracted you there. These details
-          pre-fill their page; they can correct anything before recording.
-        </p>
+        {replaces ? (
+          <>
+            <p className="text-sm text-ink-soft">
+              Your testimonial from {replaces.reference_name} stays live until the new one is published.
+            </p>
+            <label className="block text-sm">
+              <span className="font-medium">Employer entry</span>
+              <select
+                value={target.kind === 'employer' ? target.entry.id : ''}
+                onChange={(e) => {
+                  const entry = choices.find((w) => w.id === e.target.value)
+                  if (entry) {
+                    setTarget({ kind: 'employer', entry })
+                    setD((d) => ({ ...d, periodStart: entry.start_year || null, periodEnd: entry.end_year ?? null }))
+                  }
+                }}
+                className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+              >
+                {choices.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.organization}
+                    {w.role ? ` · ${w.role}` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        ) : (
+          <p className="text-sm text-ink-soft">
+            For <strong>{about}</strong>. Ask someone who supervised or contracted you there. These details
+            pre-fill their page; they can correct anything before recording.
+          </p>
+        )}
         <FieldRow>
           <TextField label="Referee's name" value={d.name} onChange={(v) => setD({ ...d, name: v })} placeholder="Dr. Amina Bello" />
           <TextField label="Their current job title" value={d.title} onChange={(v) => setD({ ...d, title: v })} placeholder="Lead Economist" />

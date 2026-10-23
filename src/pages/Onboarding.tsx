@@ -1,3 +1,4 @@
+import { Mic } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AccreditationsEditor } from '../components/onboarding/AccreditationsEditor'
@@ -184,6 +185,22 @@ export default function Onboarding() {
       <div className="mt-6">
         <CompletenessPanel gaps={gaps} listed={isListedProfile(profile)} />
       </div>
+
+      {/* New testimonials to listen to and publish (spec §4.4; email mocked). */}
+      {testimonials.rows
+        .filter((t) => testimonialStage(t) === 'recorded')
+        .map((t) => (
+          <a
+            key={t.id}
+            href="#testimonials"
+            className="mt-4 flex items-center gap-2 rounded-card border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-ink-soft hover:border-brand-400"
+          >
+            <Mic size={16} className="shrink-0 text-brand-600" />
+            <span>
+              <strong className="text-ink">New testimonial from {t.reference_name}.</strong> Listen and publish it.
+            </span>
+          </a>
+        ))}
 
       {/* Async video requests from hiring orgs surface here (7.17 — email stubbed). */}
       <div className="mt-6">
@@ -539,6 +556,10 @@ export default function Onboarding() {
               rows={testimonials.rows}
               reload={testimonials.reload}
               portfolioCount={portfolioCount}
+              onProfileChanged={(patch) => {
+                setProfile((p) => (p ? { ...p, ...patch } : p))
+                setDraft((d) => (d ? { ...d, ...patch } : d))
+              }}
             />
           </EditorSection>
 

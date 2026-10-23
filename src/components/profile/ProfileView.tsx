@@ -1,5 +1,5 @@
-import { Bookmark, Download, ExternalLink, Globe, Mail, MapPin, Star } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Bookmark, Download, ExternalLink, Globe, Lock, Mail, MapPin, Mic, Star } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
 import type { ProfileData } from '../../hooks/useProfile'
 import { fmtPortfolioMeta } from '../../lib/dates'
 import { resumeDownloadUrl, videoLinkEmbed } from '../../lib/media'
@@ -7,7 +7,7 @@ import { portfolioImages } from '../../lib/portfolio'
 import { useSession } from '../../lib/session'
 import { platformIcon } from '../../lib/socials'
 import { visibilityFor, type Surface } from '../../lib/visibility'
-import type { PortfolioItem, Profile } from '../../types/db'
+import type { AudioTestimonial, PortfolioItem, Profile } from '../../types/db'
 import { TestimonialCard } from '../media/AudioPlayer'
 import { VideoPlayer } from '../media/VideoPlayer'
 import { useSaveCandidate } from '../openings/SaveCandidateFlow'
@@ -23,7 +23,9 @@ import { useOrganizations } from '../../hooks/useOrganizations'
 import { expertiseTags } from '../../lib/expertise'
 import { isFeatured } from '../../lib/membership'
 import { formatLanguages, spokenLanguages } from '../../lib/languages'
-import { entryLogoUrl, orgAcronym, resolveOrganization } from '../../lib/organizations'
+import { entryLogoUrl, orgAcronym, resolveOrganization, type OrgIndex } from '../../lib/organizations'
+import { summaryLine, visibleTestimonials } from '../../lib/testimonials/display'
+import { emailDomain } from '../../lib/testimonials/integrity'
 import { OrgLogo } from '../ui/OrgLogo'
 import { TagPills } from '../ui/TagPills'
 import { ContactModal } from './ContactModal'
@@ -35,9 +37,13 @@ import { ContactModal } from './ContactModal'
 type TabId = 'overview' | 'experience' | 'portfolio' | 'videos' | 'audio'
 
 export function ProfileView({ data, surface }: { data: ProfileData; surface: Surface }) {
-  const { profile, testimonials, questions } = data
+  const { profile, questions } = data
   const { isLoggedIn } = useSession()
   const rules = visibilityFor(surface, isLoggedIn)
+  const orgs = useOrganizations()
+  // What this profile shows (a Member shows one); published rows only.
+  const testimonials = useMemo(() => visibleTestimonials(profile, data.testimonials), [profile, data.testimonials])
+  const shared = { profile, orgs, testimonials, rules }
 
   const [tab, setTab] = useState<TabId>('overview')
   const [contactOpen, setContactOpen] = useState(false)
@@ -172,9 +178,9 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
         </div>
 
         <div className="py-8">
-          {tab === 'overview' && <OverviewTab data={data} rules={rules} />}
-          {tab === 'experience' && <ExperienceTab profile={profile} isFirm={isFirm} />}
-          {tab === 'portfolio' && <PortfolioTab data={data} rules={rules} />}
+          {tab === 'overview' && <OverviewTab data={data} rules={rules} shared={shared} onOpenExperience={() => setTab('experience')} />}
+          {tab === 'experience' && <ExperienceTab isFirm={isFirm} shared={shared} />}
+          {tab === 'portfolio' && <PortfolioTab data={data} shared={shared} />}
           {tab === 'videos' && hasVideoTab && <VideosTab data={data} rules={rules} questions={questions} />}
           {tab === 'audio' && (
             <div className="space-y-4">
@@ -183,7 +189,7 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
               ) : testimonials.length === 0 ? (
                 <p className="text-sm text-ink-faint">No audio testimonials yet.</p>
               ) : (
-                testimonials.map((t) => <TestimonialCard key={t.id} testimonial={t} />)
+                testimonials.map((t) => <TestimonialCard key={t.id} testimonial={t} profile={profile} orgs={orgs} />)
               )}
             </div>
           )}
@@ -198,17 +204,41 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
 
 // ---------------------------------------------------------------------------
 
+/** Shared by the tabs that show testimonials inline. */
+interface Shared {
+  profile: Profile
+  orgs: OrgIndex
+  /** Published and shown (visibleTestimonials). */
+  testimonials: AudioTestimonial[]
+  rules: ReturnType<typeof visibilityFor>
+}
+
 function OverviewTab({
   data,
   rules,
+  shared,
+  onOpenExperience,
 }: {
   data: ProfileData
   rules: ReturnType<typeof visibilityFor>
+  shared: Shared
+  onOpenExperience: () => void
 }) {
   const { profile } = data
+  // One-line summary (§4.4): a teaser on /profile even logged out; none on /site.
+  const summary = rules.audioTestimonials !== 'hidden' ? summaryLine(shared.testimonials, shared.orgs) : null
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr,300px]">
       <div className="space-y-8">
+        {summary && (
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-brand-50 px-3.5 py-2.5 text-sm text-ink-soft">
+            <Mic size={15} className="shrink-0 text-brand-600" />
+            <span className="font-medium text-ink">{summary}</span>
+            <button onClick={onOpenExperience} className="font-medium text-brand-600 hover:text-brand-700">
+              {rules.audioTestimonials === 'shown' ? 'Listen' : 'Sign up free to listen'}
+            </button>
+          </p>
+        )}
         {profile.detailed_bio && (
           <section>
             <h2 className="mb-2 text-lg font-semibold">Professional summary</h2>
@@ -362,6 +392,7 @@ function TimelineEntry({
   subtitle,
   years,
   description,
+  children,
 }: {
   logo?: string | null
   acronym?: string | null
@@ -369,6 +400,8 @@ function TimelineEntry({
   subtitle: string
   years: string
   description?: string | null
+  /** Inline audio testimonials (§4.4). */
+  children?: ReactNode
 }) {
   return (
     <li className="flex gap-3.5">
@@ -386,6 +419,7 @@ function TimelineEntry({
         {description && (
           <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">{description}</p>
         )}
+        {children}
       </div>
     </li>
   )
@@ -395,8 +429,8 @@ function yearsLabel(start: number, end: number | null): string {
   return `${start} – ${end ?? 'Present'}`
 }
 
-function ExperienceTab({ profile, isFirm }: { profile: Profile; isFirm: boolean }) {
-  const orgs = useOrganizations()
+function ExperienceTab({ isFirm, shared }: { isFirm: boolean; shared: Shared }) {
+  const { profile, orgs } = shared
   return (
     <div className="max-w-3xl space-y-10">
       {/* Work History + Education are individual-only (PRD 7.19). */}
@@ -413,7 +447,12 @@ function ExperienceTab({ profile, isFirm }: { profile: Profile; isFirm: boolean 
                 subtitle={w.organization}
                 years={yearsLabel(w.start_year, w.end_year)}
                 description={w.description}
-              />
+              >
+                <InlineTestimonials
+                  shared={shared}
+                  rows={shared.testimonials.filter((t) => !!w.id && t.work_history_entry_id === w.id)}
+                />
+              </TimelineEntry>
             ))}
           </ul>
         </section>
@@ -459,14 +498,8 @@ function ExperienceTab({ profile, isFirm }: { profile: Profile; isFirm: boolean 
 
 // ---------------------------------------------------------------------------
 
-function PortfolioTab({
-  data,
-  rules,
-}: {
-  data: ProfileData
-  rules: ReturnType<typeof visibilityFor>
-}) {
-  const { portfolio, testimonials } = data
+function PortfolioTab({ data, shared }: { data: ProfileData; shared: Shared }) {
+  const { portfolio } = data
   if (portfolio.length === 0)
     return <p className="text-sm text-ink-faint">No portfolio items yet.</p>
   return (
@@ -475,8 +508,8 @@ function PortfolioTab({
         <PortfolioCard
           key={item.id}
           item={item}
-          attachedAudio={testimonials.filter((t) => t.portfolio_item_id === item.id)}
-          rules={rules}
+          attachedAudio={shared.testimonials.filter((t) => t.portfolio_item_id === item.id)}
+          shared={shared}
         />
       ))}
     </div>
@@ -486,11 +519,11 @@ function PortfolioTab({
 function PortfolioCard({
   item,
   attachedAudio,
-  rules,
+  shared,
 }: {
   item: PortfolioItem
-  attachedAudio: ProfileData['testimonials']
-  rules: ReturnType<typeof visibilityFor>
+  attachedAudio: AudioTestimonial[]
+  shared: Shared
 }) {
   const images = portfolioImages(item)
   const meta = fmtPortfolioMeta(item)
@@ -541,25 +574,7 @@ function PortfolioCard({
         )}
         {/* Portfolio-attached testimonials follow the testimonial visibility
             rules — stripped on /site, gated for anonymous platform browsers. */}
-        {attachedAudio.length > 0 && rules.audioTestimonials === 'shown' && (
-          <div className="mt-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
-              Client reference for this project
-            </p>
-            {attachedAudio.map((t) => (
-              <TestimonialCard key={t.id} testimonial={t} />
-            ))}
-          </div>
-        )}
-        {attachedAudio.length > 0 && rules.audioTestimonials === 'gated' && (
-          <p className="mt-4 rounded-lg bg-paper px-3 py-2 text-xs text-ink-faint">
-            This project has a client reference —{' '}
-            <a href="/signup" className="font-medium text-brand-600">
-              create a free account
-            </a>{' '}
-            to view.
-          </p>
-        )}
+        <InlineTestimonials shared={shared} rows={attachedAudio} heading="Testimonial for this project" />
       </div>
     </article>
   )
@@ -602,6 +617,41 @@ function VideosTab({
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+
+/** Testimonials under an employer entry or portfolio item (§4.4): shown to
+ *  signed-in hiring managers, a sign-up prompt for anonymous browsers, and
+ *  nothing on the public site. */
+function InlineTestimonials({ shared, rows, heading }: { shared: Shared; rows: AudioTestimonial[]; heading?: string }) {
+  const { rules, profile, orgs } = shared
+  if (rows.length === 0 || rules.audioTestimonials === 'hidden') return null
+  if (rules.audioTestimonials === 'gated')
+    return (
+      <p className="mt-3 flex items-start gap-2 rounded-lg bg-paper px-3 py-2.5 text-xs text-ink-soft">
+        <Lock size={13} className="mt-0.5 shrink-0 text-brand-500" />
+        <span>
+          {rows.map((t) => {
+            const domain = t.referee_email ? emailDomain(t.referee_email) : null
+            const who = t.relationship === 'client' ? 'a client' : t.relationship === 'supervisor' ? 'a supervisor' : 'a reference'
+            return domain ? `Audio testimonial from ${who}, confirmed via ${domain} email. ` : `Audio testimonial from ${who}. `
+          })}
+          <a href="/signup" className="font-medium text-brand-600">
+            Create a free account
+          </a>{' '}
+          to listen.
+        </span>
+      </p>
+    )
+  return (
+    <div className="mt-3 space-y-3">
+      {heading && <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">{heading}</p>}
+      {rows.map((t) => (
+        <TestimonialCard key={t.id} testimonial={t} profile={profile} orgs={orgs} />
+      ))}
     </div>
   )
 }

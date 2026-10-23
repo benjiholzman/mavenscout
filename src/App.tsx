@@ -16,6 +16,7 @@ import Signup from './pages/Signup'
 import SitePage from './pages/SitePage'
 import TestimonialInfo from './pages/TestimonialInfo'
 import TestimonialSubmit from './pages/TestimonialSubmit'
+import TestimonialWithdraw from './pages/TestimonialWithdraw'
 
 export default function App() {
   return (
@@ -43,8 +44,10 @@ export default function App() {
 
         {/* Standalone surfaces — no platform chrome:
             /site/:handle is the consultant's public website (PRD 7.2a);
-            /testimonial/:token is the reference-facing submission page (PRD 7.6). */}
+            /testimonial/:token is the referee's recording page and
+            /testimonial/withdraw/:token their withdraw link (spec §4.3–4.5). */}
         <Route path="/site/:handle" element={<SitePage />} />
+        <Route path="/testimonial/withdraw/:token" element={<TestimonialWithdraw />} />
         <Route path="/testimonial/:token" element={<TestimonialSubmit />} />
       </Routes>
     </BrowserRouter>

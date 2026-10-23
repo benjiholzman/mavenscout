@@ -1,18 +1,21 @@
-import { Check, ChevronDown, Inbox, Trash2, X } from 'lucide-react'
+import { Check, ChevronDown, Inbox, Mail, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { fmtDate } from '../../lib/dates'
-import { audioPublicUrl } from '../../lib/media'
 import { supabase } from '../../lib/supabase'
 import { holdsLink } from '../../lib/testimonials/integrity'
+import { removeTestimonial } from '../../lib/testimonials/lifecycle'
 import { clearHeldRequest, rejectHeldRequest } from '../../lib/testimonials/requests'
 import { isActive, periodLabel, STAGE_LABELS, testimonialStage } from '../../lib/testimonials/rules'
 import type { AudioTestimonial, Profile, TestimonialEvent } from '../../types/db'
+import { StreamingAudio } from '../media/AudioPlayer'
 
 // Testimonials (docs/MavenScout-profiles-membership.md §4.2, §4.6; PRD 7.10):
 // - Held for review: requests with a pre-check or integrity flag wait here
 //   before their link exists. Clear creates the link; Reject ends the request.
 // - Flagged: active testimonials with a non-blocking flag (referee volume).
-// - All: every testimonial with its audit trail, and takedown.
+// - All: every testimonial with its audit trail, and takedown (deletes the
+//   recording, keeps the audit record).
+// - Mock outbox (dev): the emails this build doesn't send, with their links.
 
 type Row = AudioTestimonial & { profile: Pick<Profile, 'id' | 'name' | 'handle' | 'work_history'> | null }
 
@@ -74,6 +77,8 @@ export function Moderation() {
           </div>
         </section>
       )}
+
+      <MockOutbox />
 
       <section>
         <h2 className="text-lg font-semibold">All testimonials ({all.length})</h2>
@@ -194,7 +199,9 @@ function TestimonialCardAdmin({ t, onChanged }: { t: Row; onChanged: () => void 
         {t.status !== 'removed' && (
           <button
             onClick={async () => {
-              await supabase.from('audio_testimonials').update({ status: 'removed' }).eq('id', t.id)
+              const note = window.prompt('Take down this testimonial? The recording is deleted; the audit record stays.\n\nReason (for the audit trail):')
+              if (note === null) return
+              await removeTestimonial(t, 'admin', note)
               onChanged()
             }}
             className="flex items-center gap-1 rounded-full border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
@@ -204,9 +211,7 @@ function TestimonialCardAdmin({ t, onChanged }: { t: Row; onChanged: () => void 
         )}
       </div>
       <Flags t={t} />
-      {t.audio_path && (
-        <audio controls controlsList="nodownload" preload="metadata" src={audioPublicUrl(t.audio_path)} className="mt-2 w-full" />
-      )}
+      <StreamingAudio t={t} className="mt-2" />
       <AuditTrail id={t.id} />
     </div>
   )
@@ -259,5 +264,49 @@ function AuditTrail({ id }: { id: string }) {
         </ol>
       )}
     </div>
+  )
+}
+
+/** The emails this build only pretends to send (lib/testimonials/outbox),
+ *  newest first, so the withdraw link and notices can be followed in a demo. */
+function MockOutbox() {
+  const [mails, setMails] = useState<TestimonialEvent[] | null>(null)
+  useEffect(() => {
+    supabase
+      .from('testimonial_events')
+      .select('*')
+      .eq('event', 'email_mocked')
+      .order('created_at', { ascending: false })
+      .limit(30)
+      .then(({ data }) => setMails((data as TestimonialEvent[]) ?? []))
+  }, [])
+  if (!mails?.length) return null
+  return (
+    <section>
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <Mail size={18} /> Mock outbox
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900">dev only</span>
+      </h2>
+      <p className="mt-0.5 text-sm text-ink-faint">Email isn't sent in this build. These are the messages that would have gone out.</p>
+      <ul className="mt-4 space-y-2">
+        {mails.map((m) => {
+          const d = m.detail as { to?: string; subject?: string; body?: string; link?: string }
+          return (
+            <li key={m.id} className="rounded-lg border border-line bg-white p-3 text-sm">
+              <p className="font-medium">{d.subject}</p>
+              <p className="text-xs text-ink-faint">
+                To {d.to} · {new Date(m.created_at).toLocaleString()}
+              </p>
+              <p className="mt-1 text-ink-soft">{d.body}</p>
+              {d.link && (
+                <a href={d.link} className="mt-1 inline-block break-all text-xs font-medium text-brand-600">
+                  {d.link}
+                </a>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }

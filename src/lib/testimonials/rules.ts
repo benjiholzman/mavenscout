@@ -137,3 +137,8 @@ export function periodLabel(start: number | null, end: number | null): string | 
   if (end === start) return String(start)
   return `${start}–${end ?? 'present'}`
 }
+
+/** Grace period lapsed: the profile is unlisted until a replacement is live. */
+export function graceLapsed(profile: Pick<Profile, 'testimonial_grace_until'>, now = new Date()): boolean {
+  return !!profile.testimonial_grace_until && Date.parse(profile.testimonial_grace_until) < now.getTime()
+}

@@ -215,6 +215,15 @@ export async function submitRecording(
     original_format: file.type || file.name,
     via: recordedSeconds !== null ? 'in-browser recording' : 'uploaded file',
   })
+  // The consultant listens and publishes (§4.4).
+  const { data: owner } = await supabase.from('profiles').select('name,email').eq('id', t.profile_id).maybeSingle()
+  await sendMockEmail(t.id, {
+    kind: 'consultant_new_testimonial',
+    to: (owner as { email: string | null } | null)?.email ?? '(no account email on file)',
+    subject: `${t.reference_name} recorded your testimonial`,
+    body: `${t.reference_name} recorded an audio testimonial for you. Listen to it and publish it from your profile editor.`,
+    link: `${window.location.origin}/onboarding#testimonials`,
+  })
   return { t: next, duration: up.duration, audio: portable.file }
 }
 
