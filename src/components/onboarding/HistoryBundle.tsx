@@ -9,6 +9,7 @@ import {
   WorkHistoryEditor,
   type EntryTestimonialStatus,
 } from './HistoryEditors'
+import type { CheckedMark } from './CheckedNote'
 
 /** Groups the three history editors with the firm-conditional rule (PRD 7.19):
  *  firms skip Work History + Education (Portfolio is their track record). */
@@ -22,6 +23,7 @@ export function HistoryEditorsBundle({
   onEducation,
   onAdditional,
   testimonials,
+  marks,
 }: {
   isFirm: boolean
   workHistory: WorkHistoryEntry[]
@@ -33,6 +35,8 @@ export function HistoryEditorsBundle({
   onAdditional: (v: AdditionalExperienceEntry[]) => void
   /** Audio testimonial status per work-history entry id. */
   testimonials?: Record<string, EntryTestimonialStatus>
+  /** Verification labels by entry id (spec §3.1). */
+  marks?: Record<string, CheckedMark>
 }) {
   return (
     <div className="space-y-7">
@@ -41,7 +45,7 @@ export function HistoryEditorsBundle({
           <h3 className="mb-2.5 text-sm font-semibold uppercase tracking-wide text-ink-faint">
             Work history
           </h3>
-          <WorkHistoryEditor value={workHistory} onChange={onWork} cap={caps.work} testimonials={testimonials} />
+          <WorkHistoryEditor value={workHistory} onChange={onWork} cap={caps.work} testimonials={testimonials} marks={marks} />
         </div>
       )}
       {!isFirm && (
@@ -49,7 +53,7 @@ export function HistoryEditorsBundle({
           <h3 className="mb-2.5 text-sm font-semibold uppercase tracking-wide text-ink-faint">
             Education
           </h3>
-          <EducationEditor value={education} onChange={onEducation} cap={caps.education} />
+          <EducationEditor value={education} onChange={onEducation} cap={caps.education} marks={marks} />
         </div>
       )}
       <div>

@@ -1,5 +1,6 @@
 import { TESTIMONIAL_RULES } from '../config'
 import { supabase } from '../supabase'
+import { withRecheck } from '../verification/recheck'
 import type { AudioTestimonial, Profile, TestimonialActor } from '../../types/db'
 import { logEvent } from './audit'
 import { sendMockEmail } from './outbox'
@@ -16,6 +17,10 @@ import { isRequired, publishedEmployerTestimonials } from './rules'
 //   and its events as the audit record.
 // - A referee can withdraw at any time. If it was the required testimonial
 //   the consultant gets a grace period to replace it before being unlisted.
+// - A published testimonial whose referee email domain is the employer's
+//   confirms that employer (§4.4, lib/verification). Each change here goes
+//   through withRecheck, so gaining or losing that confirmation opens or
+//   clears the verification re-check window.
 
 export function withdrawUrl(token: string): string {
   return `${window.location.origin}/testimonial/withdraw/${token}`
@@ -45,7 +50,11 @@ async function takeDown(t: AudioTestimonial, patch: Partial<AudioTestimonial>): 
   if (error) throw new Error(error.message)
 }
 
-export async function publishTestimonial(t: AudioTestimonial): Promise<void> {
+export function publishTestimonial(t: AudioTestimonial): Promise<void> {
+  return withRecheck(t.profile_id, () => publish(t))
+}
+
+async function publish(t: AudioTestimonial): Promise<void> {
   const { profile, rows } = await loadOwner(t.profile_id)
   const { error } = await supabase
     .from('audio_testimonials')
@@ -82,7 +91,11 @@ export function canRemove(t: AudioTestimonial, profile: Profile, rows: AudioTest
   return t.status !== 'published' || !isRequired(t, profile, rows)
 }
 
-export async function removeTestimonial(t: AudioTestimonial, actor: Extract<TestimonialActor, 'consultant' | 'admin'>, note?: string): Promise<void> {
+export function removeTestimonial(t: AudioTestimonial, actor: Extract<TestimonialActor, 'consultant' | 'admin'>, note?: string): Promise<void> {
+  return withRecheck(t.profile_id, () => remove(t, actor, note))
+}
+
+async function remove(t: AudioTestimonial, actor: Extract<TestimonialActor, 'consultant' | 'admin'>, note?: string): Promise<void> {
   if (actor === 'consultant') {
     const { profile, rows } = await loadOwner(t.profile_id)
     if (!canRemove(t, profile, rows)) throw new Error('Your required testimonial can only be replaced, not removed.')
@@ -100,7 +113,11 @@ export async function loadByWithdrawToken(token: string): Promise<{ t: AudioTest
 }
 
 /** The referee withdraws (§4.5), optionally reporting that it wasn't them. */
-export async function withdrawTestimonial(t: AudioTestimonial, reportNotMe: boolean): Promise<void> {
+export function withdrawTestimonial(t: AudioTestimonial, reportNotMe: boolean): Promise<void> {
+  return withRecheck(t.profile_id, () => withdraw(t, reportNotMe))
+}
+
+async function withdraw(t: AudioTestimonial, reportNotMe: boolean): Promise<void> {
   const { profile, rows } = await loadOwner(t.profile_id)
   const required = t.status === 'published' && isRequired(t, profile, rows)
   const now = new Date()

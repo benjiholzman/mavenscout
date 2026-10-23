@@ -1,12 +1,14 @@
 import { Mic, Plus } from 'lucide-react'
 import { useOrganizations } from '../../hooks/useOrganizations'
 import { resolveOrganization } from '../../lib/organizations'
+import { degreeFingerprint, employerFingerprint, employerOrgFingerprint } from '../../lib/verification/items'
 import type {
   AdditionalExperienceEntry,
   EducationEntry,
   WorkHistoryEntry,
 } from '../../types/db'
 import { OrgPicker } from '../ui/OrgPicker'
+import { CheckedNote, type CheckedMark } from './CheckedNote'
 import { FieldRow, ListItemCard, TextArea, TextField } from './fields'
 import { LogoLookup } from './LogoLookup'
 
@@ -69,12 +71,15 @@ export function WorkHistoryEditor({
   onChange,
   cap,
   testimonials = {},
+  marks = {},
 }: {
   value: WorkHistoryEntry[]
   onChange: (next: WorkHistoryEntry[]) => void
   cap: number
   /** By entry id. */
   testimonials?: Record<string, EntryTestimonialStatus>
+  /** Verification labels by entry id (spec §3.1). */
+  marks?: Record<string, CheckedMark>
 }) {
   const orgs = useOrganizations()
   const update = (i: number, patch: Partial<WorkHistoryEntry>) =>
@@ -97,6 +102,13 @@ export function WorkHistoryEditor({
             <p className="flex items-center gap-1.5 text-xs text-ink-soft">
               <Mic size={12} className="text-brand-500" /> Audio testimonial: {testimonial.label}
             </p>
+          )}
+          {entry.id && marks[entry.id] && (
+            <CheckedNote
+              mark={marks[entry.id]}
+              current={marks[entry.id].viaTestimonial ? employerOrgFingerprint(entry) : employerFingerprint(entry)}
+              fields={marks[entry.id].viaTestimonial ? 'organization' : 'organization, role or years'}
+            />
           )}
           <FieldRow>
             <OrgPicker
@@ -158,17 +170,23 @@ export function EducationEditor({
   value,
   onChange,
   cap,
+  marks = {},
 }: {
   value: EducationEntry[]
   onChange: (next: EducationEntry[]) => void
   cap: number
+  /** Verification labels by entry id (spec §3.1). */
+  marks?: Record<string, CheckedMark>
 }) {
   const update = (i: number, patch: Partial<EducationEntry>) =>
     onChange(value.map((e, j) => (j === i ? { ...e, ...patch } : e)))
   return (
     <div className="space-y-3">
       {value.map((entry, i) => (
-        <ListItemCard key={i} onRemove={() => onChange(value.filter((_, j) => j !== i))}>
+        <ListItemCard key={entry.id ?? i} onRemove={() => onChange(value.filter((_, j) => j !== i))}>
+          {entry.id && (
+            <CheckedNote mark={marks[entry.id]} current={degreeFingerprint(entry)} fields="institution, degree or years" />
+          )}
           <FieldRow>
             <TextField label="Institution" value={entry.institution} onChange={(v) => update(i, { institution: v })} />
             <TextField label="Degree / course" value={entry.degree_or_course} onChange={(v) => update(i, { degree_or_course: v })} />
@@ -178,7 +196,7 @@ export function EducationEditor({
             end={entry.end_year ?? ''}
             onStart={(v) => update(i, { start_year: v || 0 })}
             onEnd={(v) => update(i, { end_year: v === '' ? null : v })}
-            endHint=""
+            endHint="Blank = ongoing. Your most recent completed degree is checked."
           />
           <TextField
             label="Logo URL (optional)"
@@ -194,7 +212,7 @@ export function EducationEditor({
         onClick={() =>
           onChange([
             ...value,
-            { institution: '', degree_or_course: '', start_year: new Date().getFullYear() - 4, end_year: null, logo_url: null },
+            { id: crypto.randomUUID(), institution: '', degree_or_course: '', start_year: new Date().getFullYear() - 4, end_year: null, logo_url: null },
           ])
         }
       />
