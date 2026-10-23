@@ -14,7 +14,9 @@ function pickMimeType(kind: 'video' | 'audio'): string {
   const candidates =
     kind === 'video'
       ? ['video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4']
-      : ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+      : // AAC in MP4 plays everywhere; WebM/Opus is converted to WAV before
+        // upload (lib/audioFormat), since older iOS Safari can't play it.
+        ['audio/mp4;codecs=mp4a.40.2', 'audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
   return candidates.find((c) => MediaRecorder.isTypeSupported(c)) ?? ''
 }
 
@@ -23,9 +25,12 @@ export function RecorderControl({
   maxSeconds,
   onRecorded,
   onCancel,
+  large = false,
 }: {
   kind: 'video' | 'audio'
   maxSeconds: number
+  /** Phone-first touch targets (the referee page). */
+  large?: boolean
   /** Called with the recorded file + its actual duration in seconds. */
   onRecorded: (file: File, durationSeconds: number) => void
   onCancel: () => void
@@ -112,6 +117,7 @@ export function RecorderControl({
     setPhase('ready')
   }
 
+  const btn = large ? 'px-5 py-3 text-sm' : 'px-4 py-1.5 text-xs'
   const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
   if (phase === 'denied')
@@ -150,7 +156,7 @@ export function RecorderControl({
           {phase === 'ready' && (
             <button
               onClick={start}
-              className="flex items-center gap-1.5 rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-red-500"
+              className={`flex items-center gap-1.5 rounded-full bg-red-600 font-semibold text-white hover:bg-red-500 ${btn}`}
             >
               <Circle size={11} fill="currentColor" /> Start recording
             </button>
@@ -158,7 +164,7 @@ export function RecorderControl({
           {phase === 'recording' && (
             <button
               onClick={stop}
-              className="flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-ink hover:bg-white/90"
+              className={`flex items-center gap-1.5 rounded-full bg-white font-semibold text-ink hover:bg-white/90 ${btn}`}
             >
               <Square size={11} fill="currentColor" /> Stop
             </button>
@@ -167,13 +173,13 @@ export function RecorderControl({
             <>
               <button
                 onClick={() => onRecorded(fileRef.current!.file, fileRef.current!.duration)}
-                className="flex items-center gap-1.5 rounded-full bg-brand-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-brand-400"
+                className={`flex items-center gap-1.5 rounded-full bg-brand-500 font-semibold text-white hover:bg-brand-400 ${btn}`}
               >
                 {kind === 'video' ? <VideoIcon size={12} /> : <Mic size={12} />} Use this recording
               </button>
               <button
                 onClick={reRecord}
-                className="flex items-center gap-1.5 rounded-full border border-white/30 px-3.5 py-1.5 text-xs font-medium text-white/80 hover:text-white"
+                className={`flex items-center gap-1.5 rounded-full border border-white/30 font-medium text-white/80 hover:text-white ${btn}`}
               >
                 <RotateCcw size={11} /> Re-record
               </button>

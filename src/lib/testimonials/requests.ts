@@ -1,4 +1,5 @@
 import { TESTIMONIAL_RULES } from '../config'
+import { firstName } from '../names'
 import type { OrgIndex } from '../organizations'
 import { supabase } from '../supabase'
 import type { AudioTestimonial, Profile, ReviewFlag, TestimonialRelationship } from '../../types/db'
@@ -174,14 +175,9 @@ export async function rejectHeldRequest(t: AudioTestimonial, note: string): Prom
   return null
 }
 
-/** "Amina" from "Dr. Amina Bello". */
-export function refereeFirstName(name: string | null): string | null {
-  return (name ?? '').trim().replace(/^((dr|prof|professor|mr|mrs|ms|mx)\.?\s+)+/i, '').split(/\s+/)[0] || null
-}
-
 /** The message the consultant sends personally (§4.2 step 3). */
 export function suggestedMessage(profile: Profile, t: AudioTestimonial, url: string, about: string): string {
-  const first = refereeFirstName(t.reference_name) ?? 'there'
+  const first = firstName(t.reference_name) ?? 'there'
   const period = periodLabel(t.period_start, t.period_end)
   return `Hi ${first},
 

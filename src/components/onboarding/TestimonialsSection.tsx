@@ -2,12 +2,12 @@ import { Check, Clock, Copy, Mail, MessageCircle, Mic, Share2, Sparkles } from '
 import { useEffect, useState } from 'react'
 import { loadOrgIndex } from '../../lib/organizations'
 import { membershipLimits } from '../../lib/membership'
+import { firstName } from '../../lib/names'
 import { supabase } from '../../lib/supabase'
 import { PRECHECK_IS_PLACEHOLDER } from '../../lib/testimonials/precheck'
 import {
   cancelRequest,
   createRequest,
-  refereeFirstName,
   requestUrl,
   suggestedMessage,
   type RequestDetails,
@@ -360,7 +360,7 @@ function SendLink({ profile, t, about }: { profile: Profile; t: AudioTestimonial
   return (
     <div className="mt-3 space-y-2.5 rounded-lg bg-paper/70 p-3">
       <p className="text-xs text-ink-soft">
-        Send this link yourself, however you usually reach {refereeFirstName(t.reference_name) ?? 'them'}. It
+        Send this link yourself, however you usually reach {firstName(t.reference_name) ?? 'them'}. It
         comes from you, not from an unknown sender.
       </p>
       <div className="flex items-center gap-1.5">
