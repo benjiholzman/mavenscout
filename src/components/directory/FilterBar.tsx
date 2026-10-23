@@ -268,12 +268,11 @@ export function FilterBar({
                 value={filters.languageLevel}
                 options={(['working', 'fluent'] as const).map((v) => ({ value: v, label: MIN_PROFICIENCY_LABELS[v] }))}
                 onChange={(v) => set('languageLevel', v)}
-                disabled={filters.languages.length === 0}
                 className="w-full"
               />
             </div>
           }
-          note={filters.languages.length === 0 ? 'Pick a language to set the level. Fluent counts as Working.' : 'Fluent counts as Working.'}
+          note="Fluent counts as Working."
           counts={openKey === 'language' ? openCounts : undefined}
           open={openKey === 'language'}
           onToggle={toggleFor('language')}
