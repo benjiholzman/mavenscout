@@ -268,14 +268,15 @@ function AuditTrail({ id }: { id: string }) {
 }
 
 /** The emails this build only pretends to send (lib/testimonials/outbox),
- *  newest first, so the withdraw link and notices can be followed in a demo. */
+ *  newest first, so the withdraw link and notices can be followed in a demo.
+ *  Emails for demo profiles are marked: they would never be sent. */
 function MockOutbox() {
   const [mails, setMails] = useState<TestimonialEvent[] | null>(null)
   useEffect(() => {
     supabase
       .from('testimonial_events')
       .select('*')
-      .eq('event', 'email_mocked')
+      .in('event', ['email_mocked', 'email_suppressed_demo'])
       .order('created_at', { ascending: false })
       .limit(30)
       .then(({ data }) => setMails((data as TestimonialEvent[]) ?? []))
@@ -293,7 +294,14 @@ function MockOutbox() {
           const d = m.detail as { to?: string; subject?: string; body?: string; link?: string }
           return (
             <li key={m.id} className="rounded-lg border border-line bg-white p-3 text-sm">
-              <p className="font-medium">{d.subject}</p>
+              <p className="font-medium">
+                {d.subject}
+                {m.event === 'email_suppressed_demo' && (
+                  <span className="ml-2 rounded-full bg-ink/5 px-2 py-0.5 text-[11px] font-semibold text-ink-soft">
+                    demo profile: never sent
+                  </span>
+                )}
+              </p>
               <p className="text-xs text-ink-faint">
                 To {d.to} · {new Date(m.created_at).toLocaleString()}
               </p>

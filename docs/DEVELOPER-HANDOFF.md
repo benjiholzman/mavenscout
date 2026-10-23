@@ -101,7 +101,7 @@ when one is added, build it from `isListed`.
 |---|---|---|
 | Auth | localStorage role switcher, no real identity | `src/lib/session.tsx`, `src/components/layout/DevRoleSwitcher.tsx` |
 | Billing | Admin-settable `subscription_status`; Subscribe disabled | `src/pages/Billing.tsx`, admin Tier tab |
-| Outbound email | ALL of it is stubbed: contact relay, async video-request notifications, "email this list" (mailto:). Testimonial emails (the referee's code, the consultant's new-testimonial and withdrawal notices, the referee's published notice with the withdraw link) are `email_mocked` events in `testimonial_events`, listed in admin's Mock outbox; the referee's code is shown on screen. Real sending needs SPF/DKIM/DMARC on the sending domain (spec §4.6 rule 9) | `ContactModal.tsx`, `lib/testimonials/outbox.ts`, `VideoRequestsPanel.tsx`, `SharePanels.tsx` |
+| Outbound email | ALL of it is stubbed: contact relay, async video-request notifications, "email this list" (mailto:). Testimonial emails (the referee's code, the consultant's new-testimonial and withdrawal notices, the referee's published notice with the withdraw link) are `email_mocked` events in `testimonial_events` (`email_suppressed_demo` for demo profiles, which must never be sent; see the hardening checklist), listed in admin's Mock outbox; the referee's code is shown on screen. Real sending needs SPF/DKIM/DMARC on the sending domain (spec §4.6 rule 9) | `ContactModal.tsx`, `lib/testimonials/outbox.ts`, `VideoRequestsPanel.tsx`, `SharePanels.tsx` |
 | Testimonial pre-check | Placeholder `precheckReferee`: checks the request against itself (full name, title, current organization = email domain's organization). The real one searches public records (spec §4.2) | `src/lib/testimonials/precheck.ts` |
 | Speech-to-text | Placeholder `transcribeAudio` returns labelled text instantly; the referee can edit it | `src/lib/testimonials/transcribe.ts` |
 | Testimonial code check | Generated, hashed and compared in the browser | `src/lib/testimonials/code.ts`, `referee.ts` |
@@ -226,6 +226,14 @@ when one is added, build it from `isListed`.
 - [ ] `/admin` — real access control (see Pass 1).
 - [ ] Contact relay (`ContactModal.tsx`) — when wiring real email, keep the PRD rule:
       candidate addresses are never exposed to the client; relay server-side.
+- [ ] **MUST KEEP — no email for demo data.** Nothing is ever sent (codes, notices,
+      withdraw links, contact relays) for a testimonial or profile with
+      `profiles.is_demo = true`. Demo referees have made-up addresses at real
+      organization domains (e.g. `k.mensah@worldbank.org`), and such an address could
+      belong to a real person. Today `sendMockEmail` (`lib/testimonials/outbox.ts`)
+      logs these as `email_suppressed_demo` and fails closed when the profile can't be
+      read. When real email is wired, enforce the same rule in the server-side sender
+      too; a client-side check alone isn't enough.
 - [ ] Grants: `000_schema.sql` ends with `GRANT ALL … TO anon` — narrow alongside RLS.
 
 ## Loop8 — swapping in the real matching engine
