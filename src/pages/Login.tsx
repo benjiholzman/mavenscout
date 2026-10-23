@@ -1,14 +1,19 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { findManagerByEmail } from '../lib/managers'
 import { resetEditorProfile, useSession } from '../lib/session'
 import { FIRMS_ENABLED } from '../lib/config'
 
 // Styled login screen backed by the MOCKED session (PRD 7.9): no real
 // password check — submitting simply activates the chosen demo identity.
+// Hiring: an email that belongs to a signed-up account (spec §9) signs in as
+// that account, so its status (code, exception request) applies; any other
+// email enters as the demo hiring manager.
 // The developer's real-auth pass swaps the submit handler for Supabase Auth.
 
 export default function Login() {
-  const { setRole } = useSession()
+  const { setRole, signInAsManager } = useSession()
+  const [email, setEmail] = useState('')
   const navigate = useNavigate()
   const [as, setAs] = useState<'hiring_manager' | 'consultant'>('hiring_manager')
 
@@ -21,11 +26,13 @@ export default function Login() {
 
       <form
         className="mt-8 space-y-4"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault()
           resetEditorProfile()
-          setRole(as)
-          navigate(as === 'consultant' ? '/onboarding' : '/')
+          const hm = as === 'hiring_manager' && email.trim() ? await findManagerByEmail(email) : null
+          if (hm) signInAsManager(hm)
+          else setRole(as)
+          navigate(as === 'consultant' ? '/onboarding' : hm && hm.account_status !== 'active' ? '/signup' : '/')
         }}
       >
         <div className="grid grid-cols-2 gap-2 rounded-full border border-line bg-white p-1 text-sm font-medium">
@@ -52,6 +59,8 @@ export default function Login() {
           <span className="font-medium">Email</span>
           <input
             type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             placeholder="you@organization.org"
             className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand-400"
           />

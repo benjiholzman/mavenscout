@@ -1,5 +1,6 @@
 import { toPortableAudio } from '../audioFormat'
 import { TESTIMONIAL_RULES } from '../config'
+import { findManagerByEmail } from '../managers'
 import { uploadAudioFile } from '../media'
 import { supabase } from '../supabase'
 import type { AudioTestimonial, PortfolioItem, Profile, TestimonialRelationship } from '../../types/db'
@@ -252,21 +253,38 @@ export async function setOptIn(t: AudioTestimonial, optIn: boolean): Promise<Aud
 }
 
 /** One-click hiring-manager account (§4.3 step 7): the institutional email
- *  is already confirmed. Sign-in itself is mocked in this build. */
+ *  is already confirmed, so the account is active at once. An existing
+ *  account with the same email is linked rather than duplicated. Sign-in
+ *  itself is mocked in this build. */
 export async function createManagerAccount(t: AudioTestimonial): Promise<AudioTestimonial> {
   if (t.referee_manager_id) return t
-  const { data, error } = await supabase
-    .from('hiring_managers')
-    .insert({
-      name: t.reference_name ?? '',
-      organization: t.reference_org,
-      email: t.referee_email,
-      updates_opt_in: t.referee_opt_in,
-    })
-    .select('id')
-    .single()
-  if (error) throw new Error(error.message)
-  const next = await update(t, { referee_manager_id: data.id })
-  await logEvent(t.id, 'manager_account_created', 'referee', { hiring_manager_id: data.id })
+  const existing = t.referee_email ? await findManagerByEmail(t.referee_email) : null
+  const confirmed = {
+    account_status: 'active' as const,
+    email_confirmed_at: t.confirmed_at ?? new Date().toISOString(),
+    organization_id: t.referee_org_id,
+  }
+  let id: string
+  if (existing) {
+    const { error } = await supabase.from('hiring_managers').update(confirmed).eq('id', existing.id)
+    if (error) throw new Error(error.message)
+    id = existing.id
+  } else {
+    const { data, error } = await supabase
+      .from('hiring_managers')
+      .insert({
+        name: t.reference_name ?? '',
+        organization: t.reference_org,
+        email: t.referee_email,
+        updates_opt_in: t.referee_opt_in,
+        ...confirmed,
+      })
+      .select('id')
+      .single()
+    if (error) throw new Error(error.message)
+    id = data.id
+  }
+  const next = await update(t, { referee_manager_id: id })
+  await logEvent(t.id, existing ? 'manager_account_linked' : 'manager_account_created', 'referee', { hiring_manager_id: id })
   return next
 }

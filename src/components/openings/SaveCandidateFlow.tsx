@@ -21,13 +21,13 @@ interface PickerContext {
 }
 
 export function useSaveCandidate() {
-  const { isLoggedIn, role } = useSession()
+  const { hasAccess, role } = useSession()
   const [gate, setGate] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [picker, setPicker] = useState<PickerContext | null>(null)
 
   const save = async (profile: Profile, tag: 'favorite' | 'top_pick') => {
-    if (!isLoggedIn || role !== 'hiring_manager') {
+    if (!hasAccess || role !== 'hiring_manager') {
       setGate(true)
       return
     }

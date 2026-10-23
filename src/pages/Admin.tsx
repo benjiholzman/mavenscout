@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ManagersAdmin } from '../components/admin/ManagersAdmin'
 import { Moderation } from '../components/admin/Moderation'
 import { OrganizationsManager } from '../components/admin/OrganizationsManager'
 import { QuestionsManager } from '../components/admin/QuestionsManager'
@@ -18,6 +19,7 @@ const TABS = [
   ['tiers', 'Tiers & subscriptions'],
   ['questions', 'Video Q&A questions'],
   ['moderation', 'Testimonials'],
+  ['managers', 'Hiring managers'],
 ] as const
 
 type TabId = (typeof TABS)[number][0]
@@ -58,6 +60,7 @@ export default function Admin() {
         {tab === 'tiers' && <TierOverview />}
         {tab === 'questions' && <QuestionsManager />}
         {tab === 'moderation' && <Moderation />}
+        {tab === 'managers' && <ManagersAdmin />}
       </div>
     </div>
   )

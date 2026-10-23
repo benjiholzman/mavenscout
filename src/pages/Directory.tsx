@@ -56,7 +56,7 @@ import { supabase } from '../lib/supabase'
 
 export default function Directory() {
   const { data, error } = useDirectoryData()
-  const { isLoggedIn, role } = useSession()
+  const { hasAccess, role } = useSession()
   const [params, setParams] = useSearchParams()
   const rankingId = params.get('ranking')
   const openingId = params.get('opening')
@@ -94,7 +94,7 @@ export default function Directory() {
   /** "About this result": the profile id whose build-up is open. */
   const [aboutId, setAboutId] = useState<string | null>(null)
 
-  const canRank = role === 'hiring_manager'
+  const canRank = role === 'hiring_manager' && hasAccess
 
   const updateParams = useCallback(
     (patch: Record<string, string | null>, opts: { push?: boolean } = {}) =>
@@ -115,10 +115,10 @@ export default function Directory() {
   /** Ranking needs a hiring account (spec §1 "Unchanged": login gating). */
   const gateRanking = useCallback((): boolean => {
     if (canRank) return true
-    if (!isLoggedIn) setGatedFeature('Ranking candidates against a job description')
+    if (!hasAccess || role === 'hiring_manager') setGatedFeature('Ranking candidates against a job description')
     else setNotice('Ranking is part of the hiring toolkit — switch to a hiring account to use it.')
     return false
-  }, [canRank, isLoggedIn])
+  }, [canRank, hasAccess, role])
 
   // ---- data ------------------------------------------------------------------
 

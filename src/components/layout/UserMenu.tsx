@@ -14,8 +14,13 @@ const IDENTITY: Record<Exclude<Role, 'logged_out'>, { name: string; initials: st
   admin: { name: 'Demo Admin', initials: 'DA' },
 }
 
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
+}
+
 export function UserMenu() {
-  const { role, setRole } = useSession()
+  const { role, setRole, manager } = useSession()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
@@ -30,7 +35,11 @@ export function UserMenu() {
   }, [open])
 
   if (role === 'logged_out') return null
-  const identity = IDENTITY[role]
+  // A signed-up hiring manager (spec §9) shows as themself.
+  const identity =
+    role === 'hiring_manager' && manager && manager.name
+      ? { name: manager.name, initials: initialsOf(manager.name) }
+      : IDENTITY[role]
 
   const items =
     role === 'consultant'

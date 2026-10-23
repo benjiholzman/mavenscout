@@ -38,8 +38,8 @@ type TabId = 'overview' | 'experience' | 'portfolio' | 'videos'
 
 export function ProfileView({ data, surface }: { data: ProfileData; surface: Surface }) {
   const { profile, questions } = data
-  const { isLoggedIn } = useSession()
-  const rules = visibilityFor(surface, isLoggedIn)
+  const { hasAccess } = useSession()
+  const rules = visibilityFor(surface, hasAccess)
   const orgs = useOrganizations()
   // What this profile shows (a Member shows one); published rows only.
   const testimonials = useMemo(() => visibleTestimonials(profile, data.testimonials), [profile, data.testimonials])
@@ -225,6 +225,8 @@ function OverviewTab({
   onOpenTestimonials: () => void
 }) {
   const { profile } = data
+  const { role, hasAccess } = useSession()
+  const accountPending = role === 'hiring_manager' && !hasAccess
   // One-line summary (§4.4): a teaser on /profile even logged out; none on /site.
   const summary = rules.audioTestimonials !== 'hidden' ? summaryLine(shared.testimonials, shared.orgs) : null
   return (
@@ -235,7 +237,7 @@ function OverviewTab({
             <Mic size={15} className="shrink-0 text-brand-600" />
             <span className="font-medium text-ink">{summary}</span>
             <button onClick={onOpenTestimonials} className="font-medium text-brand-600 hover:text-brand-700">
-              {rules.audioTestimonials === 'shown' ? 'Listen' : 'Sign up free to listen'}
+              {rules.audioTestimonials === 'shown' ? 'Listen' : accountPending ? 'Listen once your account is active' : 'Sign up free to listen'}
             </button>
           </p>
         )}
@@ -313,10 +315,21 @@ function OverviewTab({
               <dt className="mb-1 font-medium">Contracting & work eligibility</dt>
               {rules.contractingEligibility === 'gated' ? (
                 <dd className="text-xs text-ink-faint">
-                  Available to logged-in hiring accounts —{' '}
-                  <a href="/signup" className="font-medium text-brand-600">
-                    sign up free
-                  </a>
+                  {accountPending ? (
+                    <>
+                      Shown once your account is active —{' '}
+                      <a href="/signup" className="font-medium text-brand-600">
+                        see its status
+                      </a>
+                    </>
+                  ) : (
+                    <>
+                      Available to logged-in hiring accounts —{' '}
+                      <a href="/signup" className="font-medium text-brand-600">
+                        sign up free
+                      </a>
+                    </>
+                  )}
                 </dd>
               ) : (
                 <dd className="text-ink-soft">
@@ -642,6 +655,7 @@ function VideosTab({
  *  nothing on the public site. */
 function InlineTestimonials({ shared, rows, heading }: { shared: Shared; rows: AudioTestimonial[]; heading?: string }) {
   const { rules, profile, orgs } = shared
+  const { role, hasAccess } = useSession()
   if (rows.length === 0 || rules.audioTestimonials === 'hidden') return null
   if (rules.audioTestimonials === 'gated')
     return (
@@ -653,10 +667,21 @@ function InlineTestimonials({ shared, rows, heading }: { shared: Shared; rows: A
             const who = t.relationship === 'client' ? 'a client' : t.relationship === 'supervisor' ? 'a supervisor' : 'a reference'
             return domain ? `Audio testimonial from ${who}, confirmed via ${domain} email. ` : `Audio testimonial from ${who}. `
           })}
-          <a href="/signup" className="font-medium text-brand-600">
-            Create a free account
-          </a>{' '}
-          to listen.
+          {role === 'hiring_manager' && !hasAccess ? (
+            <>
+              You can listen once your account is active.{' '}
+              <a href="/signup" className="font-medium text-brand-600">
+                See its status
+              </a>
+            </>
+          ) : (
+            <>
+              <a href="/signup" className="font-medium text-brand-600">
+                Create a free account
+              </a>{' '}
+              to listen.
+            </>
+          )}
         </span>
       </p>
     )
