@@ -34,16 +34,35 @@ export interface JdSignature {
   expertise: ExtractedRequirements['expertise']
 }
 
+/** Words for the practical conditions criteria handle (availability, career
+ *  level, work arrangement, language proficiency). Fit judges capability for
+ *  the work only, so these never count as salient JD terms. */
+const CONDITION_WORDS = new Set(
+  (
+    'available availability start immediately months weeks days full part time remote onsite site hybrid ' +
+    'travel based senior junior mid level years experience fluent fluency proficiency proficient native ' +
+    'working knowledge language languages spoken written'
+  ).split(' '),
+)
+
 export function buildJdSignature(rawText: string, extracted: ExtractedRequirements | null): JdSignature {
+  // Location and language words go to criteria, not Fit — unless they're part
+  // of an extracted expertise item (e.g. translation, a country specialism).
+  const termWords = (extracted?.expertise ?? []).flatMap((t) => contentWords(t.name))
+  const expertiseWords = new Set(termWords)
+  const conditionWords = new Set([
+    ...CONDITION_WORDS,
+    ...[...(extracted?.locations ?? []), ...(extracted?.languages ?? [])].flatMap((o) => contentWords(o.value)),
+    ...contentWords(extracted?.hiring_organization ?? ''),
+  ])
   const freq = new Map<string, number>()
-  const words = contentWords(rawText)
+  const words = contentWords(rawText).filter((w) => expertiseWords.has(w) || !conditionWords.has(w))
   words.forEach((w) => freq.set(w, (freq.get(w) ?? 0) + 1))
   const firstSeen = new Map<string, number>()
   words.forEach((w, i) => firstSeen.has(w) || firstSeen.set(w, i))
   const top = [...freq.keys()]
     .sort((a, b) => freq.get(b)! - freq.get(a)! || firstSeen.get(a)! - firstSeen.get(b)!)
     .slice(0, FIT_CALIBRATION.salientTerms)
-  const termWords = (extracted?.expertise ?? []).flatMap((t) => contentWords(t.name))
   return {
     salient: new Set([...top, ...termWords]),
     expertise: extracted?.expertise ?? [],

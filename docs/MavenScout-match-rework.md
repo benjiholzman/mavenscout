@@ -171,6 +171,8 @@ Placeholder behavior: case-insensitive whole-word match of taxonomy item and cat
 
 **Contract requirement for Loop8 (write as a code comment):** the JD is read **once**, here. Scoring receives the extracted requirements plus the stored JD reference — it must not re-send the full JD text per candidate. This keeps a 15,000-character JD from multiplying cost across hundreds of candidates.
 
+**Contract rule for Loop8 — Fit vs. criteria:** Fit judges capability for the work only. It must not score the practical conditions handled by criteria: location, language proficiency, availability, career level, work arrangement and organizational history. When a JD states them, extraction routes them to criteria (pre-filled at Nice to have, never Required). Exception: a language or place that is itself the expertise (e.g. translation, deep country knowledge) counts as substance. (profiles-membership §11.)
+
 Persist the extraction output with the job description (§6.3).
 
 ---

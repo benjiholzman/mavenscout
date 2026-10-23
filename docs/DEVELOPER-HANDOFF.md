@@ -287,6 +287,10 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   - Preference credits (`CREDIT` in `config.ts`): Core 1, Strong 0.75, Working 0.4,
     untagged mention 0.4; a row takes the better of its tag and text credit.
   - Fit inputs exclude video and audio transcripts (§11).
+  - **Fit is capability only** (§11; match-rework §4): Fit judges capability for the work only. It must not score the practical conditions handled by criteria: location, language proficiency, availability, career level, work arrangement and organizational history. When a JD states them, extraction routes them to criteria (pre-filled at Nice to have, never Required). Exception: a language or place that is itself the expertise (e.g. translation, deep country knowledge) counts as substance.
+    The placeholder drops extracted location/language words, the hiring org and
+    condition words (`CONDITION_WORDS` in `fit.ts`) from its salient JD terms,
+    keeping any word that is part of an extracted expertise item.
 - **Two entry points, both placeholders today:**
   - `extractRequirements(jdText, ctx) → ExtractedRequirements` (`extract.ts`) — reads
     the JD **once** and returns *suggestions* (items from the unified expertise

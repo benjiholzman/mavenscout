@@ -267,6 +267,7 @@ A progress checklist shows what's done and what's waiting (e.g. "Testimonial: wa
 ## 11. Changes to ranking and the Loop8 contract
 
 - **Fit inputs:** bio, portfolio items, work history, education, certifications and expertise tags. **Not** video or audio transcripts.
+- **Fit is capability only:** Fit judges capability for the work only. It must not score the practical conditions handled by criteria: location, language proficiency, availability, career level, work arrangement and organizational history. When a JD states them, extraction routes them to criteria (pre-filled at Nice to have, never Required). Exception: a language or place that is itself the expertise (e.g. translation, deep country knowledge) counts as substance.
 - **Relevance, not volume:** Fit judges each candidate's most relevant evidence (e.g. their most relevant portfolio items) the same way for everyone, so more items help only by offering more chances of a close fit. Baseline test to add: the same profile with 3 vs 10 items (7 off-topic) must not rank higher.
 - **Expertise:** one list with tiers replaces primary/secondary; Required rows match Core + Strong; preference credits per §6.
 - **Firms hidden:** Type filter and Type requirement row hidden while `FIRMS_ENABLED = false`; Career Level no longer needs the firm exemption in practice.
