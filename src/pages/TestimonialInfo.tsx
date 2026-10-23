@@ -1,5 +1,6 @@
 import { Clock, Mic, ShieldQuestion, UserRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { VOUCHED_FOR_LINE } from '../lib/testimonials/copy'
 
 // /testimonial-info — public explainer linked from the referee page, so a
 // referee receiving a link from a colleague has credible context
@@ -9,7 +10,7 @@ const POINTS = [
   {
     icon: ShieldQuestion,
     title: 'What is MavenScout?',
-    text: 'A curated marketplace where international development organizations find vetted consultants for short-term expert work. Every expert listed has had their identity, most recent employer, degree and certifications checked, and is vouched for on record by someone they worked with.',
+    text: `A curated marketplace where international development organizations find vetted consultants for short-term expert work. Every expert listed has had their identity, most recent employer, degree and certifications checked. ${VOUCHED_FOR_LINE}`,
   },
   {
     icon: Mic,

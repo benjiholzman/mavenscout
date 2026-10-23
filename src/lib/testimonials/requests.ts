@@ -1,5 +1,6 @@
 import { TESTIMONIAL_RULES } from '../config'
 import { firstName } from '../names'
+import { VOUCHED_FOR_LINE } from './copy'
 import type { OrgIndex } from '../organizations'
 import { supabase } from '../supabase'
 import type { AudioTestimonial, Profile, ReviewFlag, TestimonialRelationship } from '../../types/db'
@@ -181,7 +182,7 @@ export function suggestedMessage(profile: Profile, t: AudioTestimonial, url: str
   const period = periodLabel(t.period_start, t.period_end)
   return `Hi ${first},
 
-I'm listed on MavenScout, where international development organizations find consultants, and each of us is vouched for by someone we worked with. Would you record a short audio testimonial about our work together${about ? ` at ${about}` : ''}${period ? ` (${period})` : ''}?
+I'm listed on MavenScout, where international development organizations find consultants. ${VOUCHED_FOR_LINE} Would you record a short audio testimonial about our work together${about ? ` at ${about}` : ''}${period ? ` (${period})` : ''}?
 
 It takes about 5 minutes on your phone: confirm it's you with a code sent to ${t.referee_email}, check the details, and record up to 2 minutes answering three short prompts. Only verified hiring managers can listen, and you can withdraw it at any time.
 

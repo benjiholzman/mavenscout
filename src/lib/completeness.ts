@@ -3,7 +3,7 @@ import { expertiseTags } from './expertise'
 import { spokenLanguages } from './languages'
 import { membershipLimits } from './membership'
 import { fmtDate } from './dates'
-import { isActive, isLegacy, publishedEmployerTestimonials } from './testimonials/rules'
+import { isActive, isLegacy, publishedEmployerTestimonials, testimonialRequired } from './testimonials/rules'
 import type { AudioTestimonial, ExpertiseTier, Profile } from '../types/db'
 
 // Profile minimums and maximums (docs/MavenScout-profiles-membership.md §7.1).
@@ -21,7 +21,8 @@ import type { AudioTestimonial, ExpertiseTier, Profile } from '../types/db'
 // - Submitting for review needs no gaps; neither does admin Approve.
 //
 // The audio testimonial rule (spec §4.1, §4.4): a published testimonial on
-// an employer entry is needed to go live. It isn't a section save, so only
+// an employer entry is needed to go live, where config TESTIMONIAL_REQUIRED
+// says so for the level. It isn't a section save, so only
 // the panel, Submit and Approve check it.
 
 /** Editor sections the rules belong to (the section ids in Onboarding). */
@@ -91,13 +92,14 @@ const RULES: Rule[] = [
   },
   // Member: exactly 3; Featured Member: 3 to 10 (spec §2.2).
   { section: 'portfolio', label: 'Portfolio', unit: ['project', 'projects'], metric: (c) => c.portfolioCount, min: (c) => membershipLimits(c.profile).portfolio.min, max: (c) => membershipLimits(c.profile).portfolio.max },
-  // Everyone needs at least 1, on an employer entry (spec §4.1).
+  // At least 1, on an employer entry, where the level requires it (spec §4.1;
+  // config TESTIMONIAL_REQUIRED).
   {
     section: 'testimonials',
     label: 'Audio testimonial on an employer entry',
     unit: ['testimonial', 'testimonials'],
     metric: (c) => publishedEmployerTestimonials(c.profile, c.testimonials).length,
-    min: fixed(1),
+    min: (c) => (testimonialRequired(c.profile) ? 1 : 0),
     message: testimonialMessage,
   },
 ]

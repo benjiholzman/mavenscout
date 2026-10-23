@@ -27,6 +27,7 @@ import {
   rowTargetKey,
   STAGE_LABELS,
   targetKey,
+  testimonialRequired,
   testimonialStage,
   type TestimonialStage,
   type TestimonialTarget,
@@ -96,8 +97,8 @@ export function TestimonialsSection({
     <div className="space-y-5">
       <p className="text-sm text-ink-soft">
         {limits.total === 1
-          ? 'Members have exactly 1 audio testimonial, on an employer entry: from someone who supervised or contracted you, ideally in the last 5 years.'
-          : 'One testimonial per employer entry or portfolio project. At least one must be on an employer entry.'}{' '}
+          ? `Members have ${testimonialRequired(profile) ? 'exactly' : 'up to'} 1 audio testimonial, on an employer entry: from someone who supervised or contracted you, ideally in the last 5 years.`
+          : `One testimonial per employer entry or portfolio project.${testimonialRequired(profile) ? ' At least one must be on an employer entry.' : ''}`}{' '}
         You send the link yourself; your referee confirms it's them with a code sent to their work email.
       </p>
 

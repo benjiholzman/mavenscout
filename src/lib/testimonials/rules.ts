@@ -1,4 +1,5 @@
-import { membershipLimits } from '../membership'
+import { TESTIMONIAL_REQUIRED } from '../config'
+import { membershipLevel, membershipLimits } from '../membership'
 import type { AudioTestimonial, PortfolioItem, Profile, WorkHistoryEntry } from '../../types/db'
 
 // Testimonial rules (docs/MavenScout-profiles-membership.md §2.2, §4.1, §4.5):
@@ -80,9 +81,18 @@ export function publishedEmployerTestimonials(profile: Profile, rows: AudioTesti
   )
 }
 
+/** Whether this profile's level needs a published employer-entry testimonial
+ *  to be listed (config TESTIMONIAL_REQUIRED). Where Featured status isn't
+ *  loaded (video_qnas_complete unset), the profile counts as a Member, as it
+ *  does everywhere else. */
+export function testimonialRequired(profile: Profile): boolean {
+  return TESTIMONIAL_REQUIRED[membershipLevel(profile)]
+}
+
 /** The required testimonial (§4.5): the only published one on an employer
- *  entry. It can be replaced, never just removed. */
+ *  entry, when the level requires one. It can be replaced, never just removed. */
 export function isRequired(t: AudioTestimonial, profile: Profile, rows: AudioTestimonial[]): boolean {
+  if (!testimonialRequired(profile)) return false
   const employer = publishedEmployerTestimonials(profile, rows)
   return employer.length === 1 && employer[0].id === t.id
 }

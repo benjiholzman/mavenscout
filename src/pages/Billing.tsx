@@ -5,6 +5,7 @@ import { useEditorProfile } from '../hooks/useEditorProfile'
 import { fmtDate } from '../lib/dates'
 import { isFeaturedPending, MEMBERSHIP_LABELS, membershipLevel, type MembershipLevel } from '../lib/membership'
 import { useSession } from '../lib/session'
+import { TESTIMONIAL_REQUIREMENT_LINE } from '../lib/testimonials/copy'
 import type { SubscriptionStatus } from '../types/db'
 
 // /billing (PRD 7.9b; levels per profiles-membership §2) — SCAFFOLD: no live
@@ -36,7 +37,7 @@ const MATRIX: { label: string; member: string | boolean; featured: string | bool
 /** Both levels (spec §2.1). */
 const SHARED = [
   'Full verification: identity, most recent employer and degree, every certification',
-  'At least one audio testimonial from someone you worked with',
+  ...(TESTIMONIAL_REQUIREMENT_LINE ? [TESTIMONIAL_REQUIREMENT_LINE] : []),
   'Expertise: 3 Core, 5 Strong, up to 10 Working knowledge',
   'The same flip-card faces in the directory',
   'Your personal website, with a small "Listed on MavenScout" footer',

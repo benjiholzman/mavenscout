@@ -47,7 +47,11 @@ removed; the referee can withdraw at any time on `/testimonial/withdraw/:token`,
 which starts a 30-day grace period if it was the required one (`isListed` drops
 the profile when it lapses). Every step writes `testimonial_events`.
 Transcripts never feed ranking. A published employer-entry testimonial is a
-profile minimum (`lib/completeness.ts`).
+profile minimum (`lib/completeness.ts`) for each level that
+`TESTIMONIAL_REQUIRED` in `src/lib/config.ts` marks (both, today); the same
+setting drives the replace-only rule, the grace period and the listing check
+(`testimonialRequired` in `lib/testimonials/rules.ts`), and the "every expert is
+vouched for" copy lives in `lib/testimonials/copy.ts`.
 
 **Firms are hidden** behind `FIRMS_ENABLED = false` (`src/lib/config.ts`, spec §1):
 excluded from the directory, search, ranking and the baseline pool through

@@ -7,6 +7,7 @@ import { Segmented } from '../components/ui/Segmented'
 import { TESTIMONIAL_RULES } from '../lib/config'
 import { firstName } from '../lib/names'
 import { normalizeCodeInput } from '../lib/testimonials/code'
+import { VOUCHED_FOR_LINE } from '../lib/testimonials/copy'
 import {
   acceptDetails,
   createManagerAccount,
@@ -199,8 +200,8 @@ function Intro({ req, onNext }: { req: RefereeRequest; onNext: () => void }) {
         </div>
       </div>
       <p className="text-sm leading-relaxed text-ink-soft">
-        MavenScout is where international development organizations find consultants. Every expert listed is
-        vouched for on record by someone they worked with. It takes about 5 minutes: up to 2 minutes of recording.
+        MavenScout is where international development organizations find consultants. {VOUCHED_FOR_LINE} It takes
+        about 5 minutes: up to 2 minutes of recording.
       </p>
 
       <Card>

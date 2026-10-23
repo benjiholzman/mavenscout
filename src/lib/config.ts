@@ -65,6 +65,17 @@ export const PORTFOLIO_FIELD_LIMITS = {
   links: 3,
 } as const
 
+/** Whether each membership level needs a published audio testimonial on an
+ *  employer entry to be listed (spec §2.1, §4.1). Read through
+ *  lib/testimonials/rules testimonialRequired by the completeness rule (the
+ *  editor panel, Submit and admin Approve), the replace-only rule, the
+ *  withdrawal grace period and the listing check; the "vouched for" copy
+ *  follows it (lib/testimonials/copy). TUNABLE. */
+export const TESTIMONIAL_REQUIRED: Record<'member' | 'featured', boolean> = {
+  member: true,
+  featured: true,
+}
+
 /** Audio testimonial flow (spec §4.3, §4.5, §4.6). TUNABLE. */
 export const TESTIMONIAL_RULES = {
   /** "Confirm it's me" code: single-use, valid this long. */
