@@ -20,15 +20,14 @@ export function meetsProficiency(have: Proficiency, min: Proficiency): boolean {
   return min === 'working' || have === 'fluent'
 }
 
-/** A profile's languages. Before 010 runs the column is absent, so the legacy
- *  free-text list stands in, every language at Fluent (as 010 backfills). */
-export function spokenLanguages(p: Pick<Profile, 'languages' | 'spoken_languages'>): SpokenLanguage[] {
-  return p.spoken_languages ?? (p.languages ?? []).map((name) => ({ name, proficiency: 'fluent' as const }))
+/** A profile's languages (010). */
+export function spokenLanguages(p: Pick<Profile, 'spoken_languages'>): SpokenLanguage[] {
+  return p.spoken_languages ?? []
 }
 
 /** The listed languages among `names`, at or above `min`. */
 export function speaks(
-  p: Pick<Profile, 'languages' | 'spoken_languages'>,
+  p: Pick<Profile, 'spoken_languages'>,
   names: string[],
   min: Proficiency = 'working',
 ): SpokenLanguage[] {

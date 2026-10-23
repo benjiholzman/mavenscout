@@ -9,9 +9,8 @@ export type CareerLevel = 'early_career' | 'mid_career' | 'senior'
 export type VerificationStatus = 'unverified' | 'pending' | 'verified'
 export type SubscriptionStatus = 'active' | 'past_due' | 'canceled' | 'paused' | 'none'
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
-/** 'expertise' = the unified list's browsing groups (011). 'domain_expertise' /
- *  'technical_skills' are LEGACY (kept for main, removed by 012). */
-export type TaxonomyType = 'domain_expertise' | 'technical_skills' | 'work_arrangement' | 'expertise'
+/** 'expertise' = the unified list's browsing groups (011). */
+export type TaxonomyType = 'work_arrangement' | 'expertise'
 
 /** What an expertise item is; drives matching (OR within a kind, AND across). */
 export type ExpertiseKind = 'sector' | 'theme' | 'method'
@@ -27,14 +26,6 @@ export interface AvailabilityTrack {
   status: 'available_now' | 'available_from' | 'unavailable'
   from: string | null // ISO date
   until: string | null
-}
-
-/** LEGACY two-taxonomy tag (profiles.expertise / profiles.skills), read only
- *  by the migration; the app uses ExpertiseTag. */
-export interface TagSelection {
-  name: string
-  tier: 'primary' | 'secondary'
-  level: 'category' | 'item'
 }
 
 export type Proficiency = 'fluent' | 'working'
@@ -111,18 +102,11 @@ export interface Profile {
   resume_path: string | null // Storage path in 'resumes' bucket (PDF upload)
   resume_url: string | null // OR external link — exactly one populated, app-enforced
   detailed_bio: string | null
-  /** LEGACY (main only until 012); read tiered_expertise. */
-  expertise: TagSelection[]
-  /** LEGACY (main only until 012). */
-  skills: TagSelection[]
   /** Core / Strong / Working knowledge tags from the unified list (011). */
   tiered_expertise: ExpertiseTag[]
   accreditations: Accreditation[]
-  /** LEGACY free-text list, left for main until 012; read spoken_languages. */
-  languages: string[]
-  /** Languages spoken, from the canonical list (010). Absent only on a
-   *  database that hasn't run 010 (see lib/languages spokenLanguages). */
-  spoken_languages?: SpokenLanguage[]
+  /** Languages spoken, from the canonical list (010). */
+  spoken_languages: SpokenLanguage[]
   work_history: WorkHistoryEntry[]
   education_history: EducationEntry[]
   additional_experience: AdditionalExperienceEntry[]
@@ -183,7 +167,7 @@ export interface TaxonomyItem {
 export interface TaxonomyRequest {
   id: string
   profile_id: string
-  type: 'domain_expertise' | 'technical_skills' | 'expertise'
+  type: 'expertise'
   proposed_name: string
   proposed_parent: string | null
   status: 'pending' | 'approved' | 'rejected'

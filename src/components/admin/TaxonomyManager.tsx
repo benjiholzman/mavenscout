@@ -10,8 +10,6 @@ import type { ExpertiseKind, TaxonomyCategory, TaxonomyItem, TaxonomyRequest } f
 // work arrangements, and the new-item request queue. Approving a request adds
 // the item to a group with a kind.
 //
-// The old Domain Expertise / Technical Skills lists stay in the database for
-// code on main until 012_cleanup_legacy_data.sql; they aren't edited here.
 // Renaming an item doesn't rename it on profiles that already list it (tags
 // reference names); the old name is kept as a legacy name so saved rankings
 // still read it, and the editor flags such tags for the consultant to replace.
