@@ -194,17 +194,37 @@ export interface Scoring {
   possible: number
 }
 
-export interface MatchResult {
+interface ResultBase {
   profile_id: string
   rank: number
-  total_score: number // 0–100: round((1 − w) × fit_score + 100 × w × earned ÷ possible)
-  band: Band
-  fit_score: number // 0–100
   adjustments: Adjustment[]
   scoring: Scoring
   must_haves_passed: { requirement_id: string; label: string }[]
+}
+
+/** A job-description run's result: what the engine returns. */
+export interface JdMatchResult extends ResultBase {
+  total_score: number // 0–100: round((1 − w) × fit_score + 100 × w × earned ÷ possible)
+  band: Band
+  fit_score: number // 0–100
   narrative: string // ~100 words, PLACEHOLDER template
 }
+
+/** A preferences-only run's result (spec §11): no JD, so no Fit and no band.
+ *  Scored app-side in preferences.ts; the engine never produces these. */
+export interface PreferenceMatchResult extends ResultBase {
+  total_score: number // 0–100: round(100 × earned ÷ possible), 0 when nothing applies
+  band: null
+  fit_score: null
+  narrative: string // one line: "Meets 4 of 6 preferences; missing: …"
+}
+
+export type MatchResult = JdMatchResult | PreferenceMatchResult
+
+/** How a run was scored (job_descriptions.mode, 019). */
+export type RankingMode = 'jd' | 'preferences'
+
+export const isPreferenceResult = (r: MatchResult): r is PreferenceMatchResult => r.fit_score === null
 
 // ---- Engine entry points (placeholder now, Loop8 later) ------------------------
 
@@ -220,4 +240,4 @@ export type RankPoolFn = (
   jobDescriptionId: string,
   requirements: Requirement[],
   pool: Profile[],
-) => Promise<MatchResult[]>
+) => Promise<JdMatchResult[]>

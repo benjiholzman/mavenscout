@@ -1,7 +1,7 @@
 import { FileText, Sparkles } from 'lucide-react'
 import { JD_MAX_CHARS, JD_MIN_CHARS } from '../../lib/matching/config'
 
-// Step 1 — the job description (match rework spec §2).
+// Step 1 — the job description (match rework spec §2), optional (§11).
 // Paste only this branch. FUTURE: a docx/PDF upload should FILL this textarea
 // (not bypass it), so the manager sees — and can trim — the extracted text
 // before it's read.
@@ -54,6 +54,9 @@ export function JdStep({
       <p className="text-xs leading-snug text-ink-faint">
         Paste the scope of work and qualifications sections. You can paste the full ToR — we'll pull
         out what matters.
+      </p>
+      <p className="mt-1 text-xs font-medium leading-snug text-ink-soft">
+        No job description? Skip this and set your preferences below.
       </p>
       <textarea
         id="jd-text"

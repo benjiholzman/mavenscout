@@ -1,6 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Search, Sparkles, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
+import { runBlockerFor } from '../../lib/matching/preferences'
 import type { ExtractedRequirements } from '../../lib/matching/types'
 import type { RequirementsStore } from '../../lib/requirements/store'
 import { JdStep } from './JdStep'
@@ -13,7 +14,8 @@ import { RequirementsGrid, type GridOptions } from './RequirementsGrid'
 // Clicking the scrim or pressing Esc closes it; nothing is lost, because the
 // JD, suggestions and rows live outside it. Header and footer (live count +
 // Run) stay pinned while the content between them scrolls. On phones it's a
-// full-screen sheet with numbered steps.
+// full-screen sheet with numbered steps. The JD is optional: without one the
+// run sorts by the preference rows alone (spec §11).
 
 export interface JdState {
   text: string
@@ -95,11 +97,12 @@ export function RankingPanel({
       document.getElementById(`req-row-${focusId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   }, [open, focusId])
 
-  const runBlocker = !jd.extracted
-    ? 'Read the job description first.'
-    : counts.count === 0
-      ? 'No candidates meet everything marked Required.'
-      : null
+  const runBlocker = runBlockerFor({
+    jdText: jd.text,
+    read: !!jd.extracted,
+    requirements,
+    poolCount: counts.count,
+  })
 
   return (
     <AnimatePresence>
@@ -121,7 +124,7 @@ export function RankingPanel({
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            aria-label="Rank by job description"
+            aria-label="Rank candidates"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
@@ -131,7 +134,7 @@ export function RankingPanel({
             <header className="flex shrink-0 items-start justify-between gap-3 border-b border-line bg-white px-4 py-3">
               <div className="min-w-0">
                 <h2 className="flex items-center gap-1.5 text-base font-semibold">
-                  <Sparkles size={15} className="text-gold-500" aria-hidden /> Rank by job description
+                  <Sparkles size={15} className="text-gold-500" aria-hidden /> Rank candidates
                 </h2>
                 <p className="mt-0.5 text-[11.5px] text-ink-faint">
                   {linkedOpeningName ? `For: ${linkedOpeningName} · ` : ''}Placeholder scorer this build — the
@@ -150,7 +153,7 @@ export function RankingPanel({
 
             <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 py-4">
               <section className="space-y-3">
-                <StepHeading n={1}>Job description</StepHeading>
+                <StepHeading n={1}>Job description (optional)</StepHeading>
                 <JdStep
                   text={jd.text}
                   onText={jd.setText}

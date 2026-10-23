@@ -1,10 +1,13 @@
 import { RefreshCw, SlidersHorizontal, Sparkles, UserPlus, X } from 'lucide-react'
+import type { RankingMode } from '../../lib/matching/types'
 
 // Results header for ranking mode (match rework spec §7.4, §2.2): what was
 // ranked, how many Required rows excluded, and the prompts that appear when
-// requirements change after a run. Nothing re-runs on its own.
+// requirements change after a run. Nothing re-runs on its own. A
+// preferences-only run (§11) reads "Sorted by your preferences."
 
 export function RankingBanner({
+  mode,
   rankedCount,
   excludedCount,
   linkedOpeningName,
@@ -19,6 +22,7 @@ export function RankingBanner({
   rerunning,
   rerunBlocker,
 }: {
+  mode: RankingMode
   rankedCount: number
   excludedCount: number
   linkedOpeningName: string | null
@@ -43,11 +47,21 @@ export function RankingBanner({
           )}
           <p>
             <Sparkles size={14} className="mr-1.5 inline text-gold-300" aria-hidden />
-            Ranked {rankedCount} candidate{rankedCount === 1 ? '' : 's'} against your JD
+            {mode === 'preferences' ? (
+              <>
+                Sorted by your preferences.
+                <span className="text-white/70">
+                  {' '}
+                  {rankedCount} candidate{rankedCount === 1 ? '' : 's'}
+                </span>
+              </>
+            ) : (
+              <>Ranked {rankedCount} candidate{rankedCount === 1 ? '' : 's'} against your JD</>
+            )}
             {excludedCount > 0 && (
               <span className="text-white/70"> · {excludedCount} excluded by Required rows</span>
             )}
-            <span className="ml-2 text-white/50">placeholder scorer</span>
+            {mode === 'jd' && <span className="ml-2 text-white/50">placeholder scorer</span>}
           </p>
         </div>
         <span className="flex flex-wrap items-center gap-2">

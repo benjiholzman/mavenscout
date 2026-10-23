@@ -372,3 +372,24 @@ Keep the current banner: "Ranked N candidates against your JD · placeholder sco
 - [ ] `005_match_rework.sql` runs cleanly on the existing database; the seeded Sahel ranking works under the new model.
 - [ ] Placeholder extraction and scoring are clearly labeled in code and UI.
 - [ ] Every new surface works at 375px: ranking sheet, level controls, suggestion chips, live count, Run, match face, modal (as full-screen sheet), and filter-bar ↔ sheet sync.
+
+---
+
+## 11. Preferences-only ranking (no job description)
+
+A manager can rank without a JD: the drawer and its entry point are the same ("Rank candidates", the AI sparkle icon), and the JD box is optional — "No job description? Skip this and set your preferences below."
+
+- **When it runs.** A run with an empty JD box is a preferences run. It needs at least one Nice to have or Important row ("Add at least one preference to rank."); Required rows pre-filter the pool as in a JD run. A JD that has been pasted but not read blocks Run ("Read the job description first, or clear it to rank by preferences.") rather than silently becoming a preferences run.
+- **Scoring — app-side, never the engine.** With no JD there is no Fit, so neither `extractRequirements` nor `rankPool` is called. `src/lib/matching/preferences.ts` scores the pool with the same preference rows, points and credits as a JD run (`adjustments.ts`, `config.ts`): **total = round(100 × earned ÷ possible)**; a candidate none of whose rows apply scores 0. Not-applicable rows count toward neither earned nor possible.
+- **Order.** Exact earned ÷ possible ↓, then more recent `availability_updated_at`, then id. Membership never affects rank.
+- **Stored.** `job_descriptions.mode` (`019_ranking_mode.sql`): `'jd'` | `'preferences'`. A preferences run stores `raw_text = ''` and `extracted = NULL`; its `match_results` have `band` and `fit_score` NULL, `scoring` as usual, and a one-line `narrative`. In code it is a `PreferenceMatchResult` (`fit_score: null`); the engine contract (`RankPoolFn → JdMatchResult[]`) is unchanged.
+- **Display.** No Fit and no bands. Banner: "Sorted by your preferences." Opening rows: "#1 · Meets 23 of 46 preference points (50%)"; card rank strips, where that doesn't fit beside "About this result", shorten it to "#1 · Meets 23 of 46 pts (50%)". The Match face and About modal show the preference rows and their total only. Instead of the ~100-word narrative, a template line: "Meets 4 of 6 preferences (1 partly); missing: Speaks French fluently, Available by Mar 2027."
+- **Saving and switching.** Preferences runs save to openings like any run. Pasting a JD afterwards shows the usual "Requirements changed — Re-run" prompt and the re-run is a normal JD ranking; clearing the JD of a JD run does the reverse. Loosening a Required row scores newcomers in the run's own mode.
+
+Acceptance:
+- [ ] Run with no JD and one preference row ranks the pool; with no preference rows Run is disabled with "Add at least one preference to rank."
+- [ ] No engine call (`extractRequirements`, `rankPool`) happens for a preferences run.
+- [ ] Banner, strips, Match face and About modal show no Fit and no band.
+- [ ] Pasting and reading a JD after a preferences run offers Re-run, which produces a JD ranking.
+- [ ] `npm run baseline` output is unchanged (it uses JD runs only).
+- [ ] Works at 375px.

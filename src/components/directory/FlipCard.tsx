@@ -16,8 +16,16 @@ import { logoIconUrl } from '../../lib/brandfetch'
 import { fmtPortfolioMeta } from '../../lib/dates'
 import { nameInitials } from '../../lib/monogram'
 import { EMPTY_ORG_INDEX, sectorExperience, type OrgIndex } from '../../lib/organizations'
-import { preferencePercent, rowPointsLabel, rowsByWeight, scoreBreakdown } from '../../lib/matching/display'
-import type { MatchResult } from '../../lib/matching/types'
+import {
+  breakdownRows,
+  preferencePercent,
+  preferenceScoreLabel,
+  rowPointsLabel,
+  rowsByWeight,
+  scoreBreakdown,
+  type BreakdownRow,
+} from '../../lib/matching/display'
+import { isPreferenceResult, type MatchResult } from '../../lib/matching/types'
 import { OutcomeIcon, ScoreEquation } from '../match/outcome'
 import { RankStrip } from '../match/RankStrip'
 import { EXPERTISE_TIER_LIMITS } from '../../lib/config'
@@ -106,8 +114,7 @@ export function FlipCard({
       {ranked && (
         <RankStrip
           rank={ranked.position}
-          total={ranked.result.total_score}
-          band={ranked.result.band}
+          result={ranked.result}
           onAbout={ranked.onAbout}
         />
       )}
@@ -432,11 +439,29 @@ const MATCH_FACE_MAX_ROWS = 6
  *  preferences convert to score points once, so it adds up.
  *  Fits the face without scrolling; overflow goes to "About this result". */
 function MatchFace({ result, onMore }: { result: MatchResult; onMore?: () => void }) {
-  const b = scoreBreakdown(result)
-  const rows = rowsByWeight(b.rows)
-  const shown = rows.slice(0, MATCH_FACE_MAX_ROWS)
-  const hidden = rows.length - shown.length
   const musts = result.must_haves_passed.length
+  const mustLine = musts > 0 && (
+    <p className="flex items-center gap-1.5 text-xs text-ink-soft">
+      <span className="text-brand-600" aria-hidden>✓</span>
+      Meets {musts === 1 ? 'the Required row' : `all ${musts} Required rows`}
+    </p>
+  )
+
+  // Preferences-only run (spec §11): no Fit, so the face is the build-up alone.
+  if (isPreferenceResult(result))
+    return (
+      <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3.5">
+        <PreferenceRows rows={breakdownRows(result.adjustments)} label="Your preferences" onMore={onMore} />
+        <div className="mt-auto shrink-0 space-y-1.5 border-t border-line-soft pt-2.5">
+          {mustLine}
+          <p className="text-[12.5px] font-semibold leading-[18px] tabular-nums text-ink">
+            {preferenceScoreLabel(result)}
+          </p>
+        </div>
+      </div>
+    )
+
+  const b = scoreBreakdown(result)
   return (
     <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3.5">
       <div className="shrink-0">
@@ -450,47 +475,57 @@ function MatchFace({ result, onMore }: { result: MatchResult; onMore?: () => voi
       </div>
 
       <div className="mt-3.5 shrink-0">
-        <SectionLabel>
-          Your preferences{b.scoring.weight > 0 ? ` · ${preferencePercent(b.scoring)} of score` : ''}
-        </SectionLabel>
-        {shown.length === 0 ? (
-          <p className="text-[13px] text-ink-faint">No Nice to have or Important rows.</p>
-        ) : (
-          <ul className="space-y-1">
-            {shown.map((r) => {
-              const a = r.adjustment
-              return (
-              <li key={a.requirement_id} className="flex items-center gap-2 text-[13px] leading-5">
-                <OutcomeIcon outcome={a.outcome} />
-                <span className="min-w-0 flex-1 truncate text-ink-soft" title={`${a.label} — ${a.detail}`}>
-                  {a.label}
-                </span>
-                <span className="shrink-0 tabular-nums text-ink-faint">{rowPointsLabel(r)}</span>
-              </li>
-              )
-            })}
-          </ul>
-        )}
-        {hidden > 0 && (
-          <button
-            type="button"
-            onClick={onMore}
-            className="mt-1 text-xs font-medium text-brand-700 underline decoration-brand-300 underline-offset-2 hover:decoration-brand-600"
-          >
-            +{hidden} more
-          </button>
-        )}
+        <PreferenceRows
+          rows={b.rows}
+          label={`Your preferences${b.scoring.weight > 0 ? ` · ${preferencePercent(b.scoring)} of score` : ''}`}
+          onMore={onMore}
+        />
       </div>
 
       <div className="mt-auto shrink-0 space-y-1.5 border-t border-line-soft pt-2.5">
-        {musts > 0 && (
-          <p className="flex items-center gap-1.5 text-xs text-ink-soft">
-            <span className="text-brand-600" aria-hidden>✓</span>
-            Meets {musts === 1 ? 'the Required row' : `all ${musts} Required rows`}
-          </p>
-        )}
+        {mustLine}
         <ScoreEquation b={b} className="text-[12.5px] leading-[18px] text-ink" />
       </div>
+    </div>
+  )
+}
+
+/** The Match face's preference rows, heaviest first; overflow goes to
+ *  "About this result". */
+function PreferenceRows({ rows: all, label, onMore }: { rows: BreakdownRow[]; label: string; onMore?: () => void }) {
+  const rows = rowsByWeight(all)
+  const shown = rows.slice(0, MATCH_FACE_MAX_ROWS)
+  const hidden = rows.length - shown.length
+  return (
+    <div className="shrink-0">
+      <SectionLabel>{label}</SectionLabel>
+      {shown.length === 0 ? (
+        <p className="text-[13px] text-ink-faint">No Nice to have or Important rows.</p>
+      ) : (
+        <ul className="space-y-1">
+          {shown.map((r) => {
+            const a = r.adjustment
+            return (
+            <li key={a.requirement_id} className="flex items-center gap-2 text-[13px] leading-5">
+              <OutcomeIcon outcome={a.outcome} />
+              <span className="min-w-0 flex-1 truncate text-ink-soft" title={`${a.label} — ${a.detail}`}>
+                {a.label}
+              </span>
+              <span className="shrink-0 tabular-nums text-ink-faint">{rowPointsLabel(r)}</span>
+            </li>
+            )
+          })}
+        </ul>
+      )}
+      {hidden > 0 && (
+        <button
+          type="button"
+          onClick={onMore}
+          className="mt-1 text-xs font-medium text-brand-700 underline decoration-brand-300 underline-offset-2 hover:decoration-brand-600"
+        >
+          +{hidden} more
+        </button>
+      )}
     </div>
   )
 }

@@ -145,7 +145,7 @@ export default function OpeningDetail() {
                 Run {fmtDate(saved.jd.created_at.slice(0, 10))} · {saved.results.length} candidates ranked
               </p>
               <p className="mt-1.5 line-clamp-3 rounded-lg bg-paper px-2.5 py-2 text-xs text-ink-soft">
-                {saved.jd.raw_text}
+                {saved.jd.mode === 'preferences' ? 'Sorted by your preferences — no job description.' : saved.jd.raw_text}
               </p>
               <p className="mt-2 text-xs text-ink-faint">
                 Top matches across the whole pool:
@@ -159,7 +159,15 @@ export default function OpeningDetail() {
                         {r.rank}. {p?.name ?? <TopMatchName profileId={r.profile_id} />}
                       </span>
                       <span className="shrink-0 text-ink-faint">
-                        <span className="font-semibold text-ink-soft">{r.total_score}</span> · {BAND_LABELS[r.band]}
+                        {r.band === null ? (
+                          <>
+                            <span className="font-semibold text-ink-soft">{r.total_score}%</span> of preference points
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-semibold text-ink-soft">{r.total_score}</span> · {BAND_LABELS[r.band]}
+                          </>
+                        )}
                       </span>
                     </li>
                   )

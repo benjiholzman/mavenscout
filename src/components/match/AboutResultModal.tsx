@@ -1,17 +1,27 @@
 import { Check, ChevronDown } from 'lucide-react'
 import { BAND_LABELS, PREFERENCE_CAP_POINTS, PREFERENCE_POINTS } from '../../lib/matching/config'
-import { formatMultiplier, formatPoints, preferencePercent, rowPointsLabel, scoreBreakdown } from '../../lib/matching/display'
-import type { MatchResult } from '../../lib/matching/types'
+import {
+  breakdownRows,
+  formatMultiplier,
+  formatPoints,
+  preferencePercent,
+  preferenceScoreLabel,
+  rowPointsLabel,
+  scoreBreakdown,
+  type BreakdownRow,
+} from '../../lib/matching/display'
+import { isPreferenceResult, type JdMatchResult, type MatchResult, type PreferenceMatchResult } from '../../lib/matching/types'
 import type { Profile } from '../../types/db'
 import { Modal } from '../ui/Modal'
 import { OutcomeIcon, pointsLabel, ScoreEquation } from './outcome'
-import { BAND_STYLES } from './RankStrip'
+import { BAND_STYLES, PREFERENCE_STYLE } from './RankStrip'
 
 // "About this result" (match rework spec §7.3): the full score build-up for
 // one ranked candidate. Every number comes from scoreBreakdown. Preference
 // rows show their own points ("3 of 3 pts"); they convert to score points once,
 // at the subtotal, so the score column always adds up: Fit part + preferences
-// = Total.
+// = Total. A preferences-only run (§11) shows the preference rows alone: the
+// total is the share of preference points met.
 
 const LEVEL_NAMES = { slight: 'Nice to have', strong: 'Important' } as const
 
@@ -30,8 +40,7 @@ export function AboutResultModal({
   rank: number
 }) {
   if (!profile || !result) return null
-  const b = scoreBreakdown(result)
-  const style = BAND_STYLES[result.band]
+  const prefs = isPreferenceResult(result)
 
   return (
     <Modal open={open} onClose={onClose} title="About this result" wide fullScreenMobile>
@@ -41,98 +50,21 @@ export function AboutResultModal({
             <p className="font-display text-lg font-semibold leading-6 text-ink">{profile.name}</p>
             <p className="truncate text-xs text-ink-faint">{profile.headline}</p>
           </div>
-          <p className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${style.strip} ${style.text}`}>
-            <span className={`h-2 w-2 rounded-full ${style.dot}`} aria-hidden />#{rank} · {result.total_score} ·{' '}
-            {BAND_LABELS[result.band]}
-          </p>
+          {isPreferenceResult(result) ? (
+            <p className={`rounded-full px-3 py-1 text-sm font-semibold tabular-nums ${PREFERENCE_STYLE.strip} ${PREFERENCE_STYLE.text}`}>
+              #{rank} · {preferenceScoreLabel(result)}
+            </p>
+          ) : (
+            <p
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${BAND_STYLES[result.band].strip} ${BAND_STYLES[result.band].text}`}
+            >
+              <span className={`h-2 w-2 rounded-full ${BAND_STYLES[result.band].dot}`} aria-hidden />#{rank} ·{' '}
+              {result.total_score} · {BAND_LABELS[result.band]}
+            </p>
+          )}
         </header>
 
-        <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Score build-up</h3>
-          <table className="w-full border-collapse text-left text-[13px]">
-            <tbody>
-              <tr className="border-b border-line">
-                <td className="py-2 pr-2" colSpan={2}>
-                  <span className="font-medium text-ink">Fit to the job description</span>
-                  <span className="block text-xs text-ink-faint">
-                    The engine's judgment of fit — not adjustable
-                    {b.scoring.weight > 0 && (
-                      <>
-                        {' · '}
-                        <span className="tabular-nums">
-                          Fit {b.fit} × {formatMultiplier(b.fitMultiplier)}
-                        </span>
-                      </>
-                    )}
-                  </span>
-                </td>
-                <td className="py-2 text-right font-semibold tabular-nums text-ink">{b.fitPart}</td>
-              </tr>
-              {b.rows.map((r) => {
-                const a = r.adjustment
-                return (
-                <tr key={a.requirement_id} className="border-b border-line-soft align-top">
-                  <td className="w-6 py-2 pr-1">
-                    <OutcomeIcon outcome={a.outcome} />
-                  </td>
-                  <td className="py-2 pr-2">
-                    <span className="text-ink">{a.label}</span>
-                    <span className="ml-1.5 rounded-full bg-paper px-1.5 py-px text-[11px] text-ink-faint">
-                      {LEVEL_NAMES[a.level]}
-                    </span>
-                    <span className="block text-xs text-ink-faint">{a.detail}</span>
-                  </td>
-                  <td className="whitespace-nowrap py-2 text-right text-xs tabular-nums text-ink-faint">
-                    {rowPointsLabel(r)}
-                  </td>
-                </tr>
-                )
-              })}
-              {b.rows.length === 0 && (
-                <tr className="border-b border-line-soft">
-                  <td colSpan={3} className="py-2 text-xs text-ink-faint">
-                    No Nice to have or Important rows — the total is the Fit score.
-                  </td>
-                </tr>
-              )}
-              {b.rows.length > 0 && b.scoring.weight === 0 && (
-                <tr className="border-b border-line-soft">
-                  <td colSpan={3} className="py-2 text-xs text-ink-faint">
-                    None of these rows apply to this candidate — the total is the Fit score.
-                  </td>
-                </tr>
-              )}
-              {b.scoring.weight > 0 && (
-                <tr className="border-b border-line">
-                  <td />
-                  <td className="py-2 pr-2 text-ink-soft">
-                    Preferences{' '}
-                    <span className="tabular-nums">
-                      {formatPoints(b.scoring.earned)} of {formatPoints(b.scoring.possible)} pts →
-                    </span>
-                    <span className="block text-xs text-ink-faint">
-                      Worth {preferencePercent(b.scoring)} of the score
-                    </span>
-                  </td>
-                  <td className="py-2 text-right font-medium tabular-nums text-ink-soft">
-                    {pointsLabel(b.preferencePart)}
-                  </td>
-                </tr>
-              )}
-              <tr>
-                <td className="pt-2.5 pr-2 font-semibold text-ink" colSpan={2}>
-                  Total
-                  {b.scoring.weight > 0 ? (
-                    <ScoreEquation b={b} className="mt-0.5 text-xs font-normal text-ink-faint" />
-                  ) : (
-                    <span className="ml-2 font-normal tabular-nums text-ink-faint">= Fit {b.fit}</span>
-                  )}
-                </td>
-                <td className="pt-2.5 text-right text-base font-bold tabular-nums text-ink">{b.total}</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
+        {isPreferenceResult(result) ? <PreferenceBuildUp result={result} /> : <JdBuildUp result={result} />}
 
         {result.must_haves_passed.length > 0 && (
           <section>
@@ -152,9 +84,11 @@ export function AboutResultModal({
         <section>
           <h3 className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
             Summary
-            <span className="rounded-full bg-gold-300/25 px-1.5 py-px text-[10.5px] font-semibold normal-case tracking-normal text-gold-700">
-              placeholder
-            </span>
+            {!prefs && (
+              <span className="rounded-full bg-gold-300/25 px-1.5 py-px text-[10.5px] font-semibold normal-case tracking-normal text-gold-700">
+                placeholder
+              </span>
+            )}
           </h3>
           <p className="text-[13.5px] leading-relaxed text-ink-soft">{result.narrative}</p>
         </section>
@@ -164,6 +98,7 @@ export function AboutResultModal({
             How scoring works
             <ChevronDown size={15} className="text-ink-faint transition group-open:rotate-180" aria-hidden />
           </summary>
+          {prefs ? <PreferenceScoringNotes /> : (
           <ul className="mt-2 list-disc space-y-1 pl-4 text-[12.5px] leading-snug text-ink-soft">
             <li>
               <b className="font-medium text-ink">Fit</b> (0–100) is the engine's judgment of how well the candidate's
@@ -193,8 +128,154 @@ export function AboutResultModal({
               engine replaces it behind the same interface.
             </li>
           </ul>
+          )}
         </details>
       </div>
     </Modal>
+  )
+}
+
+function JdBuildUp({ result }: { result: JdMatchResult }) {
+  const b = scoreBreakdown(result)
+  return (
+    <section>
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Score build-up</h3>
+      <table className="w-full border-collapse text-left text-[13px]">
+        <tbody>
+          <tr className="border-b border-line">
+            <td className="py-2 pr-2" colSpan={2}>
+              <span className="font-medium text-ink">Fit to the job description</span>
+              <span className="block text-xs text-ink-faint">
+                The engine's judgment of fit — not adjustable
+                {b.scoring.weight > 0 && (
+                  <>
+                    {' · '}
+                    <span className="tabular-nums">
+                      Fit {b.fit} × {formatMultiplier(b.fitMultiplier)}
+                    </span>
+                  </>
+                )}
+              </span>
+            </td>
+            <td className="py-2 text-right font-semibold tabular-nums text-ink">{b.fitPart}</td>
+          </tr>
+          {b.rows.map((r) => (
+            <RowCells key={r.adjustment.requirement_id} r={r} />
+          ))}
+          {b.rows.length === 0 && (
+            <tr className="border-b border-line-soft">
+              <td colSpan={3} className="py-2 text-xs text-ink-faint">
+                No Nice to have or Important rows — the total is the Fit score.
+              </td>
+            </tr>
+          )}
+          {b.rows.length > 0 && b.scoring.weight === 0 && (
+            <tr className="border-b border-line-soft">
+              <td colSpan={3} className="py-2 text-xs text-ink-faint">
+                None of these rows apply to this candidate — the total is the Fit score.
+              </td>
+            </tr>
+          )}
+          {b.scoring.weight > 0 && (
+            <tr className="border-b border-line">
+              <td />
+              <td className="py-2 pr-2 text-ink-soft">
+                Preferences{' '}
+                <span className="tabular-nums">
+                  {formatPoints(b.scoring.earned)} of {formatPoints(b.scoring.possible)} pts →
+                </span>
+                <span className="block text-xs text-ink-faint">
+                  Worth {preferencePercent(b.scoring)} of the score
+                </span>
+              </td>
+              <td className="py-2 text-right font-medium tabular-nums text-ink-soft">
+                {pointsLabel(b.preferencePart)}
+              </td>
+            </tr>
+          )}
+          <tr>
+            <td className="pt-2.5 pr-2 font-semibold text-ink" colSpan={2}>
+              Total
+              {b.scoring.weight > 0 ? (
+                <ScoreEquation b={b} className="mt-0.5 text-xs font-normal text-ink-faint" />
+              ) : (
+                <span className="ml-2 font-normal tabular-nums text-ink-faint">= Fit {b.fit}</span>
+              )}
+            </td>
+            <td className="pt-2.5 text-right text-base font-bold tabular-nums text-ink">{b.total}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  )
+}
+
+function RowCells({ r }: { r: BreakdownRow }) {
+  const a = r.adjustment
+  return (
+    <tr className="border-b border-line-soft align-top">
+      <td className="w-6 py-2 pr-1">
+        <OutcomeIcon outcome={a.outcome} />
+      </td>
+      <td className="py-2 pr-2">
+        <span className="text-ink">{a.label}</span>
+        <span className="ml-1.5 rounded-full bg-paper px-1.5 py-px text-[11px] text-ink-faint">{LEVEL_NAMES[a.level]}</span>
+        <span className="block text-xs text-ink-faint">{a.detail}</span>
+      </td>
+      <td className="whitespace-nowrap py-2 text-right text-xs tabular-nums text-ink-faint">{rowPointsLabel(r)}</td>
+    </tr>
+  )
+}
+
+/** Preferences-only build-up (spec §11): the rows' own points, their sum, and
+ *  the total as the share of points met. No Fit. */
+function PreferenceBuildUp({ result }: { result: PreferenceMatchResult }) {
+  const rows = breakdownRows(result.adjustments)
+  const { earned, possible } = result.scoring
+  return (
+    <section>
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Score build-up</h3>
+      <table className="w-full border-collapse text-left text-[13px]">
+        <tbody>
+          {rows.map((r) => (
+            <RowCells key={r.adjustment.requirement_id} r={r} />
+          ))}
+          <tr>
+            <td className="pt-2.5 pr-2 font-semibold text-ink" colSpan={2}>
+              Total
+              <span className="mt-0.5 block text-xs font-normal tabular-nums text-ink-faint">
+                {possible > 0
+                  ? `${formatPoints(earned)} of ${formatPoints(possible)} preference points met`
+                  : 'None of these rows apply to this candidate'}
+              </span>
+            </td>
+            <td className="pt-2.5 text-right text-base font-bold tabular-nums text-ink">{result.total_score}%</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  )
+}
+
+function PreferenceScoringNotes() {
+  return (
+    <ul className="mt-2 list-disc space-y-1 pl-4 text-[12.5px] leading-snug text-ink-soft">
+      <li>
+        No job description was given, so candidates are sorted by your preferences alone — there is no Fit score and
+        no AI engine involved.
+      </li>
+      <li>
+        A <b className="font-medium text-ink">Nice to have</b> row is worth {PREFERENCE_POINTS.slight} points and an{' '}
+        <b className="font-medium text-ink">Important</b> row {PREFERENCE_POINTS.strong}; partial matches earn part of
+        a row's points. The score is the points earned out of the points possible.
+      </li>
+      <li>Rows that don't apply to a candidate (career level for a firm) don't count.</li>
+      <li>
+        Rows marked <b className="font-medium text-ink">Required</b> exclude candidates before anything is scored;
+        they add no points.
+      </li>
+      <li>Ties go to the more recently updated availability, then a fixed order.</li>
+      <li>Membership level (Member or Featured Member) never affects ranked order.</li>
+    </ul>
   )
 }

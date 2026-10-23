@@ -177,8 +177,7 @@ export function CandidateRow({
           <RankStrip
             variant="row"
             rank={match.rank}
-            total={match.total_score}
-            band={match.band}
+            result={match}
             onAbout={() => setAboutOpen(true)}
           />
           <AboutResultModal

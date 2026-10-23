@@ -1,9 +1,17 @@
 import { DEMO_HIRING_MANAGER_ID } from '../session'
 import { supabase } from '../supabase'
 import type { JobDescription, MatchResultRow, Profile } from '../../types/db'
+import { orderPreferenceResults, rankByPreferences } from './preferences'
 import { orderResults, rankPool } from './score'
 import { preferenceScoring } from './total'
-import type { ExtractedRequirements, MatchResult, Requirement } from './types'
+import {
+  isPreferenceResult,
+  type ExtractedRequirements,
+  type JdMatchResult,
+  type MatchResult,
+  type RankingMode,
+  type Requirement,
+} from './types'
 
 // Ranking runs in the database (match rework spec §2.2, §6.3).
 //
@@ -15,25 +23,28 @@ import type { ExtractedRequirements, MatchResult, Requirement } from './types'
 //   "Save ranking to opening" keeps one by attaching it to an opening.
 // The row also stores the extraction and the requirements the run was scored
 // against; later Must-have edits are written back to it without re-scoring.
+// Its mode (019) says how it was scored: 'jd' through the engine (rankPool),
+// 'preferences' app-side (preferences.ts) — the engine is never called
+// without a JD.
 
 export interface RankingRecord {
   jd: JobDescription
   results: MatchResult[] // best-first
 }
 
-function fromRow(r: MatchResultRow): MatchResult {
-  return {
+function fromRow(r: MatchResultRow, mode: RankingMode): MatchResult {
+  const base = {
     profile_id: r.profile_id,
     rank: r.rank ?? 0,
     total_score: r.total_score,
-    band: r.band ?? 'weak',
-    fit_score: r.fit_score ?? r.total_score,
     adjustments: r.adjustments ?? [],
     // Legacy rows (pre-008) have no scoring; 008 deletes them.
     scoring: r.scoring ?? preferenceScoring(r.adjustments ?? []),
     must_haves_passed: r.must_haves_passed ?? [],
     narrative: r.narrative ?? '',
   }
+  if (mode === 'preferences') return { ...base, band: null, fit_score: null }
+  return { ...base, band: r.band ?? 'weak', fit_score: r.fit_score ?? r.total_score }
 }
 
 function toRow(jobDescriptionId: string, r: MatchResult) {
@@ -56,6 +67,7 @@ function toRow(jobDescriptionId: string, r: MatchResult) {
  *  runs). Results cascade; video requests keep their row with a null link. */
 export async function createRun(args: {
   openingId: string | null
+  mode: RankingMode
   rawText: string
   extracted: ExtractedRequirements | null
   requirements: Requirement[]
@@ -68,6 +80,8 @@ export async function createRun(args: {
     .insert({
       hiring_manager_id: DEMO_HIRING_MANAGER_ID,
       opening_id: args.openingId,
+      // Sent only for preferences runs, so JD runs work before 019 has run.
+      ...(args.mode === 'preferences' ? { mode: args.mode } : {}),
       raw_text: args.rawText,
       extracted: args.extracted,
       requirements: args.requirements,
@@ -110,7 +124,8 @@ export async function loadRanking(jobDescriptionId: string): Promise<RankingReco
     .select('*')
     .eq('job_description_id', jobDescriptionId)
     .order('rank')
-  return { jd: jd as JobDescription, results: ((rows as MatchResultRow[]) ?? []).map(fromRow) }
+  const mode: RankingMode = jd.mode ?? 'jd'
+  return { jd: jd as JobDescription, results: ((rows as MatchResultRow[]) ?? []).map((r) => fromRow(r, mode)) }
 }
 
 export async function loadLatestForOpening(openingId: string): Promise<RankingRecord | null> {
@@ -138,17 +153,23 @@ export async function attachToOpening(jobDescriptionId: string, openingId: strin
   if (error) throw new Error(error.message)
 }
 
+/** Scores a pool for a run: through the engine with a JD, app-side without. */
+function scoreFor(mode: RankingMode, jobDescriptionId: string, requirements: Requirement[], pool: Profile[]) {
+  return mode === 'jd' ? rankPool(jobDescriptionId, requirements, pool) : rankByPreferences(requirements, pool)
+}
+
 /** A full run: create the row, score the (already must-have-filtered) pool,
- *  store the results. */
+ *  store the results. A preferences run stores raw_text '' and no extraction. */
 export async function runRanking(args: {
   openingId: string | null
+  mode: RankingMode
   rawText: string
   extracted: ExtractedRequirements | null
   requirements: Requirement[]
   pool: Profile[]
 }): Promise<RankingRecord> {
   const jd = await createRun(args)
-  const results = await rankPool(jd.id, args.requirements, args.pool)
+  const results = await scoreFor(args.mode, jd.id, args.requirements, args.pool)
   await saveResults(jd.id, results)
   return { jd, results }
 }
@@ -163,13 +184,18 @@ export async function runRanking(args: {
  */
 export async function scoreNewcomers(args: {
   jobDescriptionId: string
+  mode: RankingMode
   requirements: Requirement[]
   newcomers: Profile[]
   existing: MatchResult[]
   profilesById: Map<string, Pick<Profile, 'id' | 'availability_updated_at'>>
 }): Promise<MatchResult[]> {
-  const fresh = await rankPool(args.jobDescriptionId, args.requirements, args.newcomers)
-  const merged = orderResults([...args.existing, ...fresh], args.profilesById)
+  const fresh: MatchResult[] = await scoreFor(args.mode, args.jobDescriptionId, args.requirements, args.newcomers)
+  const all = [...args.existing, ...fresh]
+  const merged: MatchResult[] =
+    args.mode === 'jd'
+      ? orderResults(all.filter((r): r is JdMatchResult => !isPreferenceResult(r)), args.profilesById)
+      : orderPreferenceResults(all.filter(isPreferenceResult), args.profilesById)
   await saveResults(args.jobDescriptionId, merged)
   await updateRunRequirements(args.jobDescriptionId, args.requirements)
   return merged

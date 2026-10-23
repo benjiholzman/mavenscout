@@ -9,7 +9,7 @@ First baseline for Loop8. Five sample ToRs (`docs/samples/tor-0*.txt`) are score
 - **Extraction:** suggestions vs. the terms a good extractor should find (recall), plus suggestions nobody asked for.
 - **Profile variants:** one profile scored as Core / Strong / Working on an item (higher tier must score higher), and with a Required language at Working (excluded by Fluent only).
 - In both runs, Fit reads the JD through the extraction (as `rankPool` does for a stored JD); only the grid rows differ.
-- Read-only: the harness only SELECTs and scores in memory. `job_descriptions` 2 → 2, `match_results` 230 → 230 rows during this run.
+- Read-only: the harness only SELECTs and scores in memory. `job_descriptions` 2 → 2, `match_results` 213 → 213 rows during this run.
 
 ## Summary
 

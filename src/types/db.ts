@@ -2,7 +2,7 @@
 // 001/002/003 seed files). Keep in sync with the SQL — this is the contract
 // the later real-auth/Stripe/Loop8 passes inherit.
 
-import type { Adjustment, Band, ExtractedRequirements, Requirement, Scoring } from '../lib/matching/types'
+import type { Adjustment, Band, ExtractedRequirements, RankingMode, Requirement, Scoring } from '../lib/matching/types'
 
 export type ConsultantType = 'Individual' | 'Small Firm' | 'Large Firm'
 export type CareerLevel = 'early_career' | 'mid_career' | 'senior'
@@ -491,6 +491,9 @@ export interface JobDescription {
   extracted: ExtractedRequirements | null // what extraction read from the JD
   hiring_organization: string | null // legacy — the org now lives in the Org History row
   weights: MatchWeights | null // legacy — pre-rework slider weights, no longer written
+  /** 'preferences' = no JD (raw_text '', extracted null), scored app-side (019).
+   *  Optional so the app still loads before 019 has run. */
+  mode?: RankingMode
   created_at: string
 }
 

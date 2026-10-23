@@ -410,6 +410,8 @@ CREATE TABLE job_descriptions (
   extracted           jsonb,          -- ExtractedRequirements: what extractRequirements read from the JD
   hiring_organization text,           -- legacy (pre-rework); the org now lives in the Org History row
   weights             jsonb DEFAULT '{}',  -- legacy (pre-rework slider weights); no longer written
+  mode                text NOT NULL DEFAULT 'jd'
+                      CONSTRAINT job_descriptions_mode_check CHECK (mode IN ('jd', 'preferences')),  -- 019: 'preferences' = no JD, scored app-side
   created_at          timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE job_descriptions ENABLE ROW LEVEL SECURITY;

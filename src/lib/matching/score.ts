@@ -7,7 +7,7 @@ import { scoreBreakdown } from './display'
 import { buildJdSignature, computeFit, tagCredit, type CandidateInput } from './fit'
 import { buildNarrative } from './narrative'
 import { preferenceScoring, totalScore } from './total'
-import type { ExtractedRequirements, MatchResult, RankPoolFn, Requirement } from './types'
+import type { ExtractedRequirements, JdMatchResult, RankPoolFn, Requirement } from './types'
 import type { PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../../types/db'
 
 // ============================================================================
@@ -27,7 +27,7 @@ import type { PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../
 // build-up comes from display.ts (Fit part + preferences = total, exactly).
 // ============================================================================
 
-interface Scored extends Omit<MatchResult, 'rank'> {
+interface Scored extends Omit<JdMatchResult, 'rank'> {
   fitFloat: number
 }
 
@@ -72,7 +72,7 @@ export function scorePool(args: {
   candidates: CandidateInput[]
   expertise: ExpertiseIndex
   orgs: OrgIndex
-}): MatchResult[] {
+}): JdMatchResult[] {
   const { rawText, extracted, requirements, candidates, expertise, orgs } = args
   // The JD is read once per run, here — never per candidate.
   const sig = buildJdSignature(rawText, extracted)

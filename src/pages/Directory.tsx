@@ -31,6 +31,7 @@ import {
   updateRunRequirements,
   type RankingRecord,
 } from '../lib/matching/persist'
+import { rankingModeFor, runBlockerFor } from '../lib/matching/preferences'
 import type { ExtractedRequirements } from '../lib/matching/types'
 import {
   gridOnlyMustHaves,
@@ -121,7 +122,7 @@ export default function Directory() {
   /** Ranking needs a hiring account (spec §1 "Unchanged": login gating). */
   const gateRanking = useCallback((): boolean => {
     if (canRank) return true
-    if (!hasAccess || role === 'hiring_manager') setGatedFeature('Ranking candidates against a job description')
+    if (!hasAccess || role === 'hiring_manager') setGatedFeature('Ranking candidates')
     else setNotice('Ranking is part of the hiring toolkit — switch to a hiring account to use it.')
     return false
   }, [canRank, hasAccess, role])
@@ -345,9 +346,11 @@ export default function Directory() {
           : jd.requirements,
         search: { term: params.get('q') ?? '', mode: params.get('qm') === 'full' ? 'full' : 'names' },
       })
-      setJdText(draft?.jdText ?? rec.jd.raw_text)
+      const text = draft?.jdText ?? rec.jd.raw_text
+      setJdText(text)
       setExtracted(draft ? upgradeLegacyExtracted(draft.extracted, expertise) : jd.extracted)
-      setJdCollapsed(true)
+      // A preferences run has no JD to preview: leave the box open for one.
+      setJdCollapsed(!!text.trim())
       setEpoch((e) => e + 1)
     })
     return () => {
@@ -416,6 +419,12 @@ export default function Directory() {
   }
   const closeDrawer = useCallback(() => setDrawerOpen(false), [])
 
+  /** Clearing the JD drops its suggestions: the run becomes preferences-only. */
+  const changeJdText = (text: string) => {
+    setJdText(text)
+    if (!text.trim()) setExtracted(null)
+  }
+
   const readJd = async () => {
     if (!data || !options) return
     setReading(true)
@@ -439,13 +448,24 @@ export default function Directory() {
     [data, expertise],
   )
 
+  const runBlocker = runBlockerFor({ jdText, read: !!extracted, requirements, poolCount: filtered.length })
+
   /** Run: Required rows pre-filter the pool, the survivors are scored, the
-   *  grid turns into the ranked list and the drawer closes. */
+   *  grid turns into the ranked list and the drawer closes. With a JD the
+   *  engine scores it; without one it's sorted by preferences (spec §11). */
   const run = async () => {
-    if (!extracted || filtered.length === 0) return
+    if (runBlocker) return
+    const mode = rankingModeFor(jdText)
     setRunning(true)
     try {
-      const rec = await runRanking({ openingId, rawText: jdText, extracted, requirements, pool: filtered })
+      const rec = await runRanking({
+        openingId,
+        mode,
+        rawText: mode === 'jd' ? jdText : '',
+        extracted: mode === 'jd' ? extracted : null,
+        requirements,
+        pool: filtered,
+      })
       if (ranking) clearDraft(ranking.jd.id) // the edits are now scored
       loadedFor.current = rec.jd.id
       setRanking(rec)
@@ -469,6 +489,7 @@ export default function Directory() {
     try {
       const merged = await scoreNewcomers({
         jobDescriptionId: ranking.jd.id,
+        mode: ranking.jd.mode ?? 'jd',
         requirements: persistable,
         newcomers,
         existing: ranking.results,
@@ -496,12 +517,6 @@ export default function Directory() {
     updateParams({ ranking: null, opening: null, q: null, qm: null })
     setEpoch((e) => e + 1)
   }
-
-  const runBlocker = !extracted
-    ? 'Read the job description first.'
-    : filtered.length === 0
-      ? 'No candidates meet everything marked Required.'
-      : null
 
   // ---- render ------------------------------------------------------------------
 
@@ -531,13 +546,13 @@ export default function Directory() {
             </span>
           </p>
         </div>
-        {/* Rank by JD — deliberately separate from the filter bar (PRD 7.1). */}
+        {/* Ranking — deliberately separate from the filter bar (PRD 7.1). */}
         <button
           onClick={() => openDrawer()}
           className="flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-ink/85"
         >
           <Sparkles size={16} className="text-gold-300" />
-          Rank by Job Description
+          Rank candidates
         </button>
       </div>
 
@@ -564,6 +579,7 @@ export default function Directory() {
 
       {ranking && ranked && (
         <RankingBanner
+          mode={ranking.jd.mode ?? 'jd'}
           rankedCount={ranked.length}
           excludedCount={excludedCount}
           linkedOpeningName={ranking.jd.opening_id ? openingName : null}
@@ -646,7 +662,7 @@ export default function Directory() {
           onClose={closeDrawer}
           jd={{
             text: jdText,
-            setText: setJdText,
+            setText: changeJdText,
             collapsed: jdCollapsed,
             setCollapsed: setJdCollapsed,
             reading,

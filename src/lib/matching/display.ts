@@ -1,6 +1,6 @@
 import { PREFERENCE_POINTS } from './config'
 import { preferenceScoring } from './total'
-import type { Adjustment, MatchResult, Scoring } from './types'
+import type { Adjustment, JdMatchResult, PreferenceMatchResult, Scoring } from './types'
 
 // Displayed score build-up (match rework spec §5.3, §7).
 //
@@ -39,8 +39,17 @@ export interface ScoreBreakdown {
   total: number
 }
 
+/** One row per adjustment, with its own points earned and possible. */
+export function breakdownRows(adjustments: Adjustment[]): BreakdownRow[] {
+  return adjustments.map((adjustment) => ({
+    adjustment,
+    earned: adjustment.outcome === 'not_applicable' ? 0 : Math.max(0, adjustment.points),
+    possible: adjustment.outcome === 'not_applicable' ? 0 : PREFERENCE_POINTS[adjustment.level],
+  }))
+}
+
 export function scoreBreakdown(
-  result: Pick<MatchResult, 'fit_score' | 'total_score' | 'adjustments'> & { scoring?: Scoring | null },
+  result: Pick<JdMatchResult, 'fit_score' | 'total_score' | 'adjustments'> & { scoring?: Scoring | null },
 ): ScoreBreakdown {
   // Legacy rows (scored before 008) carry no scoring; derive it from the
   // adjustments so the screen still renders until 008 removes them.
@@ -51,11 +60,7 @@ export function scoreBreakdown(
     fit: result.fit_score,
     fitMultiplier,
     fitPart,
-    rows: result.adjustments.map((adjustment) => ({
-      adjustment,
-      earned: adjustment.outcome === 'not_applicable' ? 0 : Math.max(0, adjustment.points),
-      possible: adjustment.outcome === 'not_applicable' ? 0 : PREFERENCE_POINTS[adjustment.level],
-    })),
+    rows: breakdownRows(result.adjustments),
     preferencePart: result.total_score - fitPart,
     scoring,
     total: result.total_score,
@@ -91,4 +96,17 @@ export function rowPointsLabel(r: BreakdownRow): string {
 /** Preferences' share of the score, as a whole percent (8%, 20%). */
 export function preferencePercent(s: Scoring): string {
   return `${Math.round(s.weight * 100)}%`
+}
+
+/** A preferences-only result's score (spec §11), from the stored scoring:
+ *  "Meets 23 of 46 preference points (50%)", or compact "Meets 23 of 46 pts
+ *  (50%)" for card rank strips, where the full form doesn't fit. */
+export function preferenceScoreLabel(
+  result: Pick<PreferenceMatchResult, 'scoring' | 'total_score'>,
+  opts: { compact?: boolean } = {},
+): string {
+  const { earned, possible } = result.scoring
+  if (possible === 0) return 'No preferences apply'
+  const pts = `Meets ${formatPoints(earned)} of ${formatPoints(possible)}`
+  return opts.compact ? `${pts} pts (${result.total_score}%)` : `${pts} preference points (${result.total_score}%)`
 }
