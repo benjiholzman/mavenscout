@@ -130,11 +130,11 @@ export default function Onboarding() {
   // Minimums and maximums (lib/completeness), checked against the saved
   // profile: the panel lists the gaps, and each section save is refused if it
   // goes over a maximum or (listed profiles) takes a section below a minimum.
-  const saved = { profile, portfolioCount }
+  const saved = { profile, portfolioCount, testimonials: testimonials.rows }
   const gaps = completenessGaps(saved)
   const guarded = (section: RuleSection, patch: Partial<Profile>) =>
     Promise.resolve(
-      checkSectionSave(section, saved, { profile: { ...profile, ...patch }, portfolioCount }),
+      checkSectionSave(section, saved, { ...saved, profile: { ...profile, ...patch } }),
     ).then((err) => (err ? `${err}.` : save(patch)))
   const saveAndSet = async (patch: Partial<Profile>) => {
     const err = await save(patch)
@@ -479,7 +479,7 @@ export default function Onboarding() {
               profileId={draft.id}
               cap={portfolioCap(draft)}
               checkCount={(before, after) =>
-                checkSectionSave('portfolio', { profile, portfolioCount: before }, { profile, portfolioCount: after })
+                checkSectionSave('portfolio', { ...saved, portfolioCount: before }, { ...saved, portfolioCount: after })
               }
               onSaved={setPortfolioCount}
             />

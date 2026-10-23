@@ -2,7 +2,9 @@ import { EXPERTISE_TIER_LIMITS, PROFILE_LIMITS } from './config'
 import { expertiseTags } from './expertise'
 import { spokenLanguages } from './languages'
 import { membershipLimits } from './membership'
-import type { ExpertiseTier, Profile } from '../types/db'
+import { fmtDate } from './dates'
+import { isActive, isLegacy, publishedEmployerTestimonials } from './testimonials/rules'
+import type { AudioTestimonial, ExpertiseTier, Profile } from '../types/db'
 
 // Profile minimums and maximums (docs/MavenScout-profiles-membership.md §7.1).
 //
@@ -17,14 +19,20 @@ import type { ExpertiseTier, Profile } from '../types/db'
 //       these minimums stay listed and editable.
 //   Drafts can be saved below the minimums while they're built up.
 // - Submitting for review needs no gaps; neither does admin Approve.
+//
+// The audio testimonial rule (spec §4.1, §4.4): a published testimonial on
+// an employer entry is needed to go live. It isn't a section save, so only
+// the panel, Submit and Approve check it.
 
 /** Editor sections the rules belong to (the section ids in Onboarding). */
-export type RuleSection = 'basics' | 'bio' | 'tags' | 'accreditations' | 'history' | 'portfolio'
+export type RuleSection = 'basics' | 'bio' | 'tags' | 'accreditations' | 'history' | 'portfolio' | 'testimonials'
 
 export interface CompletenessInput {
   profile: Profile
   /** Saved portfolio items (their own table). */
   portfolioCount: number
+  /** The profile's testimonials and requests, any status (their own table). */
+  testimonials: AudioTestimonial[]
 }
 
 interface Rule {
@@ -35,6 +43,21 @@ interface Rule {
   metric: (c: CompletenessInput) => number
   min?: (c: CompletenessInput) => number
   max?: (c: CompletenessInput) => number
+  /** Replaces the standard message when the rule isn't met. */
+  message?: (c: CompletenessInput) => string
+}
+
+/** "none published yet (waiting for Dr. Bello)"; the deadline after a withdrawal. */
+function testimonialMessage(c: CompletenessInput): string {
+  const open = c.testimonials.filter((t) => isActive(t) && !isLegacy(t) && t.work_history_entry_id)
+  const waiting = open.find((t) => t.status !== 'published')
+  const status = waiting
+    ? waiting.submitted_at
+      ? `${waiting.reference_name} recorded it, publish it`
+      : `waiting for ${waiting.reference_name}`
+    : 'request one from someone who supervised or contracted you'
+  const deadline = c.profile.testimonial_grace_until ? `; replace it by ${fmtDate(c.profile.testimonial_grace_until)} to stay listed` : ''
+  return `Audio testimonial on an employer entry: none published (${status}${deadline})`
 }
 
 const tierCount = (tier: ExpertiseTier) => (c: CompletenessInput) =>
@@ -68,6 +91,15 @@ const RULES: Rule[] = [
   },
   // Member: exactly 3; Featured Member: 3 to 10 (spec §2.2).
   { section: 'portfolio', label: 'Portfolio', unit: ['project', 'projects'], metric: (c) => c.portfolioCount, min: (c) => membershipLimits(c.profile).portfolio.min, max: (c) => membershipLimits(c.profile).portfolio.max },
+  // Everyone needs at least 1, on an employer entry (spec §4.1).
+  {
+    section: 'testimonials',
+    label: 'Audio testimonial on an employer entry',
+    unit: ['testimonial', 'testimonials'],
+    metric: (c) => publishedEmployerTestimonials(c.profile, c.testimonials).length,
+    min: fixed(1),
+    message: testimonialMessage,
+  },
 ]
 
 export interface Gap {
@@ -78,6 +110,7 @@ export interface Gap {
 function describe(rule: Rule, n: number, c: CompletenessInput): string | null {
   const min = rule.min?.(c)
   const max = rule.max?.(c)
+  if (rule.message && ((min !== undefined && n < min) || (max !== undefined && n > max))) return rule.message(c)
   if (max === 0 && n > 0) return `${rule.label}: ${n} — add the degree to each entry`
   if (min !== undefined && min === max && n !== min) return `${rule.label}: exactly ${min} (you have ${n})`
   const unit = (k: number) => rule.unit[k === 1 ? 0 : 1]
