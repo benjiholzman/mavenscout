@@ -74,7 +74,7 @@ export default function Directory() {
   const reqs = useRequirements()
   const { requirements, search } = reqs.state
   const filters = useMemo(() => mustHavesToFilterState(requirements, search), [requirements, search])
-  const [sort, setSort] = useState<SortMode>('shuffle')
+  const [sort, setSort] = useState<SortMode>('recommended')
   // Bumped whenever the result set changes so card flip state resets (PRD 7.1).
   const [epoch, setEpoch] = useState(0)
   const [gatedFeature, setGatedFeature] = useState<string | null>(null)

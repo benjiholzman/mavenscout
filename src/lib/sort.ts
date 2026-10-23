@@ -1,15 +1,21 @@
 import { isFeatured } from './membership'
-import type { Profile } from '../types/db'
+import { AVAILABILITY_FRESH_DAYS } from './config'
+import type { AvailabilityTrack, Profile } from '../types/db'
 
-// Default directory sort (PRD 7.1): randomized with a per-session seed —
-// stable while the visitor filters/paginates within a visit, reshuffled next
-// visit — with Featured Members always first regardless of sort, each group
-// sorted (or shuffled) on its own so the same Featured profiles don't always
-// lead (profiles-membership §2.2). Ranked results don't go through here: in
-// ranking mode the order is always rank order and Featured placement is
-// suspended (match rework spec §2.2, §5.5).
+// Directory sort (PRD 7.1). Ranked results don't go through here: in ranking
+// mode the order is always rank order and Featured placement is suspended
+// (match rework spec §2.2, §5.5).
+//
+// - Recommended (default): Featured available now → other Featured →
+//   Members available now → everyone else, shuffled within each group with a
+//   per-session seed (stable within a visit, reshuffled next visit) so the
+//   same profiles don't always lead.
+// - Available soonest, Newly added, Recently updated: Featured Members first
+//   (a paid benefit, profiles-membership §2.2), the chosen order within each.
+// "Available" means either track, and only if the availability was updated
+// within AVAILABILITY_FRESH_DAYS; staler availability counts as unknown.
 
-export type SortMode = 'shuffle' | 'newly_added' | 'location' | 'career_level'
+export type SortMode = 'recommended' | 'available_soonest' | 'newly_added' | 'recently_updated'
 
 const SEED_KEY = 'ms_shuffle_seed'
 
@@ -43,31 +49,54 @@ function seededShuffle<T>(items: T[], seed: number): T[] {
   return out
 }
 
-const CAREER_RANK: Record<string, number> = { senior: 0, mid_career: 1, early_career: 2 }
+const DAY_MS = 24 * 60 * 60 * 1000
 
-function sortWithin(profiles: Profile[], mode: SortMode): Profile[] {
+function availabilityFresh(p: Profile, now: number): boolean {
+  if (!p.availability_updated_at) return false
+  return now - new Date(p.availability_updated_at).getTime() <= AVAILABILITY_FRESH_DAYS * DAY_MS
+}
+
+/** When the expert is next available on either track (ms), or null if
+ *  unavailable or the availability is stale. */
+function availableFrom(p: Profile, now: number): number | null {
+  if (!availabilityFresh(p, now)) return null
+  const at = (t: AvailabilityTrack): number | null => {
+    if (!t || t.status === 'unavailable') return null
+    if (t.until && new Date(t.until).getTime() < now) return null
+    if (t.status === 'available_now') return now
+    return t.from ? Math.max(now, new Date(t.from).getTime()) : null
+  }
+  const times = [at(p.part_time_availability), at(p.full_time_availability)].filter((t): t is number => t !== null)
+  return times.length ? Math.min(...times) : null
+}
+
+export function isAvailableNow(p: Profile, now = Date.now()): boolean {
+  return availableFrom(p, now) === now
+}
+
+function sortWithin(profiles: Profile[], mode: Exclude<SortMode, 'recommended'>, now: number): Profile[] {
   switch (mode) {
-    case 'shuffle':
-      return seededShuffle(profiles, sessionSeed())
+    case 'available_soonest': {
+      // Shuffled first so ties (everyone available now) don't always list alike;
+      // unknown or unavailable last.
+      const key = (p: Profile) => availableFrom(p, now) ?? Infinity
+      return seededShuffle(profiles, sessionSeed()).sort((a, b) => key(a) - key(b))
+    }
     case 'newly_added':
       return [...profiles].sort((a, b) => b.created_at.localeCompare(a.created_at))
-    case 'location':
-      return [...profiles].sort((a, b) => (a.location ?? '').localeCompare(b.location ?? ''))
-    case 'career_level':
-      // Seniority first; firms (no career level) follow, newest-founded last.
-      return [...profiles].sort((a, b) => {
-        const ra = a.career_level ? CAREER_RANK[a.career_level] : 3
-        const rb = b.career_level ? CAREER_RANK[b.career_level] : 3
-        if (ra !== rb) return ra - rb
-        return (a.year_founded ?? 9999) - (b.year_founded ?? 9999)
-      })
+    case 'recently_updated':
+      return [...profiles].sort((a, b) => b.updated_at.localeCompare(a.updated_at))
   }
 }
 
-/** Featured Members first (a paid benefit, spec §2.2), the chosen sort within
- *  each group. */
 export function sortProfiles(profiles: Profile[], mode: SortMode): Profile[] {
+  const now = Date.now()
   const featured = profiles.filter(isFeatured)
   const members = profiles.filter((p) => !isFeatured(p))
-  return [...sortWithin(featured, mode), ...sortWithin(members, mode)]
+  if (mode === 'recommended') {
+    const seed = sessionSeed()
+    const split = (list: Profile[]) => [list.filter((p) => isAvailableNow(p, now)), list.filter((p) => !isAvailableNow(p, now))]
+    return [...split(featured), ...split(members)].flatMap((group) => seededShuffle(group, seed))
+  }
+  return [...sortWithin(featured, mode, now), ...sortWithin(members, mode, now)]
 }

@@ -4,13 +4,13 @@ import type { SortMode } from '../../lib/sort'
 import { FilterChip } from '../ui/FilterChip'
 
 const LABELS: Record<SortMode, string> = {
-  shuffle: 'Featured shuffle',
-  newly_added: 'Newly Added',
-  location: 'Location (A–Z)',
-  career_level: 'Career Level',
+  recommended: 'Recommended',
+  available_soonest: 'Available soonest',
+  newly_added: 'Newly added',
+  recently_updated: 'Recently updated',
 }
 
-const MODES: SortMode[] = ['shuffle', 'newly_added', 'location', 'career_level']
+const MODES: SortMode[] = ['recommended', 'available_soonest', 'newly_added', 'recently_updated']
 
 /** Sort control, styled like the filter-bar dropdowns: a chip that opens a
  *  panel below it on desktop and a bottom sheet at phone width. */
