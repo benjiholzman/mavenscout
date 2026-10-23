@@ -8,7 +8,7 @@
 //   node scripts/demo-seed/media.mjs --remove-demo [--yes]  list (with --yes, delete) the demo/ clips,
 //                                                        before purge_demo.sql
 //
-// Needs ffmpeg to generate. The Storage options read .env (VITE_SUPABASE_URL /
+// Needs ffmpeg and the database (for the question text) to generate. Storage and the database are read through .env (VITE_SUPABASE_URL /
 // _ANON_KEY) and use the dev storage policies (anon upload and delete,
 // 000_schema.sql). Behind a proxy, run with NODE_USE_ENV_PROXY=1.
 //
@@ -18,7 +18,9 @@
 //     each testimonial's transcript, which is labelled demo. Rows rotate
 //     through the six clips.
 //   videos/demo/qna-1..5.mp4
-//     One title card per standard Video Q&A question: the question, a
+//     One title card per standard Video Q&A question, with the question text
+//     read from the live interview_questions table (what the app shows above
+//     the player; re-run --upload after an admin edits a question): the question, a
 //     "DEMO ANSWER" banner and a waveform of the same kind of tone bed, 20 s,
 //     720×1280 H.264. Every Featured demo profile shares these five.
 //
@@ -29,7 +31,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { AUDIO_CLIPS, QUESTIONS, VIDEO_CLIPS } from './media-clips.mjs'
+import { AUDIO_CLIPS, VIDEO_CLIPS } from './media-clips.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const outDir = join(root, 'node_modules', '.cache', 'demo-media')
@@ -75,7 +77,7 @@ function wrap(text, width) {
   return lines
 }
 
-function videoClip({ name, seconds }, index) {
+function videoClip({ name, seconds }, index, question) {
   const out = join(outDir, name)
   const texts = []
   const text = (body, font, size, color, y, x = '(w-text_w)/2') => {
@@ -87,7 +89,7 @@ function videoClip({ name, seconds }, index) {
   text('DEMO ANSWER', FONT_BOLD, 76, CYAN, 250)
   text('Illustrative only. No real person appears or speaks.', FONT, 25, '0x55606A', 350)
   text(`Question ${index + 1} of 5`, FONT, 30, '0x55606A', 500)
-  wrap(QUESTIONS[index], 29).forEach((l, i) => text(l, FONT_BOLD, 40, '0x1E2A33', 560 + i * 58))
+  wrap(question, 34).forEach((l, i) => text(l, FONT_BOLD, 36, '0x1E2A33', 560 + i * 52))
   text('Demo data: the transcript below is fictional.', FONT, 26, '0x55606A', 1150)
   const graph =
     `${bedFilter(seconds, 196 + index * 12)}[aud];[aud]asplit[aout][aw];` +
@@ -100,16 +102,6 @@ function videoClip({ name, seconds }, index) {
   return out
 }
 
-const args = new Set(process.argv.slice(2))
-const storageOnly = (args.has('--clean') || args.has('--remove-demo')) && !args.has('--upload')
-const files = storageOnly
-  ? []
-  : [
-      ...AUDIO_CLIPS.map((c) => ({ bucket: 'audio-testimonials', path: `demo/${c.name}`, file: audioClip(c), type: 'audio/mp4' })),
-      ...VIDEO_CLIPS.map((c, i) => ({ bucket: 'videos', path: `demo/${c.name}`, file: videoClip(c, i), type: 'video/mp4' })),
-    ]
-for (const f of files) console.log(`${f.bucket}/${f.path}  ${(readFileSync(f.file).length / 1024).toFixed(0)} KB`)
-
 async function storage() {
   const { createClient } = await import('@supabase/supabase-js')
   const env = Object.fromEntries(
@@ -120,6 +112,28 @@ async function storage() {
   )
   return createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY)
 }
+
+// The question text exactly as the app shows it, minus markdown emphasis
+// (drawtext would print the asterisks).
+async function questions() {
+  const db = await storage()
+  const { data, error } = await db.from('interview_questions').select('question_text, sort_order').eq('active', true).order('sort_order')
+  if (error) throw new Error(`interview_questions: ${error.message}`)
+  if (!data || data.length < VIDEO_CLIPS.length) throw new Error(`need ${VIDEO_CLIPS.length} active questions, found ${data?.length ?? 0}`)
+  return data.map((q) => q.question_text.replace(/\*([^*]+)\*/g, '$1'))
+}
+
+const args = new Set(process.argv.slice(2))
+const storageOnly = (args.has('--clean') || args.has('--remove-demo')) && !args.has('--upload')
+const questionText = storageOnly ? [] : await questions()
+const files = storageOnly
+  ? []
+  : [
+      ...AUDIO_CLIPS.map((c) => ({ bucket: 'audio-testimonials', path: `demo/${c.name}`, file: audioClip(c), type: 'audio/mp4' })),
+      ...VIDEO_CLIPS.map((c, i) => ({ bucket: 'videos', path: `demo/${c.name}`, file: videoClip(c, i, questionText[i]), type: 'video/mp4' })),
+    ]
+for (const f of files) console.log(`${f.bucket}/${f.path}  ${(readFileSync(f.file).length / 1024).toFixed(0)} KB`)
+
 
 async function list(db, bucket, folder) {
   const { data, error } = await db.storage.from(bucket).list(folder, { limit: 1000 })
@@ -138,7 +152,7 @@ async function remove(db, bucket, paths) {
 if (args.has('--upload')) {
   const db = await storage()
   for (const f of files) {
-    const { error } = await db.storage.from(f.bucket).upload(f.path, readFileSync(f.file), { contentType: f.type, upsert: true })
+    const { error } = await db.storage.from(f.bucket).upload(f.path, readFileSync(f.file), { contentType: f.type, upsert: true, cacheControl: '60' })
     if (error) throw new Error(`${f.bucket}/${f.path}: ${error.message}`)
     console.log(`uploaded ${f.bucket}/${f.path}`)
   }
