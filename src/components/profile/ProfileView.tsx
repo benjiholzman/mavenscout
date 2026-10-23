@@ -34,7 +34,7 @@ import { ContactModal } from './ContactModal'
 // website). ALL surface/auth differences flow through visibilityFor() —
 // nothing here re-derives its own gating.
 
-type TabId = 'overview' | 'experience' | 'portfolio' | 'videos' | 'audio'
+type TabId = 'overview' | 'experience' | 'portfolio' | 'videos'
 
 export function ProfileView({ data, surface }: { data: ProfileData; surface: Surface }) {
   const { profile, questions } = data
@@ -53,7 +53,7 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
   const resumeHref = resumeDownloadUrl(profile)
   // Video Q&As are a Featured Member feature (profiles-membership §5): the
   // tab exists only once Featured status is active.
-  const hasVideoTab = rules.gatedTabsExist && isFeatured(profile)
+  const hasVideoTab = rules.videoTabExists && isFeatured(profile)
 
   const tabs = useMemo(() => {
     const t: { id: TabId; label: string }[] = [{ id: 'overview', label: 'Overview' }]
@@ -62,10 +62,11 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
     if (!isFirm || profile.additional_experience.length > 0)
       t.push({ id: 'experience', label: 'Experience' })
     t.push({ id: 'portfolio', label: 'Portfolio' })
+    // No separate Audio Testimonials tab (spec §2.2): testimonials sit inline
+    // on employer entries and portfolio items.
     if (hasVideoTab) t.push({ id: 'videos', label: 'Video Q&As' })
-    if (rules.gatedTabsExist) t.push({ id: 'audio', label: 'Audio Testimonials' })
     return t
-  }, [isFirm, profile.additional_experience.length, rules.gatedTabsExist, hasVideoTab])
+  }, [isFirm, profile.additional_experience.length, hasVideoTab])
 
   return (
     <div>
@@ -178,21 +179,20 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
         </div>
 
         <div className="py-8">
-          {tab === 'overview' && <OverviewTab data={data} rules={rules} shared={shared} onOpenExperience={() => setTab('experience')} />}
+          {tab === 'overview' && (
+            <OverviewTab
+              data={data}
+              rules={rules}
+              shared={shared}
+              // Testimonials sit on employer entries (Experience) or projects (Portfolio).
+              onOpenTestimonials={() =>
+                setTab(isFirm || testimonials.every((t) => t.portfolio_item_id) ? 'portfolio' : 'experience')
+              }
+            />
+          )}
           {tab === 'experience' && <ExperienceTab isFirm={isFirm} shared={shared} />}
           {tab === 'portfolio' && <PortfolioTab data={data} shared={shared} />}
           {tab === 'videos' && hasVideoTab && <VideosTab data={data} rules={rules} questions={questions} />}
-          {tab === 'audio' && (
-            <div className="space-y-4">
-              {rules.audioTestimonials === 'gated' ? (
-                <GatePrompt what="listen to spoken references from this candidate's former managers and colleagues" />
-              ) : testimonials.length === 0 ? (
-                <p className="text-sm text-ink-faint">No audio testimonials yet.</p>
-              ) : (
-                testimonials.map((t) => <TestimonialCard key={t.id} testimonial={t} profile={profile} orgs={orgs} />)
-              )}
-            </div>
-          )}
         </div>
       </div>
 
@@ -217,12 +217,12 @@ function OverviewTab({
   data,
   rules,
   shared,
-  onOpenExperience,
+  onOpenTestimonials,
 }: {
   data: ProfileData
   rules: ReturnType<typeof visibilityFor>
   shared: Shared
-  onOpenExperience: () => void
+  onOpenTestimonials: () => void
 }) {
   const { profile } = data
   // One-line summary (§4.4): a teaser on /profile even logged out; none on /site.
@@ -234,7 +234,7 @@ function OverviewTab({
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-brand-50 px-3.5 py-2.5 text-sm text-ink-soft">
             <Mic size={15} className="shrink-0 text-brand-600" />
             <span className="font-medium text-ink">{summary}</span>
-            <button onClick={onOpenExperience} className="font-medium text-brand-600 hover:text-brand-700">
+            <button onClick={onOpenTestimonials} className="font-medium text-brand-600 hover:text-brand-700">
               {rules.audioTestimonials === 'shown' ? 'Listen' : 'Sign up free to listen'}
             </button>
           </p>
@@ -429,6 +429,12 @@ function yearsLabel(start: number, end: number | null): string {
   return `${start} – ${end ?? 'Present'}`
 }
 
+/** On no employer entry or portfolio item: a legacy "general" reference, or
+ *  one whose employer entry no longer exists. */
+function isGeneralReference(t: AudioTestimonial, profile: Profile): boolean {
+  return !t.portfolio_item_id && !profile.work_history.some((w) => !!w.id && w.id === t.work_history_entry_id)
+}
+
 function ExperienceTab({ isFirm, shared }: { isFirm: boolean; shared: Shared }) {
   const { profile, orgs } = shared
   return (
@@ -471,6 +477,14 @@ function ExperienceTab({ isFirm, shared }: { isFirm: boolean; shared: Shared }) 
               />
             ))}
           </ul>
+        </section>
+      )}
+      {/* References on no entry (legacy, or the entry is gone), shown until
+          the step 5 re-seed (spec §13). Same visibility as every testimonial. */}
+      {shared.testimonials.some((t) => isGeneralReference(t, profile)) && shared.rules.audioTestimonials !== 'hidden' && (
+        <section>
+          <h2 className="mb-1 text-lg font-semibold">Other references</h2>
+          <InlineTestimonials shared={shared} rows={shared.testimonials.filter((t) => isGeneralReference(t, profile))} />
         </section>
       )}
       {profile.additional_experience.length > 0 && (

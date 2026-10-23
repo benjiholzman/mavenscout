@@ -3,7 +3,7 @@
 // Profile minimums and maximums live in lib/completeness.
 
 import { PORTFOLIO_FIELD_LIMITS, PROFILE_LIMITS } from './config'
-import { isFeatured, membershipLimits } from './membership'
+import { membershipLimits } from './membership'
 import type { Profile } from '../types/db'
 
 export const HEADLINE_MAX = 120
@@ -21,10 +21,7 @@ export function portfolioCap(p: Profile): number {
 export function socialLinkCap(p: Profile): number {
   return membershipLimits(p).socialLinks
 }
-/** Testimonial rules move to the testimonial flow (spec §4, §13 step 3). */
-export function audioTestimonialCap(p: Profile): number {
-  return isFeatured(p) ? 10 : 1
-}
+// Testimonial caps: lib/testimonials/rules (requestBlock), spec §4.1.
 
 // ---- social link validation (PRD 7.13) -------------------------------------
 

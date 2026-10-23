@@ -11,8 +11,8 @@ RLS notes) — the PRD defines *what* was intended; this defines *where the seam
 | | |
 |---|---|
 | Stack | React 18 + TypeScript + Vite, Tailwind 3, Framer Motion, React Router 6, Supabase (Postgres + Storage) |
-| Run | `npm install && npm run dev` — needs `.env` with `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (see `.env.example`) |
-| Database | `supabase/000_schema.sql` → `001` → `002` → `003` → `004` → `005` → `006` → `007_seed_demo_profiles_1` … `_4` → `008` → `009` → `010` → `011`, run in order in the Supabase SQL editor; then `012` once the `data-foundations` branch is merged (never before: it drops what older code reads). 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data; 004 fills portfolio organization/years and work-history logo links on the seeded rows; 005 adds the match-rework columns (`job_descriptions.requirements/extracted`; `match_results.rank/band/fit_score/adjustments/adjustments_capped/must_haves_passed`) and deletes pre-rework rankings; 006 adds `profiles.is_demo` (flags the original 15 and normalizes their country names); the four 007 files add 100 synthetic `demo-*` profiles (generated — see *Demo data* below); 008 adds `match_results.scoring` for the preference-weighted total and deletes rankings scored under the old additive formula; 009 adds the canonical `organizations` list (200 seeded) and `portfolio_items.organization_id`; 010 adds the canonical `languages` list and `profiles.spoken_languages` (Fluent/Working), backfilled at Fluent, plus logo fixes for four organizations; 011 adds the unified expertise list (140 items in 15 groups, each with a kind, aliases and the old names it absorbs) and `profiles.tiered_expertise`, filled by `ms_migrate_expertise`. 009–011 are additive (old columns and taxonomies untouched); 012 re-migrates any stragglers, then drops `profiles.languages/expertise/skills`, the old taxonomies and the migration helpers. A fresh project bootstraps from these files. An existing database only needs the migrations it hasn't run — 004 and 005 use `ADD COLUMN IF NOT EXISTS`, so they're no-ops on fresh projects, where 000 already creates the columns. |
+| Run | `npm install && npm run dev` — needs `.env` with `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (see `.env.example`). `npm run dev:lan` serves HTTPS on the local network (self-signed certificate) for testing on a phone: browsers allow the microphone and `crypto.subtle` only on secure origins |
+| Database | `supabase/000_schema.sql` → `001` → `002` → `003` → `004` → `005` → `006` → `007_seed_demo_profiles_1` … `_4` → `008` → `009` → `010` → `011`, run in order in the Supabase SQL editor; then `012` once the `data-foundations` branch is merged (never before: it drops what older code reads); then `013`; `014` once the `profiles-membership` branch is merged; then `015`. 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data; 004 fills portfolio organization/years and work-history logo links on the seeded rows; 005 adds the match-rework columns (`job_descriptions.requirements/extracted`; `match_results.rank/band/fit_score/adjustments/adjustments_capped/must_haves_passed`) and deletes pre-rework rankings; 006 adds `profiles.is_demo` (flags the original 15 and normalizes their country names); the four 007 files add 100 synthetic `demo-*` profiles (generated — see *Demo data* below); 008 adds `match_results.scoring` for the preference-weighted total and deletes rankings scored under the old additive formula; 009 adds the canonical `organizations` list (200 seeded) and `portfolio_items.organization_id`; 010 adds the canonical `languages` list and `profiles.spoken_languages` (Fluent/Working), backfilled at Fluent, plus logo fixes for four organizations; 011 adds the unified expertise list (140 items in 15 groups, each with a kind, aliases and the old names it absorbs) and `profiles.tiered_expertise`, filled by `ms_migrate_expertise`. 009–011 are additive (old columns and taxonomies untouched); 012 re-migrates any stragglers, then drops `profiles.languages/expertise/skills`, the old taxonomies and the migration helpers. 013 adds portfolio video links, the single portfolio image list and `profiles.submitted_at`; 014 removes `portfolio_items.cover_image` and the intro and portfolio video rows. 015 (additive) adds the testimonial flow: a stable `id` on every `work_history` entry, the request, referee, code and lifecycle columns on `audio_testimonials`, the `testimonial_events` audit table, `profiles.email` and `profiles.testimonial_grace_until`, and `hiring_managers.email` / `updates_opt_in`. A fresh project bootstraps from these files. An existing database only needs the migrations it hasn't run — 004 and 005 use `ADD COLUMN IF NOT EXISTS`, so they're no-ops on fresh projects, where 000 already creates the columns. |
 | Verification baseline | Every PRD Definition-of-Done item (Section 13) was verified in-browser at desktop and 375px before handoff. The Playwright scripts lived in a temp scratchpad and are **not** committed — if you want a regression suite, the DoD checklist is the spec to automate against. The match rework's acceptance criteria (`docs/MavenScout-match-rework.md` §10) were verified the same way at desktop (1280px) and 375px in October 2026, plus scripted checks of the filter-bar ↔ requirements round-trip (22 filter combinations matched the pre-rework directory except the intended career-level change), the scoring math, and the displayed rounding (20,000 random cases, re-run for the preference-weighted total); those scripts are not committed either. |
 
 ## What is mocked vs. real (the load-bearing distinction)
@@ -31,6 +31,24 @@ capped and is placed as a Member. The loaders set a derived
 Membership never affects AI rank, and "Has video Q&As" (requirement kind `video_qna`)
 is Required-only by construction (`isRequiredOnly` in `lib/requirements/model.ts`).
 
+**Audio testimonials (profiles-membership §4; `src/lib/testimonials/`).** The
+consultant requests one per employer entry (Featured Members: per portfolio item
+too) from the editor's Audio testimonials section; the integrity rules
+(`integrity.ts`) block addresses not on the organizations list, controlled
+domains, the consultant's own email and shared mailboxes, and hold the link for
+admin review on a name/address mismatch, a newly added organization or a failed
+pre-check (the referee volume flag doesn't hold it). The consultant sends the
+link personally. The referee confirms their institutional email with a code on
+`/testimonial/:token`, reviews the details, records (AAC/MP4 preferred; WebM is
+converted to WAV on the device, `lib/audioFormat.ts`, so every browser plays it),
+consents and submits; the consultant publishes. The required testimonial (the
+only published one on an employer entry) can only be replaced; others can be
+removed; the referee can withdraw at any time on `/testimonial/withdraw/:token`,
+which starts a 30-day grace period if it was the required one (`isListed` drops
+the profile when it lapses). Every step writes `testimonial_events`.
+Transcripts never feed ranking. A published employer-entry testimonial is a
+profile minimum (`lib/completeness.ts`).
+
 **Firms are hidden** behind `FIRMS_ENABLED = false` (`src/lib/config.ts`, spec §1):
 excluded from the directory, search, ranking and the baseline pool through
 `isListed`; the Type filter, Type requirement row and firm onboarding options are
@@ -44,7 +62,10 @@ when one is added, build it from `isListed`.
 |---|---|---|
 | Auth | localStorage role switcher, no real identity | `src/lib/session.tsx`, `src/components/layout/DevRoleSwitcher.tsx` |
 | Billing | Admin-settable `subscription_status`; Subscribe disabled | `src/pages/Billing.tsx`, admin Tier tab |
-| Outbound email | ALL of it is stubbed: contact relay, testimonial request emails (copy-paste template instead), async video-request notifications, "email this list" (mailto:) | `ContactModal.tsx`, `TestimonialsSection.tsx`, `VideoRequestsPanel.tsx`, `SharePanels.tsx` |
+| Outbound email | ALL of it is stubbed: contact relay, async video-request notifications, "email this list" (mailto:). Testimonial emails (the referee's code, the consultant's new-testimonial and withdrawal notices, the referee's published notice with the withdraw link) are `email_mocked` events in `testimonial_events`, listed in admin's Mock outbox; the referee's code is shown on screen. Real sending needs SPF/DKIM/DMARC on the sending domain (spec §4.6 rule 9) | `ContactModal.tsx`, `lib/testimonials/outbox.ts`, `VideoRequestsPanel.tsx`, `SharePanels.tsx` |
+| Testimonial pre-check | Placeholder `precheckReferee`: checks the request against itself (full name, title, current organization = email domain's organization). The real one searches public records (spec §4.2) | `src/lib/testimonials/precheck.ts` |
+| Speech-to-text | Placeholder `transcribeAudio` returns labelled text instantly; the referee can edit it | `src/lib/testimonials/transcribe.ts` |
+| Testimonial code check | Generated, hashed and compared in the browser | `src/lib/testimonials/code.ts`, `referee.ts` |
 | Verification evidence | The old Premium evidence application is removed (spec §2.2). The `verification_evidence` table stays for the verification queue (spec §3, §13 step 4), whose uploads must stay stubbed too | `verification_evidence` table |
 | Membership choice | The editor's Membership & review section sets `is_premium` directly; no payment is taken | `src/components/onboarding/MembershipSection.tsx` |
 | AI matching | Placeholder JD extraction + placeholder Fit and preference adjustments (deterministic keyword matching) behind the real contract | `src/lib/matching/` (see Loop8 section; spec `docs/MavenScout-match-rework.md`) |
@@ -76,9 +97,12 @@ when one is added, build it from `isListed`.
    - `profiles`: public SELECT only for `approved + active`; owner reads own row any
      state; admin all. App code already filters directory queries the same way — after
      RLS lands, that becomes defense in depth.
-   - `audio_testimonials`: the anon INSERT path is a *feature* (token page) — scope it
-     to rows where `submission_token` matches and `audio_path IS NULL`, ideally via a
-     security-definer RPC rather than raw table access.
+   - `audio_testimonials`: the referee pages (`/testimonial/:token`,
+     `/testimonial/withdraw/:token`) are unauthenticated *by design*. Replace their raw
+     table access (every function in `lib/testimonials/referee.ts` and the withdraw
+     path in `lifecycle.ts`) with security-definer RPCs or edge functions keyed on the
+     token, and close the table to anon. `testimonial_events` should be written only
+     by those server-side steps; managers' listens likewise.
    - `opening_shares` → `/shortlists/:token` read path: anon needs to resolve a
      non-revoked token into an opening's data. A security-definer function or a
      filtered view keeps the base tables closed.
@@ -112,9 +136,27 @@ when one is added, build it from `isListed`.
 
 ## Security hardening checklist (flagged surfaces, PRD 7.6/7.20)
 
-- [ ] `/testimonial/:token` — unauthenticated upload endpoint **by design**. Validate
-      the token server-side, cap MIME/size at the storage policy, rate-limit, and
-      consider expiring tokens.
+- [ ] **LAUNCH BLOCKER — personal data readable and the code check client-side.**
+      Under the dev RLS, anyone with the anon key can read `profiles.email`, the
+      referees' emails, names and titles in `audio_testimonials`, `hiring_managers.email`
+      and every `testimonial_events` row (fingerprints included). The referee's
+      "Confirm it's me" code is generated in the browser and checked against
+      `code_hash`, which is readable too (a 6-digit hash is trivially brute-forced),
+      so it proves nothing yet. Before launch: generate, email and verify codes
+      server-side (single-use, ~10 minutes, attempt and send limits are already
+      modelled in the columns), and close these reads with RLS.
+- [ ] `/testimonial/:token` and `/testimonial/withdraw/:token` — unauthenticated
+      pages **by design**. Validate tokens server-side, cap MIME/size at the storage
+      policy, rate-limit, and consider expiring request tokens. The one-click
+      manager account on the thank-you screen inserts `hiring_managers` from the
+      browser; make it a real sign-up with the already-confirmed email.
+- [ ] Testimonial audio is "streaming only" in the UI alone (no download control or
+      context menu): the `audio-testimonials` bucket is public. Make it private and
+      serve short-lived signed URLs to signed-in managers; log listens server-side.
+- [ ] Testimonial audit fingerprints are browser-reported; capture the IP/network
+      server-side (spec §4.6 rule 7).
+- [ ] Recordings must be deleted when a consultant leaves (spec §4.7): deleting a
+      profile cascades the rows but not the Storage objects.
 - [ ] Storage buckets (`videos`, `audio-testimonials`, `resumes`) — currently public
       read + anon write. Scope writes to owners; make `resumes` private (signed URLs).
 - [ ] **Verification evidence — the most sensitive data in the app** (employment
@@ -246,8 +288,9 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
 - The four seeded intro videos (YouTube placeholder URLs) are no longer shown — the
   intro video is removed for everyone — and `014_cleanup_profiles_membership.sql`
   deletes them. Amara Diallo additionally
-  has: a test-PDF résumé, one published audio testimonial with a placeholder tone clip
-  ("Jean-Baptiste Kouassi"), a submitted async video response (YouTube URL), and the
+  has: a test-PDF résumé, one published legacy audio testimonial with a placeholder
+  tone clip ("Jean-Baptiste Kouassi", on a portfolio item, made before the referee
+  flow and shown as a legacy reference), a submitted async video response (YouTube URL), and the
   Sahel opening holds a persisted full-pool AI ranking. All are safe to replace/delete;
   they exist so every feature demos without setup.
 - **The Sahel ranking is not in the seed files** — the app created it, and
@@ -279,6 +322,12 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   stay listed and editable (edits can't make a section worse) and see the gaps in the
   editor's completeness panel. No profile has Video Q&A answers yet, so no one has
   Featured status until the re-seed adds them. The step 5 re-seed fixes both.
+- **Testimonial test data.** The `testimonials` branch was tested on the live demo
+  database: Amara Diallo has a removed request (Dr. Amina Bello, replaced) and a
+  withdrawn testimonial (Grace Mwangi), so her profile shows the "none published"
+  gap; Dr. Priya Nair has a recorded, unpublished testimonial (Dr. Lena Okafor,
+  recorded on a phone); and one hiring-manager row (Dr. Amina Bello) exists from the referee
+  thank-you screen. All are safe to delete; the step 5 re-seed replaces them.
 - **After 014** the seed files and `scripts/demo-seed` no longer match the schema
   (they write `cover_image` and intro videos); the step 5 re-seed rewrites them.
 - **Synthetic demo profiles (`is_demo`).** `007_seed_demo_profiles_{1..4}.sql` add 100
