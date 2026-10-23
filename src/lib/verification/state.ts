@@ -208,3 +208,18 @@ export function verificationState(input: VerificationInput, now = new Date()): V
       .sort(newestFirst),
   }
 }
+
+/** Labels for a public profile (spec §3.1), by `${kind}:${id}`. Every
+ *  certification is checked, so one without a label yet reads "Pending
+ *  check" rather than unmarked. */
+export type ProfileLabel = VerificationLabel | 'pending'
+
+export function profileLabels(input: Omit<VerificationInput, 'evidence'>): Map<string, ProfileLabel> {
+  const out = new Map<string, ProfileLabel>()
+  for (const item of verificationItems(input.profile)) {
+    const mark = itemMark(item, input)
+    if (mark) out.set(`${item.kind}:${item.id}`, mark.label)
+    else if (item.kind === 'certification') out.set(`${item.kind}:${item.id}`, 'pending')
+  }
+  return out
+}

@@ -26,7 +26,7 @@ import type { AudioTestimonial, ExpertiseTier, Profile } from '../types/db'
 // the panel, Submit and Approve check it.
 
 /** Editor sections the rules belong to (the section ids in Onboarding). */
-export type RuleSection = 'basics' | 'bio' | 'tags' | 'accreditations' | 'history' | 'portfolio' | 'testimonials'
+export type RuleSection = 'basics' | 'bio' | 'tags' | 'accreditations' | 'history' | 'portfolio' | 'testimonials' | 'verification'
 
 export interface CompletenessInput {
   profile: Profile

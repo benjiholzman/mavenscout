@@ -26,7 +26,8 @@ import { useTestimonials } from '../hooks/useTestimonials'
 import { useOrganizations } from '../hooks/useOrganizations'
 import { useVerification } from '../hooks/useVerification'
 import { employerOrgFingerprint, identityFingerprint } from '../lib/verification/items'
-import { recheckPatch } from '../lib/verification/recheck'
+import { verificationGaps, verificationWaiting } from '../lib/verification/gaps'
+import { recheckPatch } from '../lib/verification/window'
 import { verificationState, type VerificationState } from '../lib/verification/state'
 import { isActive, STAGE_LABELS, testimonialStage } from '../lib/testimonials/rules'
 import { EXPERTISE_TIER_LIMITS, FIRMS_ENABLED, PROFILE_LIMITS } from '../lib/config'
@@ -155,7 +156,7 @@ export default function Onboarding() {
     )
 
   if (error) return <p className="mx-auto max-w-3xl px-4 py-16 text-red-600">{error}</p>
-  if (!draft || !taxonomy || !profile || portfolioCount === null || !testimonials.rows)
+  if (!draft || !taxonomy || !profile || portfolioCount === null || !testimonials.rows || !verification.data)
     return <p className="mx-auto max-w-3xl px-4 py-16 text-ink-faint">Loading…</p>
 
   const isFirm = draft.consultant_type !== 'Individual'
@@ -164,10 +165,11 @@ export default function Onboarding() {
   // profile: the panel lists the gaps, and each section save is refused if it
   // goes over a maximum or (listed profiles) takes a section below a minimum.
   const saved = { profile, portfolioCount, testimonials: testimonials.rows }
-  const gaps = completenessGaps(saved)
   // Verification (spec §3): where each item stands, from the saved profile.
-  const verifyInput = verification.data && { ...verification.data, profile, testimonials: testimonials.rows, orgs }
-  const vState = verifyInput ? verificationState(verifyInput) : null
+  const verifyInput = { ...verification.data, profile, testimonials: testimonials.rows, orgs }
+  const vState = verificationState(verifyInput)
+  // Minimums plus what verification still needs from the consultant (§10).
+  const gaps = [...completenessGaps(saved), ...verificationGaps(vState)]
   const marks = checkedMarks(vState, profile)
   const identityMark = vState?.items.find((i) => i.kind === 'identity')?.mark
   // A save that removes the label from the identity, most recent employer or
@@ -175,7 +177,6 @@ export default function Onboarding() {
   // opens the re-check window on a listed profile; one that restores them
   // clears it (lib/verification/recheck).
   const withRecheckWindow = (patch: Partial<Profile>): Partial<Profile> => {
-    if (!verifyInput || !vState) return patch
     const after = verificationState({ ...verifyInput, profile: { ...profile, ...patch } })
     return { ...patch, ...recheckPatch(profile, vState.corePassed, after.corePassed) }
   }
@@ -230,7 +231,7 @@ export default function Onboarding() {
       </div>
 
       <div className="mt-6">
-        <CompletenessPanel gaps={gaps} listed={isListedProfile(profile)} />
+        <CompletenessPanel gaps={gaps} listed={isListedProfile(profile)} waiting={verificationWaiting(vState)} profile={profile} />
       </div>
 
       {/* New testimonials to listen to and publish (spec §4.4; email mocked). */}

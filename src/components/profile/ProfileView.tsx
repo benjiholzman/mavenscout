@@ -28,6 +28,8 @@ import { summaryLine, visibleTestimonials } from '../../lib/testimonials/display
 import { emailDomain } from '../../lib/testimonials/integrity'
 import { OrgLogo } from '../ui/OrgLogo'
 import { TagPills } from '../ui/TagPills'
+import { profileLabels, type ProfileLabel } from '../../lib/verification/state'
+import { VerificationLabel, VerificationLegend } from './VerificationLabel'
 import { ContactModal } from './ContactModal'
 
 // Shared renderer for /profile/:handle (platform) and /site/:handle (public
@@ -43,7 +45,12 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
   const orgs = useOrganizations()
   // What this profile shows (a Member shows one); published rows only.
   const testimonials = useMemo(() => visibleTestimonials(profile, data.testimonials), [profile, data.testimonials])
-  const shared = { profile, orgs, testimonials, rules }
+  // Verification labels (spec §3.1), on /profile and /site alike.
+  const labels = useMemo(
+    () => profileLabels({ profile, checks: data.checks, testimonials: data.testimonials, orgs }),
+    [profile, data.checks, data.testimonials, orgs],
+  )
+  const shared = { profile, orgs, testimonials, rules, labels }
 
   const [tab, setTab] = useState<TabId>('overview')
   const [contactOpen, setContactOpen] = useState(false)
@@ -140,6 +147,7 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
         <div className="mt-3">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold sm:text-3xl">{profile.name}</h1>
+            <VerificationLabel label={labels.get('identity:identity')} />
             {isFirm && <FirmTypeBadge type={profile.consultant_type as 'Small Firm' | 'Large Firm'} />}
           </div>
           <p className="mt-1 max-w-2xl text-ink-soft">{profile.headline}</p>
@@ -157,6 +165,11 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
             )}
             {spokenLanguages(profile).length > 0 && <span>{formatLanguages(spokenLanguages(profile))}</span>}
           </div>
+          {labels.size > 0 && (
+            <div className="mt-2 max-w-2xl">
+              <VerificationLegend pending={[...labels.values()].includes('pending')} />
+            </div>
+          )}
         </div>
 
         {/* ---- Tabs ---- */}
@@ -211,6 +224,8 @@ interface Shared {
   /** Published and shown (visibleTestimonials). */
   testimonials: AudioTestimonial[]
   rules: ReturnType<typeof visibilityFor>
+  /** Verification labels by `${kind}:${id}` (lib/verification/state). */
+  labels: Map<string, ProfileLabel>
 }
 
 function OverviewTab({
@@ -260,18 +275,22 @@ function OverviewTab({
         )}
         {profile.accreditations.length > 0 && (
           <section>
-            <div className="mb-2 flex items-baseline justify-between">
-              <h2 className="text-lg font-semibold">Accreditations & Certifications</h2>
-              <SelfAttestedMark />
-            </div>
+            {/* Every certification listed is checked (spec §3.1): no
+                self-attested mark; each carries its label. */}
+            <h2 className="mb-2 text-lg font-semibold">Accreditations & Certifications</h2>
             <ul className="space-y-2">
               {profile.accreditations.map((a) => (
-                <li key={a.name} className="rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm">
+                <li key={a.id ?? a.name} className="rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm">
                   <span className="font-medium">{a.name}</span>
                   <span className="text-ink-soft"> — {a.issuing_organization}</span>
                   {a.year && <span className="text-ink-faint"> ({a.year})</span>}
                   {a.credential_id_or_url && (
                     <CredentialRef value={a.credential_id_or_url} />
+                  )}
+                  {a.id && (
+                    <span className="ml-2">
+                      <VerificationLabel label={shared.labels.get(`certification:${a.id}`)} />
+                    </span>
                   )}
                 </li>
               ))}
@@ -405,6 +424,7 @@ function TimelineEntry({
   subtitle,
   years,
   description,
+  label,
   children,
 }: {
   logo?: string | null
@@ -413,6 +433,9 @@ function TimelineEntry({
   subtitle: string
   years: string
   description?: string | null
+  /** Verification label (spec §3.1). */
+  label?: ProfileLabel
+
   /** Inline audio testimonials (§4.4). */
   children?: ReactNode
 }) {
@@ -428,7 +451,10 @@ function TimelineEntry({
       <div className="min-w-0">
         <p className="text-sm font-semibold">{title}</p>
         <p className="text-sm text-ink-soft">{subtitle}</p>
-        <p className="mt-0.5 text-xs text-ink-faint">{years}</p>
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-faint">
+          {years}
+          <VerificationLabel label={label} />
+        </p>
         {description && (
           <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">{description}</p>
         )}
@@ -466,6 +492,7 @@ function ExperienceTab({ isFirm, shared }: { isFirm: boolean; shared: Shared }) 
                 subtitle={w.organization}
                 years={yearsLabel(w.start_year, w.end_year)}
                 description={w.description}
+                label={w.id ? shared.labels.get(`employer:${w.id}`) : undefined}
               >
                 <InlineTestimonials
                   shared={shared}
@@ -487,6 +514,7 @@ function ExperienceTab({ isFirm, shared }: { isFirm: boolean; shared: Shared }) 
                 title={e.degree_or_course}
                 subtitle={e.institution}
                 years={yearsLabel(e.start_year, e.end_year)}
+                label={e.id ? shared.labels.get(`degree:${e.id}`) : undefined}
               />
             ))}
           </ul>
