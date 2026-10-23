@@ -21,7 +21,7 @@ import {
   upgradeLegacyExtracted,
   upgradeLegacyRequirements,
 } from '../lib/expertise'
-import { deriveOptions, facetCounts, type FacetKey, type FilterState } from '../lib/filters'
+import { deriveOptions, facetCounts, type FilterCountKey, type FilterState } from '../lib/filters'
 import { extractRequirements } from '../lib/matching/extract'
 import {
   loadLatestForOpening,
@@ -34,6 +34,7 @@ import {
 import type { ExtractedRequirements } from '../lib/matching/types'
 import {
   gridOnlyMustHaves,
+  isMust,
   mustHavesToFilterState,
   preferenceKey,
   sameRows,
@@ -42,7 +43,10 @@ import {
 } from '../lib/requirements/model'
 import { clearDraft, readDraft, writeDraft } from '../lib/requirements/draft'
 import { applyMustHaves, applyOrgMustHaves } from '../lib/requirements/mustHaves'
+import { ORG_SCOPE_LABELS } from '../lib/requirements/labels'
+import { passesOrgMustHave } from '../lib/requirements/match'
 import { useRequirements } from '../lib/requirements/store'
+import { employerGroups, orgAliases } from '../lib/organizations'
 import { FIRMS_ENABLED } from '../lib/config'
 import { DEMO_HIRING_MANAGER_ID, useSession } from '../lib/session'
 import { VERIFIED_STATEMENT } from '../lib/testimonials/copy'
@@ -148,7 +152,7 @@ export default function Directory() {
     const typeOf = (id: string) => data.taxonomyCategories.find((c) => c.id === id)?.type
     return {
       expertise,
-      locations: options.locations,
+      locations: options.locationTree,
       languages: options.languages,
       types: FIRMS_ENABLED ? ['Individual', 'Small Firm', 'Large Firm'] : ['Individual'],
       workArrangements: data.taxonomyItems
@@ -164,20 +168,40 @@ export default function Directory() {
   }, [data, expertise, requirements, search])
 
   const countFor = useCallback(
-    (key: FacetKey, values: string[]) =>
-      data && expertise
-        ? facetCounts(
-            // Org History Required rows have no filter-bar control, so apply them first.
-            applyOrgMustHaves(data.profiles, requirements, data.orgs),
-            data.portfolioByProfile,
-            filters,
-            expertise,
-            key,
-            values,
-          )
-        : new Map<string, number>(),
-    [data, expertise, requirements, filters],
+    (key: FilterCountKey, values: string[]) => {
+      if (!data || !expertise) return new Map<string, number>()
+      if (key === 'previousEmployers') {
+        // Everyone meeting the other Required rows, then "ever at" each employer.
+        const pool = applyMustHaves(
+          data.profiles,
+          data.portfolioByProfile,
+          requirements.filter((r) => !(r.kind === 'org_history' && isMust(r))),
+          search,
+          expertise,
+          data.orgs,
+        )
+        return new Map(
+          values.map((org) => [org, pool.filter((p) => passesOrgMustHave(p, { org, scope: 'ever', peers: [] }, data.orgs)).length]),
+        )
+      }
+      return facetCounts(
+        // Org History Required rows are evaluated with the organizations list, so apply them first.
+        applyOrgMustHaves(data.profiles, requirements, data.orgs),
+        data.portfolioByProfile,
+        filters,
+        expertise,
+        key,
+        values,
+      )
+    },
+    [data, expertise, requirements, search, filters],
   )
+
+  const employers = useMemo(() => (data ? employerGroups(data.profiles, data.orgs) : []), [data])
+  const employersLockedNote = useMemo(() => {
+    const row = gridOnlyMustHaves(requirements)[0]
+    return row ? `Organizational history is set to “${ORG_SCOPE_LABELS[row.value.scope]}” in the ranking panel` : undefined
+  }, [requirements])
 
   const gridOnlyChips = useMemo(
     () => gridOnlyMustHaves(requirements).map((r) => ({ id: r.id, label: 'Org history' })),
@@ -522,7 +546,7 @@ export default function Directory() {
           <FilterBar
             filters={filters}
             onChange={handleFilterChange}
-            locations={options.locations}
+            locations={options.locationTree}
             languages={options.languages}
             taxonomyCategories={data.taxonomyCategories}
             taxonomyItems={data.taxonomyItems}
@@ -531,6 +555,9 @@ export default function Directory() {
             onClearAll={handleClearAll}
             gridOnlyMustHaves={gridOnlyChips}
             onOpenRequirement={(id) => openDrawer(id)}
+            employers={employers}
+            employerSearchTerms={(name) => orgAliases(data.orgs, name)}
+            employersLockedNote={employersLockedNote}
           />
         )}
       </div>

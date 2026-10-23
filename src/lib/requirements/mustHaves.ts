@@ -4,13 +4,13 @@ import type { Requirement } from '../matching/types'
 import type { OrgIndex } from '../organizations'
 import type { PortfolioItem, Profile } from '../../types/db'
 import { passesOrgMustHave } from './match'
-import { gridOnlyMustHaves, mustHavesToFilterState, type SearchState } from './model'
+import { mustHavesToFilterState, orgMustHaves, type SearchState } from './model'
 
 // Must-have pre-filter (docs/MavenScout-match-rework.md §5.1 step 2).
 // Candidates failing any Must-have are excluded before scoring and never
 // scored. Evaluation reuses the directory filter logic exactly
-// (src/lib/filters.ts applyFilters), plus Org History, which has no
-// filter-bar control.
+// (src/lib/filters.ts applyFilters), plus Org History (the Previous employers
+// filter among them), which needs the organizations list.
 //
 // TODO(server-side): the spec asks for this as a database query. Today the
 // whole approved pool is loaded and filtered in the browser (expertise kinds,
@@ -19,7 +19,7 @@ import { gridOnlyMustHaves, mustHavesToFilterState, type SearchState } from './m
 
 /** Profiles that pass every Org History Must-have (all others pass through). */
 export function applyOrgMustHaves(profiles: Profile[], reqs: Requirement[], orgs: OrgIndex): Profile[] {
-  const orgRows = gridOnlyMustHaves(reqs)
+  const orgRows = orgMustHaves(reqs)
   if (orgRows.length === 0) return profiles
   return profiles.filter((p) => orgRows.every((r) => passesOrgMustHave(p, r.value, orgs)))
 }

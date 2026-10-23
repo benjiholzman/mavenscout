@@ -2,7 +2,7 @@ import { countedTiers, expertiseTags, type ExpertiseIndex } from '../expertise'
 import { matchesAvailability, matchesLocation, locationLabel, type AvailabilityFilter } from '../filters'
 import { speaks } from '../languages'
 import type { OrgIndex } from '../organizations'
-import { orgHistoryOutcome } from '../requirements/match'
+import { orgHistoryOutcome, orgNames } from '../requirements/match'
 import { rowHasValue } from '../requirements/model'
 import { AVAILABILITY_GRACE_MONTHS, CREDIT, PREFERENCE_POINTS } from './config'
 import { evidenceText, type CandidateInput } from './fit'
@@ -32,7 +32,7 @@ export function requirementLabel(r: Requirement): string {
       return r.value.name
     case 'org_history': {
       const scope = { current: 'Currently at', ever: 'Ever at', ever_or_peer: 'At' }[r.value.scope]
-      return r.value.scope === 'ever_or_peer' ? `${scope} ${r.value.org} or a peer` : `${scope} ${r.value.org}`
+      return r.value.scope === 'ever_or_peer' ? `${scope} ${orgNames(r.value)} or a peer` : `${scope} ${orgNames(r.value)}`
     }
     case 'location':
       return `Based in ${or(r.value.values.map(locationLabel))}`

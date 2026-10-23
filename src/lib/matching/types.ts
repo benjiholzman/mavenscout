@@ -36,11 +36,20 @@ export type RequirementSource = 'jd' | 'filter' | 'manual'
 
 export type OrgScope = 'current' | 'ever' | 'ever_or_peer'
 
+export interface OrgRef {
+  org: string
+  /** Set when the org was picked from the canonical list. */
+  org_id?: string | null
+}
+
 export interface OrgHistoryValue {
   org: string
   /** Set when the org was picked from the canonical list; optional so rows
    *  saved before 009 still load. */
   org_id?: string | null
+  /** More organizations, any of which counts like `org` (the Previous
+   *  employers filter's multiple picks). Optional: single-org rows omit it. */
+  also?: OrgRef[]
   scope: OrgScope
   /** Peer organizations, used only with scope 'ever_or_peer'. Empty in the
    *  placeholder unless the manager adds names; the real engine suggests them. */

@@ -246,3 +246,37 @@ export function sectorExperience(
   }
   return out
 }
+
+/** Previous employers filter options: every organization in the pool's work
+ *  history, grouped by type. Entries resolve through the list, so aliases
+ *  and country offices fold into their organization ("UNICEF Ethiopia" is
+ *  UNICEF); employers not on the list are offered under their own name. */
+export function employerGroups(profiles: Profile[], index: OrgIndex): { label: string; items: string[] }[] {
+  const listed = new Map<string, Organization>()
+  const unlisted = new Map<string, string>() // normalized → first spelling seen
+  for (const p of profiles)
+    for (const w of p.work_history) {
+      if (!w.organization?.trim() || isPseudoEmployer(w.organization)) continue
+      const org = resolveOrganization(index, w.organization, w.organization_id)
+      if (org) listed.set(org.id, org)
+      else {
+        const key = normalizeOrgName(w.organization)
+        if (key && !unlisted.has(key)) unlisted.set(key, w.organization.trim())
+      }
+    }
+  const byName = (a: string, b: string) => a.localeCompare(b)
+  const groups = (Object.keys(ORG_TYPE_LABELS) as OrgType[])
+    .map((type) => ({
+      label: ORG_TYPE_LABELS[type],
+      items: [...listed.values()].filter((o) => o.type === type).map((o) => o.name).sort(byName),
+    }))
+    .filter((g) => g.items.length > 0)
+  if (unlisted.size > 0) groups.push({ label: 'Not on the organizations list', items: [...unlisted.values()].sort(byName) })
+  return groups
+}
+
+/** Aliases a Previous employers option is also found by ("IBRD", "UNHCR"). */
+export function orgAliases(index: OrgIndex, name: string): string[] {
+  const org = index.byKey.get(normalizeOrgName(name))
+  return org && org.name === name ? org.aliases : []
+}

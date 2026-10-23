@@ -1,5 +1,6 @@
 import { FIRMS_ENABLED } from '../config'
 import { EMPTY_FILTERS, type FilterState, type SearchMode } from '../filters'
+import { orgTargets } from './match'
 import {
   ALWAYS_PRESENT_KINDS,
   type ExtractedTag,
@@ -38,8 +39,10 @@ import {
 //   (profiles-membership §6): OR within a kind (sector / theme / method), AND
 //   across kinds, counting Core and Strong tags unless the manager includes
 //   Working knowledge. Different requirement kinds combine with AND.
-// - Org History has no filter-bar control; its Required row is evaluated in
-//   mustHaves.ts and shown as a chip at the end of the filter bar.
+// - Org History's Required row at "Ever at" is the Previous employers filter
+//   (several organizations = any of them). At another scope it has no
+//   filter-bar control and shows as a chip at the end of the filter bar.
+//   Either way it's evaluated in mustHaves.ts, with the organizations list.
 // ============================================================================
 
 export interface SearchState {
@@ -253,6 +256,7 @@ export function mustHavesToFilterState(reqs: Requirement[], search: SearchState)
     workArrangements: [],
     locations: [],
     languages: [],
+    previousEmployers: [],
     searchTerm: search.term,
     searchMode: search.mode,
   }
@@ -283,6 +287,7 @@ export function mustHavesToFilterState(reqs: Requirement[], search: SearchState)
         f.hasAudioTestimonial = true
         break
       case 'org_history':
+        if (isEmployersRow(r)) f.previousEmployers = orgTargets(r.value).map((o) => o.org)
         break
     }
   }
@@ -291,13 +296,24 @@ export function mustHavesToFilterState(reqs: Requirement[], search: SearchState)
 
 /** An Org History row only constrains anything once it names an organization. */
 export function isActiveOrgRow(r: Requirement): r is RequirementOf<'org_history'> {
-  return r.kind === 'org_history' && r.value.org.trim() !== ''
+  return r.kind === 'org_history' && orgTargets(r.value).length > 0
 }
 
-/** Required rows the filter bar can't show — today just Org History.
- *  Rendered as "+1 required: Org history" chips (spec §2.1). */
-export function gridOnlyMustHaves(reqs: Requirement[]): RequirementOf<'org_history'>[] {
+/** The Required Org History row the Previous employers filter shows: "Ever at". */
+function isEmployersRow(r: Requirement): r is RequirementOf<'org_history'> {
+  return isMust(r) && isActiveOrgRow(r) && r.value.scope === 'ever'
+}
+
+/** Every Required Org History row that names an organization (mustHaves.ts). */
+export function orgMustHaves(reqs: Requirement[]): RequirementOf<'org_history'>[] {
   return reqs.filter((r): r is RequirementOf<'org_history'> => isMust(r) && isActiveOrgRow(r))
+}
+
+/** Required rows the filter bar can't show: Org History at a scope other than
+ *  "Ever at" (Currently at, or a peer). Rendered as "+1 required: Org history"
+ *  chips (spec §2.1); the Previous employers filter is locked meanwhile. */
+export function gridOnlyMustHaves(reqs: Requirement[]): RequirementOf<'org_history'>[] {
+  return orgMustHaves(reqs).filter((r) => r.value.scope !== 'ever')
 }
 
 /** False for a row that can't constrain or score anything yet (e.g. Location
@@ -307,7 +323,7 @@ export function rowHasValue(r: Requirement): boolean {
     case 'expertise':
       return r.value.name !== ''
     case 'org_history':
-      return r.value.org.trim() !== ''
+      return orgTargets(r.value).length > 0
     case 'location':
     case 'language':
     case 'type':
@@ -372,6 +388,7 @@ export function applyFilterStateToRequirements(
   setSingle('availability', next.availability ? { ...next.availability } : null)
   setSingle('video_qna', next.hasVideoQnas ? {} : null)
   setSingle('audio_testimonial', next.hasAudioTestimonial ? {} : null)
+  rows = withPreviousEmployers(rows, next.previousEmployers)
 
   const wanted = next.expertise
   const withWorking = (name: string) => (next.expertiseIncludeWorking ? { name, includeWorking: true } : { name })
@@ -388,6 +405,34 @@ export function applyFilterStateToRequirements(
   }
 
   return { requirements: normalizeRequirements(rows), search: { term: next.searchTerm, mode: next.searchMode } }
+}
+
+/**
+ * The Previous employers filter → the Org History row. Picks write a Required
+ * "Ever at" row (any of them; ids kept for names already in it), turning a
+ * preference row Required as other single-instance filters do. Clearing the
+ * picks deletes that Required row. A row at another scope, or one still
+ * being typed in the grid (no name yet), isn't the filter's, so it's left
+ * alone. Unchanged picks leave the row untouched.
+ */
+function withPreviousEmployers(rows: Requirement[], names: string[]): Requirement[] {
+  const row = rows.find((r): r is RequirementOf<'org_history'> => r.kind === 'org_history')
+  const current = row && isEmployersRow(row) ? orgTargets(row.value) : []
+  if (names.length === current.length && names.every((n, i) => n === current[i].org)) return rows
+  if (names.length === 0) return row && isEmployersRow(row) ? rows.filter((r) => r !== row) : rows
+  if (row && isMust(row) && isActiveOrgRow(row) && row.value.scope !== 'ever') return rows
+  const known = row ? orgTargets(row.value) : []
+  const refs = names.map((org) => ({ org, org_id: known.find((k) => k.org === org)?.org_id ?? null }))
+  const value: RequirementValueByKind['org_history'] = {
+    org: refs[0].org,
+    org_id: refs[0].org_id,
+    ...(refs.length > 1 ? { also: refs.slice(1) } : {}),
+    scope: 'ever',
+    peers: [],
+  }
+  return row
+    ? rows.map((r) => (r === row ? withMust(r, value) : r))
+    : [...rows, makeRow('org_history', value, { level: 'must', source: 'filter' })]
 }
 
 /** Sets a row to Required with a new value. A row that wasn't already

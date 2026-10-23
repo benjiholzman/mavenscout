@@ -1,4 +1,5 @@
 import { locationLabel } from '../filters'
+import { orgNames } from './match'
 import type { Requirement, RequirementKind } from '../matching/types'
 
 // Display labels for requirement rows: grid row titles, the live count's
@@ -36,7 +37,7 @@ export function describeRequirement(r: Requirement): string {
     case 'expertise':
       return r.value.name
     case 'org_history':
-      return `${ORG_SCOPE_LABELS[r.value.scope]} ${r.value.org || '…'}`
+      return `${ORG_SCOPE_LABELS[r.value.scope]} ${orgNames(r.value) || '…'}`
     case 'location':
       return `${kind}: ${r.value.values.map(locationLabel).join(', ')}`
     case 'career_level':

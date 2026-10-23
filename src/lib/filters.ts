@@ -1,6 +1,8 @@
 import { expertiseTags, matchesExpertiseSelection, type ExpertiseIndex } from './expertise'
 import { speaks, spokenLanguages } from './languages'
+import { buildLocationTree, placeMatches, placeOf, type Place } from './locations'
 import { isFeatured } from './membership'
+import type { TreeNode } from './tree'
 import type { AvailabilityTrack, PortfolioItem, Proficiency, Profile } from '../types/db'
 
 // Directory filtering (PRD 7.1): AND across filters, OR within a multi-select
@@ -38,6 +40,10 @@ export interface FilterState {
   /** At least one published audio testimonial (spec §4). Off by default; a
    *  filter / Required row only — never a scored preference. */
   hasAudioTestimonial: boolean
+  /** Previous employers: the Required Org History row at "Ever at", any of
+   *  these organizations. Evaluated with the organizations list in
+   *  requirements/mustHaves.ts, not by applyFilters. */
+  previousEmployers: string[]
   searchTerm: string
   searchMode: SearchMode
 }
@@ -54,6 +60,7 @@ export const EMPTY_FILTERS: FilterState = {
   availability: null,
   hasVideoQnas: false,
   hasAudioTestimonial: false,
+  previousEmployers: [],
   searchTerm: '',
   searchMode: 'names',
 }
@@ -69,6 +76,7 @@ export function hasActiveFilters(f: FilterState): boolean {
     f.availability !== null ||
     f.hasVideoQnas ||
     f.hasAudioTestimonial ||
+    f.previousEmployers.length > 0 ||
     f.searchTerm.trim() !== ''
   )
 }
@@ -178,12 +186,10 @@ export function applyFilters(
   })
 }
 
-// ---- location (two-tier: country → city) ----------------------------------
-// profiles.location stays free text, conventionally "City, Country". The
-// country is the last comma-separated segment. In the filter, a country is
-// selected by its bare name ("Nigeria") and a city by the full location
-// string ("Lagos, Nigeria"), so same-named cities in different countries
-// never collide.
+// ---- location (sub-region → country → city; lib/locations) ----------------
+// profiles.location stays free text, conventionally "City, Country". Values:
+// a sub-region by its M49 name, a country by its bare name ("Nigeria"), a
+// city by the full location string ("Lagos, Nigeria").
 
 export function locationCountry(location: string): string {
   return location.split(',').pop()!.trim()
@@ -195,14 +201,15 @@ export function locationLabel(value: string): string {
   return i === -1 ? value : value.slice(0, i).trim()
 }
 
-/** Country selections match every profile in that country; city selections
- *  match only that city. OR within the selection. */
+/** Region selections match every profile in its countries, country
+ *  selections every profile in that country, city selections only that
+ *  city. OR within the selection. */
 export function matchesLocation(location: string | null, selected: string[]): boolean {
-  if (!location) return false
-  const loc = location.trim()
-  return selected.some((sel) => sel === loc || sel === locationCountry(loc))
+  return placeMatches(placeOf(location), selected)
 }
 
+/** Countries and their cities, as the JD extraction matches them (regions
+ *  are picked, not extracted). */
 export function deriveLocationGroups(profiles: Profile[]): { label: string; items: string[] }[] {
   const byCountry = new Map<string, Set<string>>()
   for (const p of profiles) {
@@ -221,10 +228,13 @@ export function deriveLocationGroups(profiles: Profile[]): { label: string; item
 /** Dynamic filter options from what's actually in the data (PRD §8). */
 export function deriveOptions(profiles: Profile[]): {
   locations: { label: string; items: string[] }[]
+  /** The location picker: continent → sub-region → country → city. */
+  locationTree: TreeNode[]
   languages: string[]
 } {
   const languages = [...new Set(profiles.flatMap((p) => spokenLanguages(p).map((l) => l.name)))].sort()
-  return { locations: deriveLocationGroups(profiles), languages }
+  const places = profiles.map((p) => placeOf(p.location)).filter((p): p is Place => p !== null)
+  return { locations: deriveLocationGroups(profiles), locationTree: buildLocationTree(places), languages }
 }
 
 // ---- facet counts (filter dropdown item counts) ----------------------------
@@ -236,6 +246,10 @@ export type FacetKey =
   | 'workArrangements'
   | 'locations'
   | 'languages'
+
+/** Facets the filter bar asks counts for: FacetKey, plus previous employers
+ *  (counted with the organizations list, so outside facetCounts). */
+export type FilterCountKey = FacetKey | 'previousEmployers'
 
 /** For each option value of one filter, how many profiles it would match
  *  given every OTHER active filter (standard faceted counts: the dropdown's

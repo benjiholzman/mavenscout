@@ -151,7 +151,7 @@ export function OrgPicker({
       </div>
       {value.trim() && (
         <p className={`mt-1 flex items-center gap-1.5 text-ink-faint ${compact ? 'text-[11px]' : 'text-xs'}`}>
-          {orgId && resolved ? (
+          {resolved && (orgId || normalizeOrgName(resolved.name) === normalizeOrgName(value)) ? (
             <>
               <Check size={12} className="text-brand-600" /> On the organizations list · {ORG_TYPE_LABELS[resolved.type]}
             </>

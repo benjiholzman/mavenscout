@@ -4,7 +4,7 @@ import {
   firmsOnlySelected,
   hasActiveFilters,
   locationLabel,
-  type FacetKey,
+  type FilterCountKey,
   type FilterState,
   type SearchMode,
 } from '../../lib/filters'
@@ -12,7 +12,8 @@ import type { TaxonomyCategory, TaxonomyItem } from '../../types/db'
 import { FIRMS_ENABLED } from '../../lib/config'
 import { describeExpertiseSelection, type ExpertiseIndex } from '../../lib/expertise'
 import { MIN_PROFICIENCY_LABELS } from '../../lib/languages'
-import { MultiSelect, type OptionGroup } from '../ui/MultiSelect'
+import { treeValues } from '../../lib/tree'
+import { MultiSelect, type OptionGroup, type TreeNode } from '../ui/MultiSelect'
 import { FilterChip } from '../ui/FilterChip'
 import { Segmented } from '../ui/Segmented'
 import { Switch } from '../ui/Switch'
@@ -41,17 +42,28 @@ export function FilterBar({
   onClearAll,
   gridOnlyMustHaves = [],
   onOpenRequirement,
+  employers = [],
+  employerSearchTerms,
+  employersLockedNote,
 }: {
   filters: FilterState
   onChange: (next: FilterState) => void
-  locations: OptionGroup[]
+  /** Continent → sub-region → country → city (lib/locations). */
+  locations: TreeNode[]
   languages: string[]
   taxonomyCategories: TaxonomyCategory[]
   taxonomyItems: TaxonomyItem[]
   /** The unified expertise list (groups for browsing, kinds for matching). */
   expertise: ExpertiseIndex
   /** Faceted counts for one filter's option values (see lib/filters facetCounts). */
-  countFor: (key: FacetKey, values: string[]) => Map<string, number>
+  countFor: (key: FilterCountKey, values: string[]) => Map<string, number>
+  /** Previous employers options: the pool's work-history organizations by type. */
+  employers?: OptionGroup[]
+  /** Extra words an employer is found by (the list's aliases). */
+  employerSearchTerms?: (name: string) => string[]
+  /** Set while the Required Org History row is at another scope (Currently
+   *  at, or a peer): the filter can't show it, so it's locked. */
+  employersLockedNote?: string
   /** Clear All. Defaults to clearing every filter through onChange; the
    *  directory passes the requirements store's clearMustHaves so must-haves
    *  without a filter-bar control (Org History) are cleared too. */
@@ -78,8 +90,6 @@ export function FilterBar({
     })
     .map((i) => i.name)
 
-  const groupValues = (groups: OptionGroup[]) => groups.flatMap((g) => [g.label, ...g.items])
-
   // Counts are computed only for the dropdown that's open.
   const openCounts = useMemo(() => {
     switch (openKey) {
@@ -94,9 +104,11 @@ export function FilterBar({
       case 'arrangement':
         return countFor('workArrangements', workArrangements)
       case 'location':
-        return countFor('locations', groupValues(locations))
+        return countFor('locations', treeValues(locations))
       case 'language':
         return countFor('languages', languages)
+      case 'employers':
+        return countFor('previousEmployers', employers.flatMap((g) => g.items))
       default:
         return undefined
     }
@@ -233,8 +245,7 @@ export function FilterBar({
         />
         <MultiSelect
           label="Location"
-          groups={locations}
-          selectableGroup
+          tree={locations}
           formatValue={locationLabel}
           selected={filters.locations}
           onChange={(v) => set('locations', v)}
@@ -281,6 +292,25 @@ export function FilterBar({
           </span>
         </FilterChip>
 
+        {/* Less used: kept at the end of the row, after the main filters.
+            It's the Required Org History row at "Ever at" (shared state). */}
+        {employers.length > 0 && (
+          <MultiSelect
+            label="Previous employers"
+            groups={employers}
+            searchTerms={employerSearchTerms}
+            selected={filters.previousEmployers}
+            onChange={(v) => set('previousEmployers', v)}
+            onClear={() => set('previousEmployers', [])}
+            disabled={!!employersLockedNote}
+            disabledNote={employersLockedNote}
+            note="Experts who have worked at any of the organizations you pick, including their country offices."
+            counts={openKey === 'employers' ? openCounts : undefined}
+            open={openKey === 'employers'}
+            onToggle={toggleFor('employers')}
+          />
+        )}
+
         {gridOnlyMustHaves.length > 0 && (
           <button
             onClick={() => onOpenRequirement?.(gridOnlyMustHaves[0].id)}
@@ -306,6 +336,7 @@ export function FilterBar({
                     availability: null,
                     hasVideoQnas: false,
                     hasAudioTestimonial: false,
+                    previousEmployers: [],
                     searchTerm: '',
                   })
             }

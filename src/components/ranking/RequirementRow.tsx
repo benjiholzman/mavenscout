@@ -7,7 +7,7 @@ import { locationLabel, type EngagementType } from '../../lib/filters'
 import type { Level, Requirement, RequirementValueByKind } from '../../lib/matching/types'
 import { CAREER_LEVEL_SHORT, KIND_LABELS, ORG_SCOPE_LABELS } from '../../lib/requirements/labels'
 import { isRequiredOnly, rowHasValue } from '../../lib/requirements/model'
-import { MultiSelect, type OptionGroup } from '../ui/MultiSelect'
+import { MultiSelect, type TreeNode } from '../ui/MultiSelect'
 import { OrgPicker } from '../ui/OrgPicker'
 import { Segmented } from '../ui/Segmented'
 import { MIN_PROFICIENCY_LABELS } from '../../lib/languages'
@@ -17,14 +17,15 @@ import { LEVEL_LABELS, LevelControl } from './LevelControl'
 // picker · level control · source tag · remove. Every row can be removed —
 // no row means no preference.
 //
-// The location and language pickers are the swap point for Branch 2 (Mapbox
-// places, canonical languages): they read and write the row's { values }
-// only, so replacing them doesn't touch scoring.
+// The location and language pickers read and write the row's { values } only.
+// Locations use the filter bar's tree (lib/locations): swapping its data
+// source for Mapbox changes neither the picker nor scoring.
 
 export interface PickerOptions {
   /** The unified expertise list (an expertise row shows its item's kind). */
   expertise: ExpertiseIndex
-  locations: OptionGroup[]
+  /** Continent → sub-region → country → city (lib/locations). */
+  locations: TreeNode[]
   languages: string[]
   types: string[]
   workArrangements: string[]
@@ -133,7 +134,7 @@ function ValuePicker({
           label="Places"
           summary={row.value.values.map(locationLabel).join(', ')}
           emptyText="Based in any of the places you pick"
-          groups={options.locations}
+          tree={options.locations}
           formatValue={locationLabel}
           disabledValues={requiredValues}
           selected={row.value.values}
@@ -255,7 +256,7 @@ function ListPicker({
   emptyText,
   disabledValues,
   options,
-  groups,
+  tree,
   formatValue,
   selected,
   onChange,
@@ -265,7 +266,7 @@ function ListPicker({
   emptyText: string
   disabledValues?: string[]
   options?: string[]
-  groups?: OptionGroup[]
+  tree?: TreeNode[]
   formatValue?: (v: string) => string
   selected: string[]
   onChange: (next: string[]) => void
@@ -276,8 +277,7 @@ function ListPicker({
       <MultiSelect
         label={label}
         options={options}
-        groups={groups}
-        selectableGroup={!!groups}
+        tree={tree}
         formatValue={formatValue}
         disabledValues={disabledValues}
         disabledLabel="already required"
@@ -376,6 +376,7 @@ function OrgHistoryPicker({
           className="min-w-0 flex-1"
         />
       </div>
+      <AlsoOrgs value={value} onValue={onValue} />
       {value.scope === 'ever_or_peer' && (
         <div>
           <p className="text-xs font-medium text-ink-soft">Peer organizations</p>
@@ -419,6 +420,78 @@ function OrgHistoryPicker({
           </div>
           <p className="mt-1 text-[11px] text-ink-faint">The real engine will suggest peers.</p>
         </div>
+      )}
+    </div>
+  )
+}
+
+/** More organizations, any of which counts (the Previous employers filter's
+ *  multiple picks land here too): chips with ×, and a picker to add one. */
+function AlsoOrgs({
+  value,
+  onValue,
+}: {
+  value: RequirementValueByKind['org_history']
+  onValue: (v: RequirementValueByKind['org_history']) => void
+}) {
+  const also = value.also ?? []
+  const [draft, setDraft] = useState<{ org: string; org_id: string | null }>({ org: '', org_id: null })
+  const [adding, setAdding] = useState(false)
+  const add = () => {
+    const org = draft.org.trim()
+    const taken = [value.org, ...also.map((o) => o.org)].some((o) => o.trim().toLowerCase() === org.toLowerCase())
+    if (org && !taken) onValue({ ...value, also: [...also, { org, org_id: draft.org_id }] })
+    setDraft({ org: '', org_id: null })
+    setAdding(false)
+  }
+  const remove = (org: string) => {
+    const rest = also.filter((o) => o.org !== org)
+    const { also: _drop, ...single } = value
+    onValue(rest.length > 0 ? { ...value, also: rest } : single)
+  }
+  if (!value.org.trim() && also.length === 0) return null
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {also.map((o) => (
+        <span key={o.org} className="inline-flex items-center gap-1 rounded-full bg-paper px-2 py-0.5 text-xs text-ink-soft">
+          <span className="text-ink-faint">or</span> {o.org}
+          <button
+            type="button"
+            aria-label={`Remove ${o.org}`}
+            onClick={() => remove(o.org)}
+            className="text-ink-faint hover:text-ink"
+          >
+            <X size={11} />
+          </button>
+        </span>
+      ))}
+      {adding ? (
+        <span className="flex w-full items-start gap-1 sm:w-auto">
+          <OrgPicker
+            compact
+            label="Another organization"
+            placeholder="Another organization"
+            value={draft.org}
+            orgId={draft.org_id}
+            onChange={(org, org_id) => setDraft({ org, org_id })}
+            className="min-w-0 flex-1 sm:w-56"
+          />
+          <button
+            type="button"
+            onClick={add}
+            className="rounded-lg border border-line px-2 py-1.5 text-xs font-medium text-brand-700 hover:border-brand-400"
+          >
+            Add
+          </button>
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="inline-flex items-center gap-1 rounded-full border border-dashed border-line px-2 py-0.5 text-xs font-medium text-ink-soft hover:border-brand-400 hover:text-brand-700"
+        >
+          <Plus size={11} aria-hidden /> Or another organization
+        </button>
       )}
     </div>
   )

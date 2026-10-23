@@ -1,4 +1,4 @@
-import type { OrgHistoryValue } from '../matching/types'
+import type { OrgHistoryValue, OrgRef } from '../matching/types'
 import { normalizeOrgName, resolveOrganization, type OrgIndex } from '../organizations'
 import type { Profile, WorkHistoryEntry } from '../../types/db'
 
@@ -36,6 +36,19 @@ export function sameOrg(
   return na.includes(nb) || nb.includes(na)
 }
 
+/** The organizations a row asks about: `org`, then any `also`, named ones only. */
+export function orgTargets(value: OrgHistoryValue): OrgRef[] {
+  return [{ org: value.org, org_id: value.org_id }, ...(value.also ?? [])]
+    .map((o) => ({ ...o, org: o.org.trim() }))
+    .filter((o) => o.org !== '')
+}
+
+/** "World Bank", "World Bank or UNICEF", "World Bank, UNICEF or GIZ". */
+export function orgNames(value: OrgHistoryValue): string {
+  const names = orgTargets(value).map((o) => o.org)
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`
+}
+
 export interface OrgHistoryOutcome {
   outcome: 'met' | 'partial' | 'not_met'
   detail: string
@@ -46,11 +59,13 @@ export interface OrgHistoryOutcome {
  * - Ever at: any work_history entry for the org → met.
  * - Ever at, or at a peer org: same org → met; otherwise an entry at a listed
  *   peer → partial ("Peer org: ADB").
+ * A row naming several organizations (`also`) is met by any of them.
  */
 export function orgHistoryOutcome(profile: Profile, value: OrgHistoryValue, orgs: OrgIndex): OrgHistoryOutcome {
-  const org = value.org.trim()
+  const org = orgNames(value)
+  const targets = orgTargets(value)
   const entries = profile.work_history
-  const isOrg = (w: WorkHistoryEntry) => sameOrg(w, org, orgs, value.org_id)
+  const isOrg = (w: WorkHistoryEntry) => targets.some((t) => sameOrg(w, t.org, orgs, t.org_id))
   if (value.scope === 'current') {
     const current = entries.find((w) => w.end_year === null && isOrg(w))
     if (current) return { outcome: 'met', detail: `Currently at ${current.organization}` }
