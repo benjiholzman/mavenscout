@@ -50,8 +50,6 @@ export function requirementLabel(r: Requirement): string {
       return or(
         r.value.values.map((v) => ({ early_career: 'Early career', mid_career: 'Mid-career', senior: 'Senior' })[v] ?? v),
       )
-    case 'verified':
-      return 'Verified'
     case 'video_qna':
       return 'Has video Q&As'
     case 'work_arrangement':
@@ -147,8 +145,6 @@ function judge(c: CandidateInput, r: Requirement, index: ExpertiseIndex, orgs: O
       const own = p.career_level ? label[p.career_level] : 'No career level listed'
       return p.career_level && r.value.values.includes(p.career_level) ? met(own) : notMet(own)
     }
-    case 'verified':
-      return p.verification_status === 'verified' ? met('Passed evidence-based vetting') : notMet('Not verified')
     case 'video_qna':
       // Required only (normalizeRequirements): membership never adds points.
       return { outcome: 'not_applicable', credit: 0, detail: 'A filter only; never scored' }

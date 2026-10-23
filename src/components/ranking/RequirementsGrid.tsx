@@ -41,7 +41,6 @@ const ADD_ORDER: SingleKind[] = (
     'type',
     'career_level',
     'work_arrangement',
-    'verified',
     'video_qna',
   ] as SingleKind[]
 ).filter((k) => FIRMS_ENABLED || k !== 'type')
@@ -54,7 +53,6 @@ const ADD_LABELS: Record<SingleKind, string> = {
   type: 'Type',
   career_level: 'Career level',
   work_arrangement: 'Work arrangement',
-  verified: 'Verified',
   video_qna: 'Has video Q&As',
 }
 

@@ -29,7 +29,7 @@ import { AvailabilityChip } from '../ui/AvailabilityChip'
 import { ButtonLink } from '../ui/Button'
 import { OrgLogo } from '../ui/OrgLogo'
 import { Tooltip } from '../ui/Tooltip'
-import { CAREER_LEVEL_LABELS, FeaturedRibbon, VerifiedBadge } from '../ui/badges'
+import { CAREER_LEVEL_LABELS, FeaturedRibbon } from '../ui/badges'
 
 // Flip card (PRD 7.1; faces per profiles-membership §2.1): cycles through
 // Front → Expertise → one face per portfolio item (up to 3) — the same faces
@@ -314,7 +314,6 @@ function FrontFace({
                 <Mic size={14} />
               </MediaIcon>
             )}
-            {profile.verification_status === 'verified' && <VerifiedBadge plain />}
           </div>
         </div>
         <NameLink profile={profile} className="text-lg leading-6" />
@@ -395,11 +394,6 @@ function BackHeader({ profile, isFirm }: { profile: Profile; isFirm: boolean }) 
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-1.5">
           <NameLink profile={profile} className="text-[14.5px] leading-5" />
-          {profile.verification_status === 'verified' && (
-            <span className="flex shrink-0">
-              <VerifiedBadge compact plain />
-            </span>
-          )}
         </div>
         {profile.location && (
           <p className="flex min-w-0 items-center gap-[5px] text-[13px] leading-[17px] text-ink-faint">

@@ -250,12 +250,6 @@ export function FilterBar({
           {filters.availability ? availabilitySummary(filters.availability) : 'Availability'}
         </button>
 
-        <Switch
-          checked={filters.verifiedOnly}
-          onChange={(v) => set('verifiedOnly', v)}
-          label="Verified only"
-        />
-
         {/* Featured Members' interview videos; a filter only, never scored. */}
         <Switch
           checked={filters.hasVideoQnas}
@@ -286,7 +280,6 @@ export function FilterBar({
                     locations: [],
                     languages: [],
                     availability: null,
-                    verifiedOnly: false,
                     hasVideoQnas: false,
                     searchTerm: '',
                   })

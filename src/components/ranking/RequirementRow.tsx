@@ -192,12 +192,6 @@ function ValuePicker({
       )
     case 'availability':
       return <AvailabilityPicker value={row.value} onValue={onValue} />
-    case 'verified':
-      return (
-        <p className="mt-1.5 text-xs text-ink-faint">
-          Profiles that passed evidence-based vetting.
-        </p>
-      )
     case 'video_qna':
       return (
         <p className="mt-1.5 text-xs text-ink-faint">

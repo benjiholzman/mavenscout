@@ -26,7 +26,6 @@ export type RequirementKind =
   | 'type'
   | 'availability'
   | 'career_level'
-  | 'verified'
   | 'video_qna'
   | 'work_arrangement'
 
@@ -83,7 +82,6 @@ export interface RequirementValueByKind {
    *  state. "Available by [month]" in the grid edits untilMonth. */
   availability: AvailabilityFilter
   career_level: ValuesValue
-  verified: Record<string, never>
   /** "Has video Q&As": Required only (profiles-membership §2.2) — membership
    *  must never add points, so this row is never Nice to have / Important. */
   video_qna: Record<string, never>
@@ -115,7 +113,6 @@ export const ALWAYS_PRESENT_KINDS = [
   'type',
   'availability',
   'career_level',
-  'verified',
   'video_qna',
   'work_arrangement',
 ] as const satisfies readonly RequirementKind[]

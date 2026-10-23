@@ -16,7 +16,6 @@ import {
   CAREER_LEVEL_LABELS,
   FirmTypeBadge,
   SelfAttestedMark,
-  VerifiedBadge,
 } from '../ui/badges'
 import { Carousel } from '../ui/Carousel'
 import { GatePrompt } from '../ui/GatePrompt'
@@ -134,7 +133,6 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
         <div className="mt-3">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold sm:text-3xl">{profile.name}</h1>
-            {profile.verification_status === 'verified' && <VerifiedBadge />}
             {isFirm && <FirmTypeBadge type={profile.consultant_type as 'Small Firm' | 'Large Firm'} />}
           </div>
           <p className="mt-1 max-w-2xl text-ink-soft">{profile.headline}</p>
