@@ -101,3 +101,25 @@ export const TESTIMONIAL_RULES = {
     'media', 'press', 'webmaster', 'postmaster', 'registry', 'procurement', 'finance',
   ],
 } as const
+
+/** Verification (spec §3, §10). TUNABLE. */
+export const VERIFICATION_RULES = {
+  /** A listed profile whose required item (identity, most recent employer,
+   *  most recent degree) loses its check, or gains a newer job or degree,
+   *  stays listed this long while it's re-checked; then it's unlisted until
+   *  the check is done (same pattern as TESTIMONIAL_RULES.graceDays). */
+  recheckDays: 30,
+} as const
+
+/** Hiring-manager sign-up (spec §9). The email code is mocked in this build
+ *  (shown on screen), like the referee's. TUNABLE. */
+export const MANAGER_SIGNUP_RULES = {
+  /** Email code: single-use, valid this long. */
+  codeTtlMinutes: 10,
+  /** Wrong entries before the code is void (a new one can be sent). */
+  codeMaxAttempts: 5,
+  /** Codes one sign-up can send in total. */
+  codeMaxSends: 3,
+  /** Turnaround target for exception requests, as told to the requester. */
+  exceptionTurnaround: 'usually within a day',
+} as const
