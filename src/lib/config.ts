@@ -6,6 +6,12 @@
 
 import type { ExpertiseTier } from '../types/db'
 
+/** Firm listings (spec §1). While false, firms are left out of the directory,
+ *  search and ranking, and the Type filter, the Type requirement row and the
+ *  firm onboarding options are hidden. Firm code, columns and data stay so
+ *  firm listings can return. Direct /profile and /site links still open. */
+export const FIRMS_ENABLED = false
+
 /** Languages a profile can list (spec §7.1). TUNABLE. */
 export const LANGUAGE_MAX = 10
 

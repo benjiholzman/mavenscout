@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { isListed } from '../lib/listing'
 import { loadOrgIndex, type OrgIndex } from '../lib/organizations'
 import { supabase } from '../lib/supabase'
 import type {
@@ -22,8 +23,9 @@ export interface DirectoryData {
 }
 
 /** Loads everything the directory needs in one round of parallel queries.
- *  Directory visibility (approved + active only) is enforced here in app code
- *  — the dev RLS policies are deliberately permissive (see 000_schema.sql). */
+ *  Directory visibility (lib/listing: approved + active, individuals while
+ *  firms are hidden) is enforced here in app code — the dev RLS policies are
+ *  deliberately permissive (see 000_schema.sql). */
 export function useDirectoryData() {
   const [data, setData] = useState<DirectoryData | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -54,7 +56,7 @@ export function useDirectoryData() {
         return
       }
 
-      const profiles = profilesRes.data as Profile[]
+      const profiles = (profilesRes.data as Profile[]).filter(isListed)
       const profileIds = new Set(profiles.map((p) => p.id))
 
       const portfolioByProfile = new Map<string, PortfolioItem[]>()

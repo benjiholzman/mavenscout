@@ -28,6 +28,7 @@ import { suggestionsFrom } from '../src/components/ranking/JdSuggestions'
 import { buildExpertiseIndex, expertiseTags, TIERS } from '../src/lib/expertise'
 import { deriveOptions, locationCountry } from '../src/lib/filters'
 import { spokenLanguages } from '../src/lib/languages'
+import { isListed } from '../src/lib/listing'
 import { extractRequirements } from '../src/lib/matching/extract'
 import type { CandidateInput } from '../src/lib/matching/fit'
 import { bandFor } from '../src/lib/matching/config'
@@ -116,7 +117,7 @@ function main() {
 
 async function run() {
   const writesBefore = { jd: await rowCount('job_descriptions'), mr: await rowCount('match_results') }
-  const [profiles, portfolio, categories, items, orgRows] = await Promise.all([
+  const [listed, portfolio, categories, items, orgRows] = await Promise.all([
     select<Profile>('profiles', (q) => q.eq('approval_status', 'approved').eq('subscription_status', 'active')),
     select<PortfolioItem>('portfolio_items', (q) => q.order('sort_order')),
     select<TaxonomyCategory>('taxonomy_categories'),
@@ -125,6 +126,8 @@ async function run() {
     // back to name matching, as in the app.
     select<Organization>('organizations').catch(() => null),
   ])
+  // The directory's pool (lib/listing): individuals only while firms are hidden.
+  const profiles = listed.filter(isListed)
   const orgs = orgRows ? buildOrgIndex(orgRows) : EMPTY_ORG_INDEX
   const byHandle = new Map(profiles.map((p) => [p.handle, p]))
   const byId = new Map(profiles.map((p) => [p.id, p]))

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { setEditorProfileId, useSession } from '../lib/session'
 import { supabase } from '../lib/supabase'
 import { slugifyHandle } from '../lib/validation'
+import { FIRMS_ENABLED } from '../lib/config'
 
 // Styled signup backed by the MOCKED session (PRD 7.9). Two personas:
 // hiring (free account) and consultant/firm (paid profile → onboarding).
@@ -71,7 +72,7 @@ export default function Signup() {
 
         <div className="rounded-card border border-line bg-white p-6">
           <UserRound size={20} className="text-brand-500" />
-          <h2 className="mt-3 font-display text-lg font-semibold">I'm a consultant or firm</h2>
+          <h2 className="mt-3 font-display text-lg font-semibold">I'm a {FIRMS_ENABLED ? 'consultant or firm' : 'consultant'}</h2>
           <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
             One profile: your listing in a curated pool and your public professional website.
             Small monthly fee after approval.
@@ -82,7 +83,7 @@ export default function Signup() {
               minLength={2}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Your name or firm name"
+              placeholder={FIRMS_ENABLED ? 'Your name or firm name' : 'Your name'}
               className="w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand-400"
             />
             <button

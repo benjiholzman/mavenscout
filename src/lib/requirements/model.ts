@@ -1,4 +1,6 @@
+import { FIRMS_ENABLED } from '../config'
 import { EMPTY_FILTERS, type FilterState, type SearchMode } from '../filters'
+import { KIND_LABELS } from './labels'
 import {
   ALWAYS_PRESENT_KINDS,
   type ExtractedTag,
@@ -206,6 +208,19 @@ export function setRowLevel(reqs: Requirement[], id: string, level: Level): Requ
     }
   }
   return reqs.map((r) => (r.id === id ? ({ ...r, level } as Requirement) : r))
+}
+
+/** Kinds a saved run or draft may hold that the app no longer offers: Type
+ *  while firm listings are off (spec §1). */
+const hiddenKind = (kind: RequirementKind): boolean => !FIRMS_ENABLED && kind === 'type'
+
+/** Drops rows of kinds the grid no longer offers from a saved run or draft.
+ *  The stored rows and scores stay as they were; `dropped` names the rows
+ *  left out, for a notice. */
+export function withoutHiddenKinds(reqs: Requirement[]): { requirements: Requirement[]; dropped: string[] } {
+  const dropped = reqs.filter((r) => hiddenKind(r.kind))
+  if (dropped.length === 0) return { requirements: reqs, dropped: [] }
+  return { requirements: reqs.filter((r) => !hiddenKind(r.kind)), dropped: [...new Set(dropped.map((r) => KIND_LABELS[r.kind]))] }
 }
 
 // ---- reading ----------------------------------------------------------------

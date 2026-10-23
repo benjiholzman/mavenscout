@@ -1,5 +1,5 @@
 {
-  "_about": "Ranking baseline expectations for the five sample ToRs. `requirements` are the exact grid rows a sensible hiring manager would set (app Requirement shape; levels: slight = Nice to have, strong = Important, must = Required; expertise rows name items of the unified list, profiles-membership §6; language rows carry `min`: working = Working or above, fluent = Fluent only). `expected_top` should land in the top 10 (ideally top 5). `expected_extraction` is what a good extractor should suggest from the JD. `checks` are deliberate test cases; `tier_order` and `fluent_only` score in-memory variants of one profile (Core / Strong / Working on one item; the Required language at Working). `ablate` lists rows to drop as a what-if (the report shows the top 10 with and without them). Read by scripts/ranking-baseline.ts.",
+  "_about": "Ranking baseline expectations for the five sample ToRs. `requirements` are the exact grid rows a sensible hiring manager would set (app Requirement shape; levels: slight = Nice to have, strong = Important, must = Required; expertise rows name items of the unified list, profiles-membership §6; language rows carry `min`: working = Working or above, fluent = Fluent only). `expected_top` should land in the top 10 (ideally top 5). `expected_extraction` is what a good extractor should suggest from the JD. `checks` are deliberate test cases; `tier_order` and `fluent_only` score in-memory variants of one profile (Core / Strong / Working on one item; the Required language at Working). `ablate` lists rows to drop as a what-if (the report shows the top 10 with and without them). Read by scripts/ranking-baseline.ts. While firm listings are hidden (FIRMS_ENABLED = false, profiles-membership §1) the pool is individuals only: firm profiles, tor-05's Type row (and its what-if) and the firm-only checks (Kivi wrong-location fit, the Lagune/Plateau tie pair) were removed from this file; the step 5 re-seed brings individual test cases for them.",
   "tors": [
     {
       "id": "tor-01",
@@ -18,7 +18,6 @@
       ],
       "expected_top": [
         { "handle": "demo-hanna-tesfaye", "why": "Addis-based senior nutrition evaluator; four impact evaluations with anthropometry, Amharic, PSNP nutrition-sensitive endline." },
-        { "handle": "demo-meridian-health-analytics", "why": "Health & nutrition evaluation firm with Amharic/Somali field teams and a near-identical MCN endline in its portfolio." },
         { "handle": "demo-abdiwali-hersi-warsame", "why": "Somali-speaking SMART survey specialist for the Somali region; lighter on impact evaluation." },
         { "handle": "demo-nusrat-jahan-chowdhury", "why": "Senior nutrition impact evaluator who led an Ethiopia endline; strong fit despite being based in Dhaka." }
       ],
@@ -48,9 +47,7 @@
       ],
       "expected_top": [
         { "handle": "demo-lucia-barrios-cifuentes", "why": "Former deputy procurement regulator in Guatemala; integrity assessments, OCDS and social audit in both countries." },
-        { "handle": "demo-andres-castillo-zelaya", "why": "Tegucigalpa procurement data analyst; red-flag indicators from HonduCompras." },
-        { "handle": "demo-integra-gobernanza", "why": "Anti-corruption and citizen engagement firm; led a Northern Triangle procurement integrity assessment." },
-        { "handle": "northstar-advisory-group", "why": "Original seed: Spanish-speaking PFM/anti-corruption firm tagging Anti-Corruption and Public Procurement." }
+        { "handle": "demo-andres-castillo-zelaya", "why": "Tegucigalpa procurement data analyst; red-flag indicators from HonduCompras." }
       ],
       "expected_extraction": {
         "expertise": ["Public Procurement", "Anti-Corruption", "Citizen Engagement", "Policy Analysis", "Data Science", "Workshop Facilitation", "Stakeholder Engagement", "Qualitative Research", "Policy Briefs"],
@@ -81,7 +78,6 @@
       "expected_top": [
         { "handle": "demo-rania-haddad", "why": "Beirut social cohesion researcher; led assessments in Tripoli, Akkar and the Bekaa." },
         { "handle": "demo-omar-khalil-mansour", "why": "Amman livelihoods/SME specialist; market assessments in Irbid, Mafraq and Zarqa; current UNHCR." },
-        { "handle": "demo-levant-field-research-collective", "why": "Arabic-speaking field research firm: livelihoods surveys, market research and social cohesion in both countries." },
         { "handle": "fatima-al-rashid", "why": "Original seed: Amman refugee researcher at UNHCR Jordan; qualitative and survey design." }
       ],
       "expected_extraction": {
@@ -114,8 +110,7 @@
       "expected_top": [
         { "handle": "demo-rowena-bautista-lacson", "why": "Davao agri-finance product designer; IFAD value-chain finance and an ADB market assessment in Indonesia." },
         { "handle": "demo-joaquin-reyes-manalo", "why": "Current ADB rural finance consultant; financial modeling of agricultural credit." },
-        { "handle": "demo-siti-rahmawati-nugroho", "why": "Former ADB; Jakarta agribusiness and rural finance specialist with value-chain finance studies." },
-        { "handle": "demo-archipelago-rural-finance-partners", "why": "Large agri-finance firm that designed an ADB/IFAD facility for both countries." }
+        { "handle": "demo-siti-rahmawati-nugroho", "why": "Former ADB; Jakarta agribusiness and rural finance specialist with value-chain finance studies." }
       ],
       "expected_extraction": {
         "expertise": ["Financial Inclusion", "Agribusiness & Value Chains", "Rural Development", "Investment Climate", "Gender Mainstreaming", "Market Research", "Financial Modeling", "Survey Design", "Monitoring & Evaluation"],
@@ -140,14 +135,10 @@
         { "id": "t5-sk-db", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Information Systems" } },
         { "id": "t5-sk-cm", "kind": "expertise", "level": "slight", "source": "manual", "value": { "name": "Change Management" } },
         { "id": "t5-lang-req", "kind": "language", "level": "must", "source": "manual", "value": { "values": ["French"], "min": "fluent" } },
-        { "id": "t5-type", "kind": "type", "level": "strong", "source": "manual", "value": { "values": ["Small Firm", "Large Firm"] } },
         { "id": "location", "kind": "location", "level": "slight", "source": "manual", "value": { "values": ["Senegal", "Côte d'Ivoire"] } }
       ],
       "expected_top": [
-        { "handle": "demo-akwaba-govtech-partners", "why": "Abidjan digital government firm that delivered Côte d'Ivoire's national e-procurement platform." },
-        { "handle": "demo-teranga-digital-conseil", "why": "Dakar govtech firm: e-procurement modules, cloud, cybersecurity, change management." },
-        { "handle": "demo-cheikh-tidiane-sarr", "why": "Dakar e-procurement architect (individual, so loses the firm preference but strong on fit)." },
-        { "handle": "demo-kivi-digital-government-advisory", "why": "Tallinn firm with a Francophone Africa e-procurement practice; strong fit despite location." }
+        { "handle": "demo-cheikh-tidiane-sarr", "why": "Dakar e-procurement architect: Digital Governance and Public Procurement specialist, fluent French, in Senegal." }
       ],
       "expected_extraction": {
         "expertise": ["Digital Governance", "Public Procurement", "Anti-Corruption", "Information Systems", "Software Development", "Cybersecurity", "Change Management", "Capacity Building"],
@@ -155,13 +146,8 @@
         "languages": ["French", "English"]
       },
       "checks": [
-        { "type": "wrong_location_strong_fit", "handle": "demo-kivi-digital-government-advisory", "expect": "top10", "why": "Location is Nice to have; firm, French-speaking, e-procurement specialist." },
         { "type": "right_location_wrong_fit", "handle": "demo-ndeye-astou-faye", "expect": "not_top10", "why": "Dakar, French and Wolof, but a gender/GBV specialist." },
-        { "type": "tie_pair", "handle": "demo-lagune-data-services", "other": "demo-plateau-digital-solutions", "expect": "adjacent_fresher_first", "why": "Identical evidence and tags; Lagune updated availability 5 days ago, Plateau 48." },
         { "type": "tier_order", "handle": "demo-cheikh-tidiane-sarr", "item": "Digital Governance", "expect": "core_above_strong_above_working", "why": "Same profile with Digital Governance (an Important row) as Core, Strong and Working knowledge: the higher tier must score higher." }
-      ],
-      "ablate": [
-        { "row": "t5-type", "label": "firm preferred (Type: Small or Large Firm, Important)", "watch": "demo-cheikh-tidiane-sarr" }
       ]
     }
   ]

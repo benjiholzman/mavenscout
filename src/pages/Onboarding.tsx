@@ -17,7 +17,7 @@ import { VideoRequestsInbox } from '../components/onboarding/VideoRequestsInbox'
 import { InfoTip } from '../components/ui/InfoTip'
 import { FIRM_THRESHOLD_NOTE } from '../components/ui/badges'
 import { useEditorProfile } from '../hooks/useEditorProfile'
-import { EXPERTISE_TIER_LIMITS } from '../lib/config'
+import { EXPERTISE_TIER_LIMITS, FIRMS_ENABLED } from '../lib/config'
 import { buildExpertiseIndex, expertiseTags } from '../lib/expertise'
 import { spokenLanguages } from '../lib/languages'
 import { useSession } from '../lib/session'
@@ -64,7 +64,7 @@ function MediaSections({ profileId, draft }: { profileId: string; draft: Profile
 
 const SECTIONS = [
   ['basics', 'Basics'],
-  ['type', 'Type & level'],
+  ['type', FIRMS_ENABLED ? 'Type & level' : 'Career level'],
   ['bio', 'Bio & eligibility'],
   ['tags', 'Expertise'],
   ['accreditations', 'Accreditations'],
@@ -215,7 +215,7 @@ export default function Onboarding() {
 
           <EditorSection
             id="type"
-            title="Type & level"
+            title={FIRMS_ENABLED || isFirm ? 'Type & level' : 'Career level'}
             onSave={() =>
               save({
                 consultant_type: draft.consultant_type,
@@ -225,6 +225,9 @@ export default function Onboarding() {
             }
           >
             <div className="space-y-4">
+              {/* The firm onboarding path is hidden while firm listings are off
+                  (spec §1); an existing firm draft still sees its type. */}
+              {(FIRMS_ENABLED || isFirm) && (
               <div>
                 <p className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
                   I am listed as <InfoTip text={FIRM_THRESHOLD_NOTE} />
@@ -245,6 +248,7 @@ export default function Onboarding() {
                   ))}
                 </div>
               </div>
+              )}
               {draft.consultant_type === 'Individual' ? (
                 <div>
                   <p className="mb-1.5 text-sm font-medium">Career level</p>

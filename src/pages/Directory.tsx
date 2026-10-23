@@ -36,11 +36,13 @@ import {
   mustHavesToFilterState,
   preferenceKey,
   sameRows,
+  withoutHiddenKinds,
   withRunPreferences,
 } from '../lib/requirements/model'
 import { clearDraft, readDraft, writeDraft } from '../lib/requirements/draft'
 import { applyMustHaves, applyOrgMustHaves } from '../lib/requirements/mustHaves'
 import { useRequirements } from '../lib/requirements/store'
+import { FIRMS_ENABLED } from '../lib/config'
 import { DEMO_HIRING_MANAGER_ID, useSession } from '../lib/session'
 import { sortProfiles, type SortMode } from '../lib/sort'
 import { supabase } from '../lib/supabase'
@@ -146,7 +148,7 @@ export default function Directory() {
       expertise,
       locations: options.locations,
       languages: options.languages,
-      types: ['Individual', 'Small Firm', 'Large Firm'],
+      types: FIRMS_ENABLED ? ['Individual', 'Small Firm', 'Large Firm'] : ['Individual'],
       workArrangements: data.taxonomyItems
         .filter((i) => typeOf(i.category_id) === 'work_arrangement')
         .map((i) => i.name),
@@ -290,19 +292,31 @@ export default function Directory() {
       // rows) is read through it; the stored rows stay as they are, and the
       // scores and build-up show exactly as they were scored.
       const upgraded = upgradeLegacyRequirements(rec.jd.requirements ?? [], expertise)
-      const jd = { ...rec.jd, requirements: upgraded.requirements, extracted: upgradeLegacyExtracted(rec.jd.extracted, expertise) }
+      // Rows of kinds the grid no longer offers (Type while firms are hidden)
+      // are left out the same way.
+      const offered = withoutHiddenKinds(upgraded.requirements)
+      const jd = { ...rec.jd, requirements: offered.requirements, extracted: upgradeLegacyExtracted(rec.jd.extracted, expertise) }
       setRanking({ ...rec, jd })
+      const notes: string[] = []
       if (upgraded.dropped.length > 0)
-        setNotice(
+        notes.push(
           `This ranking was saved before the unified expertise list. ${upgraded.dropped.length} expertise row` +
             `${upgraded.dropped.length === 1 ? '' : 's'} with no match on the new list (${upgraded.dropped.join(', ')}) ` +
             `${upgraded.dropped.length === 1 ? 'was' : 'were'} left out; re-run to score it under the new list.`,
         )
+      if (offered.dropped.length > 0)
+        notes.push(
+          `${offered.dropped.join(', ')} ${offered.dropped.length === 1 ? 'is' : 'are'} no longer a requirement, ` +
+            `so ${offered.dropped.length === 1 ? 'that row was' : 'those rows were'} left out; re-run to score without ${offered.dropped.length === 1 ? 'it' : 'them'}.`,
+        )
+      if (notes.length > 0) setNotice(notes.join(' '))
       // Unsaved preference / JD edits made before leaving come back as a
       // draft (the stored ranking itself is unchanged until a re-run).
       const draft = readDraft(rankingId)
       reqs.hydrate({
-        requirements: draft ? upgradeLegacyRequirements(draft.requirements, expertise).requirements : jd.requirements,
+        requirements: draft
+          ? withoutHiddenKinds(upgradeLegacyRequirements(draft.requirements, expertise).requirements).requirements
+          : jd.requirements,
         search: { term: params.get('q') ?? '', mode: params.get('qm') === 'full' ? 'full' : 'names' },
       })
       setJdText(draft?.jdText ?? rec.jd.raw_text)
@@ -478,7 +492,7 @@ export default function Directory() {
         <div>
           <h1 className="text-3xl font-semibold">Browse experts</h1>
           <p className="mt-1 text-sm text-ink-soft">
-            A curated pool of vetted consultants and firms in international development.
+            A curated pool of vetted {FIRMS_ENABLED ? 'consultants and firms' : 'experts'} in international development.
           </p>
         </div>
         {/* Rank by JD — deliberately separate from the filter bar (PRD 7.1). */}

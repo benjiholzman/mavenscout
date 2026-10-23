@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { resetEditorProfile, useSession } from '../lib/session'
+import { FIRMS_ENABLED } from '../lib/config'
 
 // Styled login screen backed by the MOCKED session (PRD 7.9): no real
 // password check — submitting simply activates the chosen demo identity.
@@ -44,7 +45,7 @@ export default function Login() {
               as === 'consultant' ? 'bg-brand-500 text-white' : 'text-ink-soft'
             }`}
           >
-            Consultant / firm
+            {FIRMS_ENABLED ? 'Consultant / firm' : 'Consultant'}
           </button>
         </div>
         <label className="block text-sm">

@@ -9,6 +9,7 @@ import {
   type SearchMode,
 } from '../../lib/filters'
 import type { TaxonomyCategory, TaxonomyItem } from '../../types/db'
+import { FIRMS_ENABLED } from '../../lib/config'
 import { describeExpertiseSelection, type ExpertiseIndex } from '../../lib/expertise'
 import { MIN_PROFICIENCY_LABELS } from '../../lib/languages'
 import { MultiSelect, type OptionGroup } from '../ui/MultiSelect'
@@ -139,15 +140,18 @@ export function FilterBar({
 
       {/* Filter row */}
       <div className="flex flex-wrap items-center gap-2">
-        <MultiSelect
-          label="Type"
-          options={TYPE_OPTIONS}
-          selected={filters.types}
-          onChange={(v) => set('types', v)}
-          counts={openKey === 'type' ? openCounts : undefined}
-          open={openKey === 'type'}
-          onToggle={toggleFor('type')}
-        />
+        {/* Hidden while firm listings are off (spec §1): everyone is an individual. */}
+        {FIRMS_ENABLED && (
+          <MultiSelect
+            label="Type"
+            options={TYPE_OPTIONS}
+            selected={filters.types}
+            onChange={(v) => set('types', v)}
+            counts={openKey === 'type' ? openCounts : undefined}
+            open={openKey === 'type'}
+            onToggle={toggleFor('type')}
+          />
+        )}
         <MultiSelect
           label="Expertise"
           groups={expertise.groups}
@@ -184,7 +188,7 @@ export function FilterBar({
           onChange={(labels) => set('careerLevels', labels.map((l) => CAREER_LEVEL_VALUES[l] ?? l))}
           disabled={firmsOnly}
           disabledNote="Career level applies to individuals — it doesn't apply when filtering firms only"
-          note="Firms aren't filtered by career level — they always show."
+          note={FIRMS_ENABLED ? "Firms aren't filtered by career level — they always show." : undefined}
           counts={openKey === 'career' ? openCounts : undefined}
           open={openKey === 'career'}
           onToggle={toggleFor('career')}
