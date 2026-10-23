@@ -1,7 +1,10 @@
-// Builds supabase/007_seed_demo_profiles_{1..4}.sql from scripts/demo-seed/data/*.mjs.
+// FROZEN: builds supabase/007_seed_demo_profiles_{1..4}.sql from
+// scripts/demo-seed/data/*.mjs, the pre-spec demo seed. Kept so 007 (still
+// part of a fresh install, before 011–017 migrate it) stays reproducible.
+// The current demo data is scripts/demo-seed/profiles/ → build.ts → 018.
 //
-//   node scripts/demo-seed/build.mjs           validate + write the SQL files
-//   node scripts/demo-seed/build.mjs --check   validate only
+//   node scripts/demo-seed/build-007.mjs           validate + write the SQL files
+//   node scripts/demo-seed/build-007.mjs --check   validate only
 //
 // Validation fails the build on anything that would make the demo data
 // inconsistent: unknown taxonomy names, tag caps, non-canonical countries or
