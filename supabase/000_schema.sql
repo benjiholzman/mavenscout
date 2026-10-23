@@ -13,6 +13,11 @@
 --   * PRD-visibility (approved + active only in the directory, login gates,
 --     /site stripping) is enforced in app-level queries this build.
 --   * Enum-ish fields are text + CHECK (easier to evolve than PG enums).
+--   * Later migrations add to this schema: 015 (testimonial flow columns,
+--     testimonial_events) and 016 (hiring-manager sign-up columns, entry ids
+--     on education and certifications, verification_evidence item columns,
+--     verification_checks, profiles.verification_recheck_until). Run them in
+--     order after this file; they aren't folded in here.
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -106,7 +111,7 @@ CREATE TABLE profiles (
   website_url                   text,
   social_links                  jsonb NOT NULL DEFAULT '[]',  -- [{platform, label, url}], tier cap (2/5) app-enforced
   is_premium                    bool NOT NULL DEFAULT false,
-  verification_status           text NOT NULL DEFAULT 'unverified' CHECK (verification_status IN ('unverified','pending','verified')),
+  verification_status           text NOT NULL DEFAULT 'unverified' CHECK (verification_status IN ('unverified','pending','verified')),  -- LEGACY: dropped by 017; verification is verification_checks (016)
   custom_domain                 text,                         -- Featured Members only (app-enforced); no live DNS integration this build
   subscription_status           text NOT NULL DEFAULT 'none' CHECK (subscription_status IN ('active','past_due','canceled','paused','none')),
   approval_status               text NOT NULL DEFAULT 'pending' CHECK (approval_status IN ('pending','approved','rejected')),
@@ -219,8 +224,8 @@ CREATE POLICY "dev_write_portfolio_items" ON portfolio_items FOR ALL USING (true
 CREATE TABLE verification_evidence (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id  uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  file_path   text NOT NULL,   -- STUB: placeholder path, no real file behind it this build
-  explanation text NOT NULL,
+  file_path   text NOT NULL,   -- STUB: placeholder path, no real file behind it this build (016 makes it nullable: link-only evidence)
+  explanation text NOT NULL,   -- 016 makes it optional; 016 adds item_kind, item_id, link_url, file_name/size, mime_type
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE verification_evidence ENABLE ROW LEVEL SECURITY;

@@ -1,10 +1,11 @@
-import { Briefcase, UserRound } from 'lucide-react'
+import { BadgeCheck, Briefcase, UserRound } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { setEditorProfileId, useSession } from '../lib/session'
 import { supabase } from '../lib/supabase'
 import { slugifyHandle } from '../lib/validation'
 import { FIRMS_ENABLED } from '../lib/config'
+import { VERIFIED_STATEMENT } from '../lib/testimonials/copy'
 import { ManagerSignup } from '../components/account/ManagerSignup'
 
 // Styled signup backed by the MOCKED session (PRD 7.9). Two personas:
@@ -61,6 +62,16 @@ export default function Signup() {
           <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
             Free for organizations. Save candidates into openings, collaborate with your team,
             watch Video Q&As, and rank against a job description.
+          </p>
+          {/* The verification statement (profiles-membership §3.2). */}
+          <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-paper px-3 py-2 text-xs leading-relaxed text-ink-soft">
+            <BadgeCheck size={14} className="mt-px shrink-0 text-emerald-700" />
+            <span>
+              {VERIFIED_STATEMENT}{' '}
+              <Link to="/about#verification" className="font-medium text-brand-600 hover:text-brand-700">
+                What verification means
+              </Link>
+            </span>
           </p>
           <div className="mt-5">
             <ManagerSignup />

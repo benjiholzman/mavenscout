@@ -5,7 +5,9 @@ import lockup from '../assets/mavenscout-lockup-horizontal.svg'
 import { RecorderControl } from '../components/media/Recorder'
 import { Segmented } from '../components/ui/Segmented'
 import { TESTIMONIAL_RULES } from '../lib/config'
+import { loadManager } from '../lib/managers'
 import { firstName } from '../lib/names'
+import { useSession } from '../lib/session'
 import { normalizeCodeInput } from '../lib/testimonials/code'
 import { VOUCHED_FOR_LINE } from '../lib/testimonials/copy'
 import {
@@ -649,6 +651,7 @@ function TranscriptStep({
 function ThanksStep({ req, setT }: { req: RefereeRequest; setT: (t: AudioTestimonial) => void }) {
   const { t } = req
   const first = consultantFirst(req)
+  const { signInAsManager } = useSession()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -678,7 +681,12 @@ function ThanksStep({ req, setT }: { req: RefereeRequest; setT: (t: AudioTestimo
           <p className="mt-3 flex items-start gap-2 text-sm text-emerald-900">
             <CheckCircle2 size={17} className="mt-0.5 shrink-0" />
             <span>
-              Account created. <span className="text-ink-faint">Demo build: sign-in is mocked, so use the role switcher to browse as a hiring manager.</span>
+              <span>
+                Account created, and you're signed in.{' '}
+                <Link to="/" className="font-medium text-brand-600 hover:text-brand-700">
+                  Browse experts
+                </Link>
+              </span>
             </span>
           </p>
         ) : (
@@ -688,7 +696,12 @@ function ThanksStep({ req, setT }: { req: RefereeRequest; setT: (t: AudioTestimo
             onClick={async () => {
               setBusy(true)
               try {
-                setT(await createManagerAccount(t))
+                const next = await createManagerAccount(t)
+                setT(next)
+                // One click: the account is active and signed in (sign-in itself
+                // is mocked in this build; spec §4.3 step 7, §9).
+                const hm = next.referee_manager_id ? await loadManager(next.referee_manager_id) : null
+                if (hm) signInAsManager(hm)
               } catch (e) {
                 setError(e instanceof Error ? e.message : String(e))
               } finally {

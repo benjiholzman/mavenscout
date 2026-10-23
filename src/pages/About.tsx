@@ -1,6 +1,9 @@
 import { BadgeDollarSign, Film, Globe2, ListChecks, RefreshCcw, Search, Sparkles, UserCheck } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { VerificationExplainer } from '../components/profile/VerificationExplainer'
 import { FIRMS_ENABLED } from '../lib/config'
+import { VERIFIED_STATEMENT } from '../lib/testimonials/copy'
 
 // About page (PRD 7.12) — explains the platform to a first-time visitor in
 // either persona, adapted from the PRD's problem statement.
@@ -9,7 +12,7 @@ const HM_POINTS = [
   {
     icon: Search,
     title: 'Browse a curated pool',
-    text: 'Every profile is admin-reviewed before listing — experts with track records at the sector’s most respected organizations, not a generalist freelancer marketplace.',
+    text: `${VERIFIED_STATEMENT} Experts with track records at the sector’s most respected organizations, not a generalist freelancer marketplace.`,
   },
   {
     icon: Film,
@@ -52,6 +55,11 @@ const CONSULTANT_POINTS = [
 ]
 
 export default function About() {
+  // Profiles link to #verification; the router doesn't scroll to hashes.
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView()
+  }, [hash])
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
       <h1 className="text-4xl font-semibold leading-tight">
@@ -82,6 +90,13 @@ export default function About() {
               <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">{p.text}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section id="verification" className="mt-14 scroll-mt-24 rounded-card border border-line bg-white p-6 sm:p-8">
+        <h2 className="text-2xl font-semibold">What verification means</h2>
+        <div className="mt-4">
+          <VerificationExplainer />
         </div>
       </section>
 

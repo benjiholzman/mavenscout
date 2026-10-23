@@ -5,9 +5,9 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  Headphones,
   Info,
   MapPin,
-  Mic,
   Star,
 } from 'lucide-react'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
@@ -52,7 +52,7 @@ const PORTFOLIO_FACE_CAP = 3
 export function FlipCard({
   profile,
   portfolio,
-  audioCount,
+  testimonialOrgs,
   orgs = EMPTY_ORG_INDEX,
   onFavorite,
   onTopPick,
@@ -60,7 +60,8 @@ export function FlipCard({
 }: {
   profile: Profile
   portfolio: PortfolioItem[]
-  audioCount: number
+  /** Referees' organizations of the testimonials shown (spec §4.4). */
+  testimonialOrgs: string[]
   onFavorite: (profile: Profile) => void
   onTopPick: (profile: Profile) => void
   /** Ranking mode: rank as displayed, the result, and "About this result". */
@@ -145,7 +146,7 @@ export function FlipCard({
                 portfolio={portfolio}
                 orgs={orgs}
                 isFirm={isFirm}
-                audioCount={audioCount}
+                testimonialOrgs={testimonialOrgs}
                 squareTop={!!ranked}
               />
             ) : (
@@ -278,14 +279,15 @@ function FrontFace({
   portfolio,
   orgs: orgIndex,
   isFirm,
-  audioCount,
+  testimonialOrgs,
   squareTop = false,
 }: {
   profile: Profile
   portfolio: PortfolioItem[]
   orgs: OrgIndex
   isFirm: boolean
-  audioCount: number
+  /** Referees' organizations of the testimonials shown (spec §4.4). */
+  testimonialOrgs: string[]
   /** The rank strip sits above, so the cover's top corners stay square. */
   squareTop?: boolean
 }) {
@@ -309,11 +311,7 @@ function FrontFace({
         <div className="relative -mt-[34px] mb-2 flex items-end justify-between gap-2">
           <Avatar profile={profile} isFirm={isFirm} />
           <div className="flex shrink-0 items-center gap-1.5 pb-1">
-            {audioCount > 0 && (
-              <MediaIcon label="Has audio references">
-                <Mic size={14} />
-              </MediaIcon>
-            )}
+            {testimonialOrgs.length > 0 && <TestimonialTeaserChip orgs={testimonialOrgs} />}
           </div>
         </div>
         <NameLink profile={profile} className="text-lg leading-6" />
@@ -375,14 +373,21 @@ function FrontFace({
   )
 }
 
-function MediaIcon({ label, children }: { label: string; children: ReactNode }) {
+/** "Testimonial from World Bank" (+N more organizations): a published audio
+ *  testimonial, confirmed through the referee's work email (spec §4.4). A
+ *  teaser for everyone; listening needs a free hiring account. */
+function TestimonialTeaserChip({ orgs }: { orgs: string[] }) {
+  const more = orgs.length - 1
+  const label = `Audio testimonial from ${orgs.join(', ')}`
   return (
     <span
-      role="img"
+      title={label}
       aria-label={label}
-      className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-full bg-brand-50 text-brand-700"
+      className="inline-flex min-w-0 max-w-[13.5rem] items-center gap-1 rounded-full bg-brand-50 px-2 py-1 text-[12px] font-medium leading-4 text-brand-700"
     >
-      {children}
+      <Headphones size={13} className="shrink-0" aria-hidden />
+      <span className="truncate">Testimonial from {orgs[0]}</span>
+      {more > 0 && <span className="shrink-0 text-brand-700/70">+{more}</span>}
     </span>
   )
 }

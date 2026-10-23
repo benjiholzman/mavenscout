@@ -35,7 +35,6 @@ function baseProfile(overrides: Partial<Profile>): Profile {
     website_url: null,
     social_links: [],
     is_premium: false,
-    verification_status: 'unverified',
     custom_domain: null,
     subscription_status: 'active',
     approval_status: 'approved',
@@ -87,7 +86,6 @@ const amara = baseProfile({
   ],
   is_premium: true,
   video_qnas_complete: true, // Featured status: every Video Q&A answered
-  verification_status: 'verified',
 })
 
 const amaraPortfolio: PortfolioItem[] = [
@@ -146,7 +144,6 @@ const ifeoma = baseProfile({
     },
   ],
   is_premium: true,
-  verification_status: 'verified',
 })
 
 const ifeomaPortfolio: PortfolioItem[] = [
@@ -197,13 +194,12 @@ const rohan = baseProfile({
     },
   ],
   is_premium: false,
-  verification_status: 'unverified',
 })
 
 export function Default() {
   return (
     <div className="w-[320px]">
-      <FlipCard profile={amara} portfolio={amaraPortfolio} audioCount={2} onFavorite={() => {}} onTopPick={() => {}} />
+      <FlipCard profile={amara} portfolio={amaraPortfolio} testimonialOrgs={['World Bank']} onFavorite={() => {}} onTopPick={() => {}} />
     </div>
   )
 }
@@ -211,7 +207,7 @@ export function Default() {
 export function Firm() {
   return (
     <div className="w-[320px]">
-      <FlipCard profile={ifeoma} portfolio={ifeomaPortfolio} audioCount={0} onFavorite={() => {}} onTopPick={() => {}} />
+      <FlipCard profile={ifeoma} portfolio={ifeomaPortfolio} testimonialOrgs={[]} onFavorite={() => {}} onTopPick={() => {}} />
     </div>
   )
 }
@@ -219,7 +215,7 @@ export function Firm() {
 export function MinimalUnverified() {
   return (
     <div className="w-[320px]">
-      <FlipCard profile={rohan} portfolio={[]} audioCount={0} onFavorite={() => {}} onTopPick={() => {}} />
+      <FlipCard profile={rohan} portfolio={[]} testimonialOrgs={[]} onFavorite={() => {}} onTopPick={() => {}} />
     </div>
   )
 }

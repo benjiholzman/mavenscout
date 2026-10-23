@@ -85,6 +85,7 @@ export function defaultValue<K extends RequirementKind>(kind: K): RequirementVal
     availability: () => ({ engagement: 'either', fromMonth: null, untilMonth: null }),
     career_level: () => ({ values: [] }),
     video_qna: () => ({}),
+    audio_testimonial: () => ({}),
     work_arrangement: () => ({ values: [] }),
   }
   return defaults[kind]()
@@ -109,9 +110,11 @@ export function makeRow<K extends RequirementKind>(
 }
 
 /** Kinds that only filter and are never scored: "Has video Q&As" is Featured
- *  membership, and payment must never add points (profiles-membership §2.2). */
+ *  membership, and payment must never add points (profiles-membership §2.2);
+ *  "Has audio testimonial" likewise stays out of the score (§4.1: testimonials
+ *  never feed ranking). */
 export function isRequiredOnly(kind: RequirementKind): boolean {
-  return kind === 'video_qna'
+  return kind === 'video_qna' || kind === 'audio_testimonial'
 }
 
 /** No rows: no preferences, nothing required (spec §3). */
@@ -276,6 +279,9 @@ export function mustHavesToFilterState(reqs: Requirement[], search: SearchState)
       case 'video_qna':
         f.hasVideoQnas = true
         break
+      case 'audio_testimonial':
+        f.hasAudioTestimonial = true
+        break
       case 'org_history':
         break
     }
@@ -310,6 +316,7 @@ export function rowHasValue(r: Requirement): boolean {
       return r.value.values.length > 0
     case 'availability':
     case 'video_qna':
+    case 'audio_testimonial':
       return true
   }
 }
@@ -364,6 +371,7 @@ export function applyFilterStateToRequirements(
   }
   setSingle('availability', next.availability ? { ...next.availability } : null)
   setSingle('video_qna', next.hasVideoQnas ? {} : null)
+  setSingle('audio_testimonial', next.hasAudioTestimonial ? {} : null)
 
   const wanted = next.expertise
   const withWorking = (name: string) => (next.expertiseIncludeWorking ? { name, includeWorking: true } : { name })

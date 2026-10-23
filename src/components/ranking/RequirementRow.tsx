@@ -198,6 +198,12 @@ function ValuePicker({
           Featured Members who have answered every standard interview question on video.
         </p>
       )
+    case 'audio_testimonial':
+      return (
+        <p className="mt-1.5 text-xs text-ink-faint">
+          Experts with a published audio testimonial from someone they worked with. A filter only; it never adds points.
+        </p>
+      )
   }
 }
 

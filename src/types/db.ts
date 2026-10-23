@@ -6,7 +6,6 @@ import type { Adjustment, Band, ExtractedRequirements, Requirement, Scoring } fr
 
 export type ConsultantType = 'Individual' | 'Small Firm' | 'Large Firm'
 export type CareerLevel = 'early_career' | 'mid_career' | 'senior'
-export type VerificationStatus = 'unverified' | 'pending' | 'verified'
 export type SubscriptionStatus = 'active' | 'past_due' | 'canceled' | 'paused' | 'none'
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
 /** 'expertise' = the unified list's browsing groups (011). */
@@ -131,7 +130,6 @@ export interface Profile {
    *  then or the profile is unlisted until it is (spec §3, §10). */
   verification_recheck_until: string | null
   is_premium: boolean
-  verification_status: VerificationStatus
   custom_domain: string | null
   subscription_status: SubscriptionStatus
   approval_status: ApprovalStatus
@@ -144,6 +142,11 @@ export interface Profile {
    *  answer. Set by the loaders (lib/membership withVideoQnaStatus); Featured
    *  status needs it (spec §2.2). Never write it back to `profiles`. */
   video_qnas_complete?: boolean
+  /** App-derived, NOT a column: the profile shows at least one published
+   *  audio testimonial. Set by the directory loader (lib/testimonials/display
+   *  testimonialTeasers); the "Has audio testimonial" filter reads it. Never
+   *  write it back to `profiles`. */
+  has_audio_testimonial?: boolean
 }
 
 export type OrgType =

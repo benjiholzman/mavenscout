@@ -256,6 +256,13 @@ export function FilterBar({
           onChange={(v) => set('hasVideoQnas', v)}
           label="Has video Q&As"
         />
+        {/* Off by default; a filter only, never scored (testimonials never
+            feed ranking). */}
+        <Switch
+          checked={filters.hasAudioTestimonial}
+          onChange={(v) => set('hasAudioTestimonial', v)}
+          label="Has audio testimonial"
+        />
 
         {gridOnlyMustHaves.length > 0 && (
           <button
@@ -281,6 +288,7 @@ export function FilterBar({
                     languages: [],
                     availability: null,
                     hasVideoQnas: false,
+                    hasAudioTestimonial: false,
                     searchTerm: '',
                   })
             }

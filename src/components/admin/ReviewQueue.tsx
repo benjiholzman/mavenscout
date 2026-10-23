@@ -1,11 +1,12 @@
 import { Check, Inbox, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { completenessGaps, type Gap } from '../../lib/completeness'
+import { blockingGaps, completenessGaps, type Gap } from '../../lib/completeness'
 import { fmtDate } from '../../lib/dates'
 import { MEMBERSHIP_LABELS } from '../../lib/membership'
 import { loadOrgIndex } from '../../lib/organizations'
 import { supabase } from '../../lib/supabase'
+import { testimonialDeadlineAtApproval } from '../../lib/testimonials/rules'
 import { verificationState, type VerificationState } from '../../lib/verification/state'
 import type { AudioTestimonial, Profile, VerificationCheck, VerificationEvidence } from '../../types/db'
 
@@ -21,6 +22,7 @@ export function ReviewQueue() {
   const [pending, setPending] = useState<Profile[] | null>(null)
   const [gaps, setGaps] = useState<Map<string, Gap[]>>(new Map())
   const [verification, setVerification] = useState<Map<string, VerificationState>>(new Map())
+  const [audio, setAudio] = useState<Map<string, AudioTestimonial[]>>(new Map())
 
   const load = async () => {
     const { data } = await supabase
@@ -61,6 +63,7 @@ export function ReviewQueue() {
     // Featured status isn't known here, so portfolio counts use the Member
     // limits, the ones every new profile starts from.
     setGaps(new Map(rows.map((p) => [p.id, completenessGaps({ profile: p, portfolioCount: counts.get(p.id) ?? 0, testimonials: testimonials.get(p.id) ?? [] })])))
+    setAudio(testimonials)
     setPending(rows)
   }
   useEffect(() => {
@@ -72,7 +75,9 @@ export function ReviewQueue() {
       outcome === 'rejected'
         ? { approval_status: 'rejected' }
         : // Admin approval stands in for the billing event this build.
-          { approval_status: 'approved', subscription_status: 'active' }
+          // With TESTIMONIAL_DEADLINE_DAYS set, approval starts the deadline
+          // for the required testimonial (lib/testimonials/rules).
+          { approval_status: 'approved', subscription_status: 'active', ...testimonialDeadlineAtApproval(p, audio.get(p.id) ?? []) }
     await supabase.from('profiles').update(patch).eq('id', p.id)
     load()
   }
@@ -95,7 +100,7 @@ export function ReviewQueue() {
         const unchecked = v ? [...v.missing, ...v.required.filter((i) => i.status !== 'labelled').map((i) => `${i.title}: ${i.summary}`)] : []
         const blocker = !p.submitted_at
           ? 'Not submitted yet'
-          : missing.length > 0
+          : blockingGaps(missing).length > 0
             ? 'Below the profile minimums'
             : !v?.passed
               ? 'Verification isn’t complete'

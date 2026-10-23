@@ -55,9 +55,11 @@ export function visibleTestimonials(profile: Profile, published: AudioTestimonia
   return [...flow, ...published.filter(isLegacy)]
 }
 
-/** "3 testimonials from UNICEF, World Bank, IRC" (§4.4). */
-export function summaryLine(rows: AudioTestimonial[], orgs: OrgIndex): string | null {
-  if (rows.length === 0) return null
+/** The referees' organizations, deduplicated: "World Bank", "IRC". */
+export function testimonialOrgNames(
+  rows: Pick<AudioTestimonial, 'referee_org_id' | 'reference_org'>[],
+  orgs: OrgIndex,
+): string[] {
   const names: string[] = []
   for (const t of rows) {
     const org = t.referee_org_id ? orgs.byId.get(t.referee_org_id) : resolveOrganization(orgs, t.reference_org)
@@ -65,6 +67,34 @@ export function summaryLine(rows: AudioTestimonial[], orgs: OrgIndex): string | 
     const label = org ? (org.name.length <= 20 ? org.name : orgAcronym(org) ?? org.name) : t.reference_org
     if (label && !names.includes(label)) names.push(label)
   }
+  return names
+}
+
+/** What the directory loads per published testimonial: enough for the flip
+ *  card's "Testimonial from …" and the "Has audio testimonial" filter, without
+ *  referee emails or transcripts. */
+export type TestimonialTeaser = Pick<
+  AudioTestimonial,
+  'profile_id' | 'work_history_entry_id' | 'portfolio_item_id' | 'referee_org_id' | 'reference_org' | 'published_at'
+>
+export const TEASER_COLUMNS = 'profile_id,work_history_entry_id,portfolio_item_id,referee_org_id,reference_org,published_at'
+
+/** The published testimonials a profile shows, as visibleTestimonials picks
+ *  them, from teaser rows. Flow testimonials always carry the referee's
+ *  organization (§4.6), so a row without one is a legacy reference. */
+export function testimonialTeasers(profile: Profile, published: TestimonialTeaser[]): TestimonialTeaser[] {
+  if (membershipLimits(profile).testimonials.total === null) return published
+  const flow = published
+    .filter((t) => t.referee_org_id && t.work_history_entry_id)
+    .sort((a, b) => (a.published_at ?? '').localeCompare(b.published_at ?? ''))
+    .slice(0, 1)
+  return [...flow, ...published.filter((t) => !t.referee_org_id)]
+}
+
+/** "3 testimonials from UNICEF, World Bank, IRC" (§4.4). */
+export function summaryLine(rows: AudioTestimonial[], orgs: OrgIndex): string | null {
+  if (rows.length === 0) return null
+  const names = testimonialOrgNames(rows, orgs)
   const n = rows.length
   return `${n} audio ${n === 1 ? 'testimonial' : 'testimonials'}${names.length ? ` from ${names.join(', ')}` : ''}`
 }

@@ -32,7 +32,7 @@ import { verificationState, type VerificationState } from '../lib/verification/s
 import { isActive, STAGE_LABELS, testimonialStage } from '../lib/testimonials/rules'
 import { EXPERTISE_TIER_LIMITS, FIRMS_ENABLED, PROFILE_LIMITS } from '../lib/config'
 import { buildExpertiseIndex, expertiseTags } from '../lib/expertise'
-import { checkSectionSave, completenessGaps, isListedProfile, type RuleSection } from '../lib/completeness'
+import { blockingGaps, checkSectionSave, completenessGaps, isListedProfile, type RuleSection } from '../lib/completeness'
 import { membershipLimits } from '../lib/membership'
 import { spokenLanguages } from '../lib/languages'
 import { useSession } from '../lib/session'
@@ -650,7 +650,7 @@ export default function Onboarding() {
           <EditorSection id="tier" title="Membership & review">
             <MembershipSection
               profile={profile}
-              gapCount={gaps.length}
+              gapCount={blockingGaps(gaps).length}
               videoQnas={videoQnas}
               save={saveAndSet}
             />

@@ -52,6 +52,8 @@ export function requirementLabel(r: Requirement): string {
       )
     case 'video_qna':
       return 'Has video Q&As'
+    case 'audio_testimonial':
+      return 'Has audio testimonial'
     case 'work_arrangement':
       return `Works ${or(r.value.values)}`
   }
@@ -146,7 +148,9 @@ function judge(c: CandidateInput, r: Requirement, index: ExpertiseIndex, orgs: O
       return p.career_level && r.value.values.includes(p.career_level) ? met(own) : notMet(own)
     }
     case 'video_qna':
-      // Required only (normalizeRequirements): membership never adds points.
+    case 'audio_testimonial':
+      // Required only (normalizeRequirements): membership and testimonials
+      // never add points.
       return { outcome: 'not_applicable', credit: 0, detail: 'A filter only; never scored' }
     case 'work_arrangement': {
       const hit = r.value.values.filter((w) => p.work_types.includes(w))

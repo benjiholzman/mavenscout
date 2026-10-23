@@ -76,6 +76,16 @@ export const TESTIMONIAL_REQUIRED: Record<'member' | 'featured', boolean> = {
   featured: true,
 }
 
+/** Optional deadline for the required testimonial (spec §4.1, §12 item 2).
+ *  null (default): the testimonial must be published before the profile is
+ *  listed. A number: a profile can be approved without one once verification
+ *  passes, and has this many days from approval to publish it; past the
+ *  deadline it's unlisted until one is published. Reuses the withdrawal
+ *  grace period (profiles.testimonial_grace_until), so the deadline shows in
+ *  the completeness panel and publishing clears it. While set, the "every
+ *  expert is vouched for" copy is not claimed (lib/testimonials/copy). TUNABLE. */
+export const TESTIMONIAL_DEADLINE_DAYS: number | null = null
+
 /** Audio testimonial flow (spec §4.3, §4.5, §4.6). TUNABLE. */
 export const TESTIMONIAL_RULES = {
   /** "Confirm it's me" code: single-use, valid this long. */
