@@ -7,11 +7,12 @@ import { useOpeningsList } from '../hooks/useOpeningData'
 import { fmtDate } from '../lib/dates'
 import { clearOpening, createOpening, deleteOpening } from '../lib/openings'
 import { useSession } from '../lib/session'
+import { ManagerStatusNotice } from '../components/account/ManagerStatusNotice'
 
 // /openings — the hiring manager's list of openings + create new (PRD 7.4).
 
 export default function Openings() {
-  const { role } = useSession()
+  const { role, hasAccess, manager } = useSession()
   const { openings, counts, reload } = useOpeningsList()
   const [createOpen, setCreateOpen] = useState(false)
   const [name, setName] = useState('')
@@ -28,6 +29,12 @@ export default function Openings() {
         <Link to="/login" className="mt-4 inline-block rounded-full bg-brand-500 px-5 py-2 text-sm font-medium text-white">
           Log in
         </Link>
+      </div>
+    )
+  if (!hasAccess)
+    return (
+      <div className="mx-auto max-w-md px-4 py-16">
+        <ManagerStatusNotice manager={manager} />
       </div>
     )
 

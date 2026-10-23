@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom'
+import { useSession } from '../../lib/session'
+import { ManagerStatusNotice } from '../account/ManagerStatusNotice'
 import { Modal } from './Modal'
 
 /** The inviting sign-up gate (PRD 7.9a) — never a hard wall. Shown when a
@@ -13,6 +15,15 @@ export function SignupPrompt({
   onClose: () => void
   feature: string
 }) {
+  const { role, hasAccess, manager } = useSession()
+  // Signed up but not active yet (email code or exception request, spec §9).
+  if (role === 'hiring_manager' && !hasAccess)
+    return (
+      <Modal open={open} onClose={onClose} title="Your account isn’t active yet">
+        <p className="mb-4 text-sm text-ink-soft">{feature} unlocks once it is.</p>
+        <ManagerStatusNotice manager={manager} compact />
+      </Modal>
+    )
   return (
     <Modal open={open} onClose={onClose} title="Create a free account">
       <p className="text-sm leading-relaxed text-ink-soft">

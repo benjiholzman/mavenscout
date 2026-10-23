@@ -11,6 +11,7 @@ import { BAND_LABELS } from '../lib/matching/config'
 import { loadLatestForOpening, type RankingRecord } from '../lib/matching/persist'
 import { computeTeamStats } from '../lib/openings'
 import { DEMO_HIRING_MANAGER_ID, useSession } from '../lib/session'
+import { ManagerStatusNotice } from '../components/account/ManagerStatusNotice'
 import { supabase } from '../lib/supabase'
 import NotFound from './NotFound'
 
@@ -19,7 +20,7 @@ import NotFound from './NotFound'
 
 export default function OpeningDetail() {
   const { id } = useParams()
-  const { role } = useSession()
+  const { role, hasAccess, manager } = useSession()
   const { data, notFound, reload } = useOpeningDetail(id)
 
   // The opening's persisted ranking: loads on entry — the manager who returns
@@ -39,6 +40,12 @@ export default function OpeningDetail() {
         <p className="text-sm text-ink-soft">
           Log in with a hiring account (or use the dev role switcher) to open this workspace.
         </p>
+      </div>
+    )
+  if (!hasAccess)
+    return (
+      <div className="mx-auto max-w-md px-4 py-16">
+        <ManagerStatusNotice manager={manager} />
       </div>
     )
   if (!data)

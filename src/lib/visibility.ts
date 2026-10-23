@@ -31,7 +31,7 @@ export interface VisibilityRules {
   videoTabExists: boolean
 }
 
-export function visibilityFor(surface: Surface, isLoggedIn: boolean): VisibilityRules {
+export function visibilityFor(surface: Surface, hasAccess: boolean): VisibilityRules {
   if (surface === 'site') {
     // Public personal website: gated/richer material is stripped entirely —
     // wherever attached (employer entry or portfolio item), regardless of viewer.
@@ -45,7 +45,7 @@ export function visibilityFor(surface: Surface, isLoggedIn: boolean): Visibility
       videoTabExists: false,
     }
   }
-  const gate: Visibility = isLoggedIn ? 'shown' : 'gated'
+  const gate: Visibility = hasAccess ? 'shown' : 'gated'
   return {
     coreContent: 'shown',
     availability: 'shown', // shown on /profile even logged out (PRD 7.2a table)

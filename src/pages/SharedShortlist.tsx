@@ -15,7 +15,7 @@ import NotFound from './NotFound'
 
 export default function SharedShortlist() {
   const { token } = useParams()
-  const { role } = useSession()
+  const { role, hasAccess } = useSession()
   const { data, notFound, reload } = useOpeningDetail(token, true)
 
   // AI match scores stay visible on the shared view too (PRD 7.4).
@@ -37,7 +37,7 @@ export default function SharedShortlist() {
 
   // Mocked identity → participation: the demo HM owns the seeded opening;
   // reviewer grants carry the real rule. Real auth replaces this resolution.
-  const identityId = role === 'hiring_manager' ? DEMO_HIRING_MANAGER_ID : null
+  const identityId = role === 'hiring_manager' && hasAccess ? DEMO_HIRING_MANAGER_ID : null
   const canParticipate =
     identityId !== null &&
     (opening.hiring_manager_id === identityId ||

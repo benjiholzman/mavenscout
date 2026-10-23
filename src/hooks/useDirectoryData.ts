@@ -3,8 +3,8 @@ import { isListed } from '../lib/listing'
 import { withVideoQnaStatus } from '../lib/membership'
 import { loadOrgIndex, type OrgIndex } from '../lib/organizations'
 import { supabase } from '../lib/supabase'
+import { TEASER_COLUMNS, testimonialOrgNames, testimonialTeasers, type TestimonialTeaser } from '../lib/testimonials/display'
 import type {
-  AudioTestimonial,
   InterviewQuestion,
   PortfolioItem,
   Profile,
@@ -16,7 +16,9 @@ import type {
 export interface DirectoryData {
   profiles: Profile[]
   portfolioByProfile: Map<string, PortfolioItem[]>
-  audioCountByProfile: Map<string, number>
+  /** The referees' organizations of the testimonials each profile shows
+   *  (flip card "Testimonial from …"). */
+  testimonialOrgsByProfile: Map<string, string[]>
   taxonomyCategories: TaxonomyCategory[]
   taxonomyItems: TaxonomyItem[]
   /** Canonical organizations (009): logos, Sector Experience, Org History. */
@@ -44,7 +46,7 @@ export function useDirectoryData() {
           supabase.from('portfolio_items').select('*').order('sort_order'),
           supabase.from('video_responses').select('profile_id,kind,question_id').eq('kind', 'question'),
           supabase.from('interview_questions').select('id').eq('active', true),
-          supabase.from('audio_testimonials').select('id,profile_id').eq('status', 'published'),
+          supabase.from('audio_testimonials').select(TEASER_COLUMNS).eq('status', 'published'),
           supabase.from('taxonomy_categories').select('*').order('sort_order'),
           supabase.from('taxonomy_items').select('*').order('sort_order'),
           loadOrgIndex(),
@@ -75,15 +77,21 @@ export function useDirectoryData() {
         portfolioByProfile.set(item.profile_id, list)
       }
 
-      const audioCountByProfile = new Map<string, number>()
-      for (const a of audioRes.data as Pick<AudioTestimonial, 'id' | 'profile_id'>[]) {
-        audioCountByProfile.set(a.profile_id, (audioCountByProfile.get(a.profile_id) ?? 0) + 1)
+      const published = new Map<string, TestimonialTeaser[]>()
+      for (const a of audioRes.data as TestimonialTeaser[])
+        published.set(a.profile_id, [...(published.get(a.profile_id) ?? []), a])
+      const testimonialOrgsByProfile = new Map<string, string[]>()
+      for (const p of profiles) {
+        const shown = testimonialTeasers(p, published.get(p.id) ?? [])
+        // App-derived, for the "Has audio testimonial" filter (never saved).
+        p.has_audio_testimonial = shown.length > 0
+        if (shown.length) testimonialOrgsByProfile.set(p.id, testimonialOrgNames(shown, orgs))
       }
 
       setData({
         profiles,
         portfolioByProfile,
-        audioCountByProfile,
+        testimonialOrgsByProfile,
         taxonomyCategories: catsRes.data as TaxonomyCategory[],
         taxonomyItems: itemsRes.data as TaxonomyItem[],
         orgs,

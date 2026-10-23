@@ -1,6 +1,6 @@
-import { SearchX, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { BadgeCheck, SearchX, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { FilterBar } from '../components/directory/FilterBar'
 import { FlipCard } from '../components/directory/FlipCard'
 import { SortDropdown } from '../components/directory/SortDropdown'
@@ -44,6 +44,7 @@ import { applyMustHaves, applyOrgMustHaves } from '../lib/requirements/mustHaves
 import { useRequirements } from '../lib/requirements/store'
 import { FIRMS_ENABLED } from '../lib/config'
 import { DEMO_HIRING_MANAGER_ID, useSession } from '../lib/session'
+import { VERIFIED_STATEMENT } from '../lib/testimonials/copy'
 import { sortProfiles, type SortMode } from '../lib/sort'
 import { supabase } from '../lib/supabase'
 
@@ -56,7 +57,7 @@ import { supabase } from '../lib/supabase'
 
 export default function Directory() {
   const { data, error } = useDirectoryData()
-  const { isLoggedIn, role } = useSession()
+  const { hasAccess, role } = useSession()
   const [params, setParams] = useSearchParams()
   const rankingId = params.get('ranking')
   const openingId = params.get('opening')
@@ -94,7 +95,7 @@ export default function Directory() {
   /** "About this result": the profile id whose build-up is open. */
   const [aboutId, setAboutId] = useState<string | null>(null)
 
-  const canRank = role === 'hiring_manager'
+  const canRank = role === 'hiring_manager' && hasAccess
 
   const updateParams = useCallback(
     (patch: Record<string, string | null>, opts: { push?: boolean } = {}) =>
@@ -115,10 +116,10 @@ export default function Directory() {
   /** Ranking needs a hiring account (spec §1 "Unchanged": login gating). */
   const gateRanking = useCallback((): boolean => {
     if (canRank) return true
-    if (!isLoggedIn) setGatedFeature('Ranking candidates against a job description')
+    if (!hasAccess || role === 'hiring_manager') setGatedFeature('Ranking candidates against a job description')
     else setNotice('Ranking is part of the hiring toolkit — switch to a hiring account to use it.')
     return false
-  }, [canRank, isLoggedIn])
+  }, [canRank, hasAccess, role])
 
   // ---- data ------------------------------------------------------------------
 
@@ -494,6 +495,16 @@ export default function Directory() {
           <p className="mt-1 text-sm text-ink-soft">
             A curated pool of vetted {FIRMS_ENABLED ? 'consultants and firms' : 'experts'} in international development.
           </p>
+          {/* The verification statement (profiles-membership §3.2). */}
+          <p className="mt-1.5 flex max-w-2xl items-start gap-1.5 text-xs leading-relaxed text-ink-faint">
+            <BadgeCheck size={14} className="mt-px shrink-0 text-emerald-700" />
+            <span>
+              {VERIFIED_STATEMENT}{' '}
+              <Link to="/about#verification" className="font-medium text-brand-600 hover:text-brand-700">
+                What verification means
+              </Link>
+            </span>
+          </p>
         </div>
         {/* Rank by JD — deliberately separate from the filter bar (PRD 7.1). */}
         <button
@@ -557,7 +568,7 @@ export default function Directory() {
               key={`${p.id}-${epoch}`}
               profile={p}
               portfolio={data.portfolioByProfile.get(p.id) ?? []}
-              audioCount={data.audioCountByProfile.get(p.id) ?? 0}
+              testimonialOrgs={data.testimonialOrgsByProfile.get(p.id) ?? []}
               orgs={data.orgs}
               onFavorite={(p) => save(p, 'favorite')}
               onTopPick={(p) => save(p, 'top_pick')}

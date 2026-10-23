@@ -1,4 +1,4 @@
-import { EXPERTISE_TIER_LIMITS, PROFILE_LIMITS } from './config'
+import { EXPERTISE_TIER_LIMITS, PROFILE_LIMITS, TESTIMONIAL_DEADLINE_DAYS } from './config'
 import { expertiseTags } from './expertise'
 import { spokenLanguages } from './languages'
 import { membershipLimits } from './membership'
@@ -23,10 +23,12 @@ import type { AudioTestimonial, ExpertiseTier, Profile } from '../types/db'
 // The audio testimonial rule (spec §4.1, §4.4): a published testimonial on
 // an employer entry is needed to go live, where config TESTIMONIAL_REQUIRED
 // says so for the level. It isn't a section save, so only
-// the panel, Submit and Approve check it.
+// the panel, Submit and Approve check it. With TESTIMONIAL_DEADLINE_DAYS set
+// it doesn't block Submit or Approve: approval starts the deadline instead
+// (testimonial_grace_until), and the panel shows it.
 
 /** Editor sections the rules belong to (the section ids in Onboarding). */
-export type RuleSection = 'basics' | 'bio' | 'tags' | 'accreditations' | 'history' | 'portfolio' | 'testimonials'
+export type RuleSection = 'basics' | 'bio' | 'tags' | 'accreditations' | 'history' | 'portfolio' | 'testimonials' | 'verification'
 
 export interface CompletenessInput {
   profile: Profile
@@ -46,6 +48,8 @@ interface Rule {
   max?: (c: CompletenessInput) => number
   /** Replaces the standard message when the rule isn't met. */
   message?: (c: CompletenessInput) => string
+  /** Whether a gap here blocks Submit and Approve (default true). */
+  blocking?: boolean
 }
 
 /** "none published yet (waiting for Dr. Bello)"; the deadline after a withdrawal. */
@@ -57,7 +61,12 @@ function testimonialMessage(c: CompletenessInput): string {
       ? `${waiting.reference_name} recorded it, publish it`
       : `waiting for ${waiting.reference_name}`
     : 'request one from someone who supervised or contracted you'
-  const deadline = c.profile.testimonial_grace_until ? `; replace it by ${fmtDate(c.profile.testimonial_grace_until)} to stay listed` : ''
+  const withdrawn = c.testimonials.some((t) => t.withdrawn_at)
+  const deadline = c.profile.testimonial_grace_until
+    ? `; ${withdrawn ? 'replace it' : 'publish one'} by ${fmtDate(c.profile.testimonial_grace_until)} to stay listed`
+    : TESTIMONIAL_DEADLINE_DAYS !== null && c.profile.approval_status !== 'approved'
+      ? `; you can be listed first, then have ${TESTIMONIAL_DEADLINE_DAYS} days to publish one`
+      : ''
   return `Audio testimonial on an employer entry: none published (${status}${deadline})`
 }
 
@@ -101,12 +110,20 @@ const RULES: Rule[] = [
     metric: (c) => publishedEmployerTestimonials(c.profile, c.testimonials).length,
     min: (c) => (testimonialRequired(c.profile) ? 1 : 0),
     message: testimonialMessage,
+    blocking: TESTIMONIAL_DEADLINE_DAYS === null,
   },
 ]
 
 export interface Gap {
   section: RuleSection
   message: string
+  /** False: shown, but doesn't block Submit or Approve. */
+  blocking?: boolean
+}
+
+/** Gaps that block Submit and Approve. */
+export function blockingGaps(gaps: Gap[]): Gap[] {
+  return gaps.filter((g) => g.blocking !== false)
 }
 
 function describe(rule: Rule, n: number, c: CompletenessInput): string | null {
@@ -125,7 +142,7 @@ function describe(rule: Rule, n: number, c: CompletenessInput): string | null {
 export function completenessGaps(c: CompletenessInput): Gap[] {
   return RULES.flatMap((rule) => {
     const message = describe(rule, rule.metric(c), c)
-    return message ? [{ section: rule.section, message }] : []
+    return message ? [{ section: rule.section, message, ...(rule.blocking === false ? { blocking: false } : {}) }] : []
   })
 }
 

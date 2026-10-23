@@ -52,6 +52,41 @@ profile minimum (`lib/completeness.ts`) for each level that
 setting drives the replace-only rule, the grace period and the listing check
 (`testimonialRequired` in `lib/testimonials/rules.ts`), and the "every expert is
 vouched for" copy lives in `lib/testimonials/copy.ts`.
+`TESTIMONIAL_DEADLINE_DAYS` (unset by default) lets a verified profile be approved
+without its testimonial and gives it that many days to publish one, using the same
+`testimonial_grace_until` column as the withdrawal grace period; while it's set the
+copy stops claiming every expert is vouched for. The directory's "Has audio
+testimonial" filter (requirement kind `audio_testimonial`) is Required-only like
+`video_qna`, and flip cards show "Testimonial from [organization]" from teaser rows
+(`TEASER_COLUMNS` in `lib/testimonials/display.ts`: no emails or transcripts).
+
+**Hiring-manager accounts (profiles-membership §9; `src/lib/managers.ts`).** Sign-up
+needs a work email whose domain is in `organizations.domains` (`orgForDomain`), then
+a 6-digit code (mocked: shown on screen). Hirers without one request an exception
+that an admin approves in /admin → Hiring managers. `hiring_managers.account_status`
+is the state; the session pins the signed-up row (`ms_manager_id`) and only an
+`active` account unlocks saving, ranking, Video Q&As and testimonials
+(`useSession().hasAccess`; `isLoggedIn` is just "signed in"). Referees' one-click
+accounts are created active. A signed-up manager still works in the demo manager's
+openings (`DEMO_HIRING_MANAGER_ID`) until real auth gives each account its own.
+
+**Verification (profiles-membership §3, §10; `src/lib/verification/`).** Required:
+name + photo, most recent employer, most recent degree, every certification.
+`verification_checks` (016) is the append-only audit record: ID-provider results,
+admin decisions, bio edit requests. An item's label is its latest decision while the
+item's checked fields still match the stored fingerprint (`items.ts`), so editing
+removes the label with no write; an employer is also Confirmed by a published
+testimonial whose referee's organization is the entry's (§4.4). `state.ts` gives
+each item's status and the gates: Submit needs the consultant's part done
+(`lib/verification/gaps.ts`), admin Approve needs every item labelled. After
+approval, losing a required label (or a newer job/degree) opens a 30-day window
+(`VERIFICATION_RULES.recheckDays`, `profiles.verification_recheck_until`, rules in
+`window.ts`); `isListed` drops the profile once it lapses. Editor saves, admin
+decisions (`decisions.ts`) and testimonial publish/remove/withdraw (`withRecheck`)
+keep it in step. Every admin decision deletes that item's evidence and keeps only
+its kind, type and size in the audit row; an unverifiable certification is removed
+from the profile. Profiles show Confirmed / Document reviewed / Pending check
+(certifications) with a legend; /about#verification explains them.
 
 **Firms are hidden** behind `FIRMS_ENABLED = false` (`src/lib/config.ts`, spec §1):
 excluded from the directory, search, ranking and the baseline pool through
@@ -70,7 +105,10 @@ when one is added, build it from `isListed`.
 | Testimonial pre-check | Placeholder `precheckReferee`: checks the request against itself (full name, title, current organization = email domain's organization). The real one searches public records (spec §4.2) | `src/lib/testimonials/precheck.ts` |
 | Speech-to-text | Placeholder `transcribeAudio` returns labelled text instantly; the referee can edit it | `src/lib/testimonials/transcribe.ts` |
 | Testimonial code check | Generated, hashed and compared in the browser | `src/lib/testimonials/code.ts`, `referee.ts` |
-| Verification evidence | The old Premium evidence application is removed (spec §2.2). The `verification_evidence` table stays for the verification queue (spec §3, §13 step 4), whose uploads must stay stubbed too | `verification_evidence` table |
+| Verification evidence | **Storage stubbed by design**: the upload form records the file's name, type and size against a `stub://` path and never stores the document; the admin sees "not stored in this build". Deleting after review deletes the row | `src/lib/verification/store.ts`, `decisions.ts` |
+| ID + selfie check | Placeholder `runPlaceholderIdCheck`: the consultant picks pass or fail. The real provider (Stripe Identity, Persona) posts its result server-side; store only the result | `src/lib/verification/store.ts` |
+| AI verification review | Placeholder `reviewProfile`: fixed rules (dates, registers, bio claims vs work history), reads no documents, searches nothing, decides nothing. Swap for the real agent behind the same input/output | `src/lib/verification/aiReview.ts` |
+| Manager sign-up code | Generated, hashed and compared in the browser and shown on screen, like the referee's code | `src/lib/managers.ts` |
 | Membership choice | The editor's Membership & review section sets `is_premium` directly; no payment is taken | `src/components/onboarding/MembershipSection.tsx` |
 | AI matching | Placeholder JD extraction + placeholder Fit and preference adjustments (deterministic keyword matching) behind the real contract | `src/lib/matching/` (see Loop8 section; spec `docs/MavenScout-match-rework.md`) |
 | Account ops | Email/password change forms render disabled | `src/pages/Account.tsx` |
@@ -82,7 +120,7 @@ when one is added, build it from `isListed`.
 1. **Replace the session internals.** `src/lib/session.tsx` is the single mock: swap its
    internals for Supabase Auth (`supabase.auth.onAuthStateChange` → derive `role` from a
    profile/hiring_manager lookup on `user_id`). The `useSession()` surface
-   (`{ role, isLoggedIn, setRole→signOut }`) is what ~20 components consume — keep it and
+   (`{ role, isLoggedIn, hasAccess, manager, setRole→signOut }`) is what ~20 components consume — keep it and
    nothing else changes shape.
 2. **Delete the switcher.** `DevRoleSwitcher.tsx` + its single mount in `AppLayout.tsx`.
    Nothing else references it.
@@ -91,7 +129,12 @@ when one is added, build it from `isListed`.
    keyed on `auth.uid()`: openings/notes writes (`lib/openings.ts`,
    `SaveCandidateFlow.tsx`), editor profile resolution (`useEditorProfile.ts`), video
    requests (`lib/videoRequests.ts`), signup draft creation (`Signup.tsx` — also set
-   `user_id` on insert).
+   `user_id` on insert). The manager pin (`ms_manager_id`, `signInAsManager`) becomes
+   the signed-in user's `hiring_managers` row; keep `hasAccess` = an `active` account.
+   Admin decisions record `DEMO_ADMIN_NAME`; record the real admin instead.
+   Manager sign-up (`lib/managers.ts`) becomes a real Supabase Auth sign-up: send and
+   verify the code server-side, and check the email domain against `organizations`
+   on the server too.
 4. **Foreign keys.** `profiles.user_id` and `hiring_managers.user_id` are plain nullable
    uuids (a real FK would have broken seeding). Add
    `REFERENCES auth.users(id)` once real users exist.
@@ -169,6 +212,17 @@ when one is added, build it from `isListed`.
       review. Do not simply "enable" uploads into the current dev posture.
 - [ ] Profile minimums and the review gate (`lib/completeness.ts`) are app-side only;
       enforce them server-side (submission and approval) with real auth.
+- [ ] **Hiring-manager sign-up.** The email code is client-side (as above for
+      referees), so the institutional-email gate proves nothing yet; any account row
+      can be set `active` with the anon key. Exception requests (name, email,
+      organization, reason) and `hiring_managers.email` are readable under the dev
+      RLS. Approved exceptions never confirmed their email: confirm it on approval.
+- [ ] **Verification.** `verification_checks` (item snapshots, admin notes) and
+      `verification_evidence` (file names, explanations) are readable and writable
+      with the anon key, so labels can be forged. Admin decisions, ID-provider results
+      and the re-check window must be written server-side only; public pages need just
+      outcome + fingerprint per item (`useProfile` already selects only those
+      columns). The ID/selfie provider and the AI review are placeholders.
 - [ ] `/admin` — real access control (see Pass 1).
 - [ ] Contact relay (`ContactModal.tsx`) — when wiring real email, keep the PRD rule:
       candidate addresses are never exposed to the client; relay server-side.

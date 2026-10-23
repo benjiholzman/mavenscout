@@ -1,13 +1,17 @@
-import { Briefcase, UserRound } from 'lucide-react'
+import { BadgeCheck, Briefcase, UserRound } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { setEditorProfileId, useSession } from '../lib/session'
 import { supabase } from '../lib/supabase'
 import { slugifyHandle } from '../lib/validation'
 import { FIRMS_ENABLED } from '../lib/config'
+import { VERIFIED_STATEMENT } from '../lib/testimonials/copy'
+import { ManagerSignup } from '../components/account/ManagerSignup'
 
 // Styled signup backed by the MOCKED session (PRD 7.9). Two personas:
-// hiring (free account) and consultant/firm (paid profile → onboarding).
+// hiring (free account, institutional email or an approved exception —
+// profiles-membership §9; components/account/ManagerSignup) and
+// consultant/firm (paid profile → onboarding).
 // Consultant signup creates a real pending profile row so onboarding has a
 // draft to edit — that part exercises the actual data path.
 // Copy note (PRD 7.4): user-facing text avoids the stiff "hiring manager".
@@ -48,7 +52,7 @@ export default function Signup() {
     <div className="mx-auto max-w-2xl px-4 py-16">
       <h1 className="text-3xl font-semibold">Join MavenScout</h1>
       <p className="mt-2 text-sm text-ink-soft">
-        Demo build — no email verification or payment; accounts are mocked demo sessions.
+        Demo build — email codes are shown on screen and there's no payment; sign-in is a mocked demo session.
       </p>
 
       <div className="mt-8 grid gap-5 sm:grid-cols-2">
@@ -59,15 +63,19 @@ export default function Signup() {
             Free for organizations. Save candidates into openings, collaborate with your team,
             watch Video Q&As, and rank against a job description.
           </p>
-          <button
-            onClick={() => {
-              setRole('hiring_manager')
-              navigate('/')
-            }}
-            className="mt-5 w-full rounded-full bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
-          >
-            Create free account
-          </button>
+          {/* The verification statement (profiles-membership §3.2). */}
+          <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-paper px-3 py-2 text-xs leading-relaxed text-ink-soft">
+            <BadgeCheck size={14} className="mt-px shrink-0 text-emerald-700" />
+            <span>
+              {VERIFIED_STATEMENT}{' '}
+              <Link to="/about#verification" className="font-medium text-brand-600 hover:text-brand-700">
+                What verification means
+              </Link>
+            </span>
+          </p>
+          <div className="mt-5">
+            <ManagerSignup />
+          </div>
         </div>
 
         <div className="rounded-card border border-line bg-white p-6">

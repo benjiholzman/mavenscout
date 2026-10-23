@@ -1,4 +1,4 @@
-import { TESTIMONIAL_REQUIRED } from '../config'
+import { TESTIMONIAL_DEADLINE_DAYS, TESTIMONIAL_REQUIRED } from '../config'
 import { membershipLevel, membershipLimits } from '../membership'
 import type { AudioTestimonial, PortfolioItem, Profile, WorkHistoryEntry } from '../../types/db'
 
@@ -151,4 +151,19 @@ export function periodLabel(start: number | null, end: number | null): string | 
 /** Grace period lapsed: the profile is unlisted until a replacement is live. */
 export function graceLapsed(profile: Pick<Profile, 'testimonial_grace_until'>, now = new Date()): boolean {
   return !!profile.testimonial_grace_until && Date.parse(profile.testimonial_grace_until) < now.getTime()
+}
+
+/** At approval, with TESTIMONIAL_DEADLINE_DAYS set: a profile approved
+ *  without its required testimonial gets the deadline to publish one, using
+ *  the withdrawal grace period's column (lib/listing unlists it after).
+ *  Null when there's nothing to set (the default: the testimonial is needed
+ *  before approval). */
+export function testimonialDeadlineAtApproval(
+  profile: Profile,
+  rows: AudioTestimonial[],
+  now = new Date(),
+): Pick<Profile, 'testimonial_grace_until'> | null {
+  if (TESTIMONIAL_DEADLINE_DAYS === null || !testimonialRequired(profile)) return null
+  if (publishedEmployerTestimonials(profile, rows).length > 0 || profile.testimonial_grace_until) return null
+  return { testimonial_grace_until: new Date(now.getTime() + TESTIMONIAL_DEADLINE_DAYS * 86_400_000).toISOString() }
 }

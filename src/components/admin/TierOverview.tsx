@@ -44,7 +44,6 @@ export function TierOverview() {
             <th className="py-2 pr-3 font-semibold">Profile</th>
             <th className="py-2 pr-3 font-semibold">Approval</th>
             <th className="py-2 pr-3 font-semibold">Featured Member</th>
-            <th className="py-2 pr-3 font-semibold">Verification</th>
             <th className="py-2 font-semibold">Subscription</th>
           </tr>
         </thead>
@@ -73,17 +72,6 @@ export function TierOverview() {
                     pending videos ({qna.get(p.id)!.answered}/{qna.get(p.id)!.required})
                   </span>
                 )}
-              </td>
-              <td className="py-2.5 pr-3">
-                <select
-                  value={p.verification_status}
-                  onChange={(e) => update(p.id, { verification_status: e.target.value as Profile['verification_status'] })}
-                  className="rounded-lg border border-line bg-white px-2 py-1 text-xs"
-                >
-                  <option value="unverified">unverified</option>
-                  <option value="pending">pending</option>
-                  <option value="verified">verified</option>
-                </select>
               </td>
               <td className="py-2.5">
                 <select

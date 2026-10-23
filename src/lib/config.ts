@@ -76,6 +76,16 @@ export const TESTIMONIAL_REQUIRED: Record<'member' | 'featured', boolean> = {
   featured: true,
 }
 
+/** Optional deadline for the required testimonial (spec §4.1, §12 item 2).
+ *  null (default): the testimonial must be published before the profile is
+ *  listed. A number: a profile can be approved without one once verification
+ *  passes, and has this many days from approval to publish it; past the
+ *  deadline it's unlisted until one is published. Reuses the withdrawal
+ *  grace period (profiles.testimonial_grace_until), so the deadline shows in
+ *  the completeness panel and publishing clears it. While set, the "every
+ *  expert is vouched for" copy is not claimed (lib/testimonials/copy). TUNABLE. */
+export const TESTIMONIAL_DEADLINE_DAYS: number | null = null
+
 /** Audio testimonial flow (spec §4.3, §4.5, §4.6). TUNABLE. */
 export const TESTIMONIAL_RULES = {
   /** "Confirm it's me" code: single-use, valid this long. */
@@ -100,4 +110,26 @@ export const TESTIMONIAL_RULES = {
     'inquiry', 'secretariat', 'reception', 'general', 'noreply', 'no-reply', 'communications',
     'media', 'press', 'webmaster', 'postmaster', 'registry', 'procurement', 'finance',
   ],
+} as const
+
+/** Verification (spec §3, §10). TUNABLE. */
+export const VERIFICATION_RULES = {
+  /** A listed profile whose required item (identity, most recent employer,
+   *  most recent degree) loses its check, or gains a newer job or degree,
+   *  stays listed this long while it's re-checked; then it's unlisted until
+   *  the check is done (same pattern as TESTIMONIAL_RULES.graceDays). */
+  recheckDays: 30,
+} as const
+
+/** Hiring-manager sign-up (spec §9). The email code is mocked in this build
+ *  (shown on screen), like the referee's. TUNABLE. */
+export const MANAGER_SIGNUP_RULES = {
+  /** Email code: single-use, valid this long. */
+  codeTtlMinutes: 10,
+  /** Wrong entries before the code is void (a new one can be sent). */
+  codeMaxAttempts: 5,
+  /** Codes one sign-up can send in total. */
+  codeMaxSends: 3,
+  /** Turnaround target for exception requests, as told to the requester. */
+  exceptionTurnaround: 'usually within a day',
 } as const

@@ -6,6 +6,7 @@ import type {
   InterviewQuestion,
   PortfolioItem,
   Profile,
+  VerificationCheck,
   VideoResponse,
 } from '../types/db'
 
@@ -16,7 +17,13 @@ export interface ProfileData {
   /** Published testimonials only — pending/removed never leave the editor/admin. */
   testimonials: AudioTestimonial[]
   questions: InterviewQuestion[]
+  /** Verification decisions, for the labels (spec §3.1): outcome, method,
+   *  date and fingerprint only — no notes, names or evidence details. */
+  checks: VerificationCheck[]
 }
+
+/** The columns labels need; the rest stay with the editor and admin. */
+const LABEL_COLUMNS = 'id,profile_id,item_kind,item_id,item_fingerprint,outcome,method,created_at'
 
 /** Loads one public profile by handle. Only approved + active profiles
  *  resolve (app-level enforcement of directory visibility — see 000_schema.sql).
@@ -44,7 +51,7 @@ export function useProfile(handle: string | undefined) {
       if (pErr) return setError(pErr.message)
       if (!profile) return setNotFound(true)
 
-      const [portfolioRes, videosRes, testimonialsRes, questionsRes] = await Promise.all([
+      const [portfolioRes, videosRes, testimonialsRes, questionsRes, checksRes] = await Promise.all([
         supabase.from('portfolio_items').select('*').eq('profile_id', profile.id).order('sort_order'),
         supabase.from('video_responses').select('*').eq('profile_id', profile.id),
         supabase
@@ -54,10 +61,15 @@ export function useProfile(handle: string | undefined) {
           .eq('status', 'published')
           .order('created_at', { ascending: false }),
         supabase.from('interview_questions').select('*').eq('active', true).order('sort_order'),
+        supabase
+          .from('verification_checks')
+          .select(LABEL_COLUMNS)
+          .eq('profile_id', profile.id)
+          .in('outcome', ['confirmed', 'document_reviewed', 'unverifiable']),
       ])
       if (cancelled) return
       const firstError =
-        portfolioRes.error ?? videosRes.error ?? testimonialsRes.error ?? questionsRes.error
+        portfolioRes.error ?? videosRes.error ?? testimonialsRes.error ?? questionsRes.error ?? checksRes.error
       if (firstError) return setError(firstError.message)
 
       const questions = questionsRes.data as InterviewQuestion[]
@@ -69,6 +81,9 @@ export function useProfile(handle: string | undefined) {
         videos,
         testimonials: testimonialsRes.data as AudioTestimonial[],
         questions,
+        checks: ((checksRes.data ?? []) as Partial<VerificationCheck>[]).map(
+          (c) => ({ detail: {}, item_summary: null, actor: 'admin', actor_name: null, ...c }) as VerificationCheck,
+        ),
       })
     }
     load()

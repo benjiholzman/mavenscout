@@ -1,22 +1,28 @@
 import { Check, Inbox, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { completenessGaps, type Gap } from '../../lib/completeness'
+import { blockingGaps, completenessGaps, type Gap } from '../../lib/completeness'
 import { fmtDate } from '../../lib/dates'
 import { MEMBERSHIP_LABELS } from '../../lib/membership'
+import { loadOrgIndex } from '../../lib/organizations'
 import { supabase } from '../../lib/supabase'
-import type { AudioTestimonial, Profile } from '../../types/db'
+import { testimonialDeadlineAtApproval } from '../../lib/testimonials/rules'
+import { verificationState, type VerificationState } from '../../lib/verification/state'
+import type { AudioTestimonial, Profile, VerificationCheck, VerificationEvidence } from '../../types/db'
 
 // Admin review queue (PRD 7.10; profiles-membership §7.1): new profiles wait
 // here. Approve needs the profile submitted and every minimum met, including
 // a published audio testimonial on an employer entry (spec §4.1); Reject is
 // always available. The membership level is the consultant's own choice.
-// Verification (identity, employer, degree, certifications) gets its own
-// queue in §13 step 4.
+// Approve also needs verification passed (spec §10): identity, most recent
+// employer, most recent degree and every certification labelled. Those are
+// checked in the Verification tab.
 
 export function ReviewQueue() {
   const [pending, setPending] = useState<Profile[] | null>(null)
   const [gaps, setGaps] = useState<Map<string, Gap[]>>(new Map())
+  const [verification, setVerification] = useState<Map<string, VerificationState>>(new Map())
+  const [audio, setAudio] = useState<Map<string, AudioTestimonial[]>>(new Map())
 
   const load = async () => {
     const { data } = await supabase
@@ -29,17 +35,35 @@ export function ReviewQueue() {
     const testimonials = new Map<string, AudioTestimonial[]>()
     if (rows.length) {
       const ids = rows.map((p) => p.id)
-      const [{ data: items }, { data: audio }] = await Promise.all([
+      const [{ data: items }, { data: audio }, { data: checks }, { data: evidence }, orgs] = await Promise.all([
         supabase.from('portfolio_items').select('profile_id').in('profile_id', ids),
         supabase.from('audio_testimonials').select('*').in('profile_id', ids),
+        supabase.from('verification_checks').select('*').in('profile_id', ids),
+        supabase.from('verification_evidence').select('*').in('profile_id', ids),
+        loadOrgIndex(),
       ])
       for (const it of items ?? []) counts.set(it.profile_id, (counts.get(it.profile_id) ?? 0) + 1)
       for (const t of (audio as AudioTestimonial[]) ?? [])
         testimonials.set(t.profile_id, [...(testimonials.get(t.profile_id) ?? []), t])
+      setVerification(
+        new Map(
+          rows.map((p) => [
+            p.id,
+            verificationState({
+              profile: p,
+              checks: ((checks as VerificationCheck[]) ?? []).filter((c) => c.profile_id === p.id),
+              evidence: ((evidence as VerificationEvidence[]) ?? []).filter((e) => e.profile_id === p.id),
+              testimonials: testimonials.get(p.id) ?? [],
+              orgs,
+            }),
+          ]),
+        ),
+      )
     }
     // Featured status isn't known here, so portfolio counts use the Member
     // limits, the ones every new profile starts from.
     setGaps(new Map(rows.map((p) => [p.id, completenessGaps({ profile: p, portfolioCount: counts.get(p.id) ?? 0, testimonials: testimonials.get(p.id) ?? [] })])))
+    setAudio(testimonials)
     setPending(rows)
   }
   useEffect(() => {
@@ -51,7 +75,9 @@ export function ReviewQueue() {
       outcome === 'rejected'
         ? { approval_status: 'rejected' }
         : // Admin approval stands in for the billing event this build.
-          { approval_status: 'approved', subscription_status: 'active' }
+          // With TESTIMONIAL_DEADLINE_DAYS set, approval starts the deadline
+          // for the required testimonial (lib/testimonials/rules).
+          { approval_status: 'approved', subscription_status: 'active', ...testimonialDeadlineAtApproval(p, audio.get(p.id) ?? []) }
     await supabase.from('profiles').update(patch).eq('id', p.id)
     load()
   }
@@ -70,11 +96,15 @@ export function ReviewQueue() {
     <div className="space-y-4">
       {pending.map((p) => {
         const missing = gaps.get(p.id) ?? []
+        const v = verification.get(p.id)
+        const unchecked = v ? [...v.missing, ...v.required.filter((i) => i.status !== 'labelled').map((i) => `${i.title}: ${i.summary}`)] : []
         const blocker = !p.submitted_at
           ? 'Not submitted yet'
-          : missing.length > 0
+          : blockingGaps(missing).length > 0
             ? 'Below the profile minimums'
-            : null
+            : !v?.passed
+              ? 'Verification isn’t complete'
+              : null
         return (
           <div key={p.id} className="rounded-card border border-line bg-white p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -111,6 +141,18 @@ export function ReviewQueue() {
                 </button>
               </div>
             </div>
+            {unchecked.length > 0 && (
+              <div className="mt-3 rounded-lg bg-paper p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                  Not verified yet ({unchecked.length}) · check them in the Verification tab
+                </p>
+                <ul className="mt-1.5 space-y-0.5 text-sm text-ink-soft">
+                  {unchecked.map((u) => (
+                    <li key={u}>{u}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {missing.length > 0 && (
               <div className="mt-3 rounded-lg bg-amber-50 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-amber-900">

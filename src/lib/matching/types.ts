@@ -27,6 +27,7 @@ export type RequirementKind =
   | 'availability'
   | 'career_level'
   | 'video_qna'
+  | 'audio_testimonial'
   | 'work_arrangement'
 
 /** Where a row came from: the JD extraction, a filter-bar control, or the
@@ -85,6 +86,9 @@ export interface RequirementValueByKind {
   /** "Has video Q&As": Required only (profiles-membership §2.2) — membership
    *  must never add points, so this row is never Nice to have / Important. */
   video_qna: Record<string, never>
+  /** "Has audio testimonial": Required only, like video_qna — a filter that
+   *  never adds points. */
+  audio_testimonial: Record<string, never>
   work_arrangement: ValuesValue
 }
 
@@ -114,6 +118,7 @@ export const ALWAYS_PRESENT_KINDS = [
   'availability',
   'career_level',
   'video_qna',
+  'audio_testimonial',
   'work_arrangement',
 ] as const satisfies readonly RequirementKind[]
 

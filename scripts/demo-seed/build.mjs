@@ -203,7 +203,7 @@ const COLUMNS = [
   'contracting_work_eligibility', 'work_types', 'part_time_availability', 'full_time_availability',
   'availability_updated_at', 'photo_url', 'cover_image_url', 'detailed_bio', 'expertise', 'skills',
   'accreditations', 'languages', 'work_history', 'education_history', 'additional_experience',
-  'is_premium', 'verification_status', 'subscription_status', 'approval_status', 'is_demo',
+  'is_premium', 'subscription_status', 'approval_status', 'is_demo',
 ]
 
 function profileSql(p) {
@@ -234,7 +234,6 @@ function profileSql(p) {
     jsonb((p.education ?? []).map(([institution, degree_or_course, start_year, end_year]) => ({ institution, degree_or_course, start_year, end_year, logo_url: null }))),
     jsonb((p.additional ?? []).map(([organization, role, start_year, end_year, description]) => ({ organization, role, start_year, end_year, description }))),
     p.premium ? 'true' : 'false',
-    `'${p.premium ? 'verified' : p.pending ? 'pending' : 'unverified'}'`,
     `'active'`,
     `'approved'`,
     'true',

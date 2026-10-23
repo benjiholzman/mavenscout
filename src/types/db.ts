@@ -6,7 +6,6 @@ import type { Adjustment, Band, ExtractedRequirements, Requirement, Scoring } fr
 
 export type ConsultantType = 'Individual' | 'Small Firm' | 'Large Firm'
 export type CareerLevel = 'early_career' | 'mid_career' | 'senior'
-export type VerificationStatus = 'unverified' | 'pending' | 'verified'
 export type SubscriptionStatus = 'active' | 'past_due' | 'canceled' | 'paused' | 'none'
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
 /** 'expertise' = the unified list's browsing groups (011). */
@@ -44,6 +43,9 @@ export interface Language {
 }
 
 export interface Accreditation {
+  /** Stable id (016) so a verification check can point at it. Assigned by
+   *  the editor; certifications saved before 016 got one in its backfill. */
+  id?: string
   name: string
   issuing_organization: string
   year: number | null
@@ -64,6 +66,8 @@ export interface WorkHistoryEntry {
 }
 
 export interface EducationEntry {
+  /** Stable id (016), as on work-history entries. */
+  id?: string
   institution: string
   degree_or_course: string
   start_year: number
@@ -121,8 +125,11 @@ export interface Profile {
   /** Set when the required testimonial is withdrawn (015): replace it by then
    *  or the profile is unlisted (spec §4.5). */
   testimonial_grace_until: string | null
+  /** Set when a listed profile's required verification item loses its check
+   *  or a newer job or degree becomes the most recent (016): re-checked by
+   *  then or the profile is unlisted until it is (spec §3, §10). */
+  verification_recheck_until: string | null
   is_premium: boolean
-  verification_status: VerificationStatus
   custom_domain: string | null
   subscription_status: SubscriptionStatus
   approval_status: ApprovalStatus
@@ -135,6 +142,11 @@ export interface Profile {
    *  answer. Set by the loaders (lib/membership withVideoQnaStatus); Featured
    *  status needs it (spec §2.2). Never write it back to `profiles`. */
   video_qnas_complete?: boolean
+  /** App-derived, NOT a column: the profile shows at least one published
+   *  audio testimonial. Set by the directory loader (lib/testimonials/display
+   *  testimonialTeasers); the "Has audio testimonial" filter reads it. Never
+   *  write it back to `profiles`. */
+  has_audio_testimonial?: boolean
 }
 
 export type OrgType =
@@ -207,11 +219,59 @@ export interface PortfolioItem {
   sort_order: number
 }
 
+/** A required or labelled verification item (spec §3.1). */
+export type VerificationItemKind = 'identity' | 'employer' | 'degree' | 'certification'
+
+/** Evidence for one item, awaiting review (016). Deleted after the admin's
+ *  decision; verification_checks keeps the audit record. */
 export interface VerificationEvidence {
   id: string
   profile_id: string
-  file_path: string // STUB — placeholder only, no real file this build
-  explanation: string
+  item_kind: Exclude<VerificationItemKind, 'identity'> | null
+  item_id: string | null
+  file_path: string | null // STUB — placeholder only, no real file this build
+  /** A public document naming them, instead of a file. */
+  link_url: string | null
+  file_name: string | null
+  file_size: number | null
+  mime_type: string | null
+  explanation: string | null
+  created_at: string
+}
+
+export type VerificationOutcome =
+  | 'provider_passed'
+  | 'provider_failed'
+  | 'confirmed'
+  | 'document_reviewed'
+  | 'unverifiable'
+  | 'edits_requested'
+
+export type VerificationMethod =
+  | 'id_provider'
+  | 'registry'
+  | 'degree_service'
+  | 'document'
+  | 'public_document'
+  | 'referee_email'
+  | 'admin_review'
+
+/** The verification audit record (spec §3.1; 016): what was checked, how,
+ *  by whom, when. Append-only. A label holds while the item's checked fields
+ *  still match `item_fingerprint`. */
+export interface VerificationCheck {
+  id: string
+  profile_id: string
+  item_kind: VerificationItemKind | 'bio'
+  /** Entry id; 'identity' or 'bio' for those. */
+  item_id: string
+  item_summary: string | null
+  item_fingerprint: string | null
+  outcome: VerificationOutcome
+  method: VerificationMethod | null
+  detail: Record<string, unknown>
+  actor: 'consultant' | 'provider' | 'admin' | 'system'
+  actor_name: string | null
   created_at: string
 }
 
@@ -323,8 +383,28 @@ export interface HiringManager {
   organization: string | null
   email: string | null // 015
   updates_opt_in: boolean // 015
+  /** Organization of the email domain (016). */
+  organization_id: string | null
+  account_status: ManagerAccountStatus
+  email_confirmed_at: string | null
+  code_hash: string | null
+  code_expires_at: string | null
+  code_attempts: number
+  code_sends: number
+  /** Exception request: hirers without an institutional email (spec §9). */
+  exception_reason: string | null
+  exception_website: string | null
+  exception_requested_at: string | null
+  exception_decided_at: string | null
+  exception_decided_by: string | null
+  /** The admin's note, shown to the requester. */
+  exception_note: string | null
   created_at: string
 }
+
+/** Hiring-manager sign-up state (spec §9; 016). Only `active` unlocks
+ *  saving, ranking, Video Q&As and testimonials. */
+export type ManagerAccountStatus = 'active' | 'awaiting_code' | 'exception_pending' | 'exception_declined'
 
 export interface Opening {
   id: string

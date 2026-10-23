@@ -17,14 +17,22 @@ import { CompletenessPanel } from '../components/onboarding/CompletenessPanel'
 import { MembershipSection } from '../components/onboarding/MembershipSection'
 import { VideoQnASection } from '../components/onboarding/VideoQnASection'
 import { VideoRequestsInbox } from '../components/onboarding/VideoRequestsInbox'
+import { VerificationSection } from '../components/onboarding/VerificationSection'
+import { CheckedNote, type CheckedMark } from '../components/onboarding/CheckedNote'
 import { InfoTip } from '../components/ui/InfoTip'
 import { FIRM_THRESHOLD_NOTE } from '../components/ui/badges'
 import { useEditorProfile } from '../hooks/useEditorProfile'
 import { useTestimonials } from '../hooks/useTestimonials'
+import { useOrganizations } from '../hooks/useOrganizations'
+import { useVerification } from '../hooks/useVerification'
+import { employerOrgFingerprint, identityFingerprint } from '../lib/verification/items'
+import { verificationGaps, verificationWaiting } from '../lib/verification/gaps'
+import { recheckPatch } from '../lib/verification/window'
+import { verificationState, type VerificationState } from '../lib/verification/state'
 import { isActive, STAGE_LABELS, testimonialStage } from '../lib/testimonials/rules'
 import { EXPERTISE_TIER_LIMITS, FIRMS_ENABLED, PROFILE_LIMITS } from '../lib/config'
 import { buildExpertiseIndex, expertiseTags } from '../lib/expertise'
-import { checkSectionSave, completenessGaps, isListedProfile, type RuleSection } from '../lib/completeness'
+import { blockingGaps, checkSectionSave, completenessGaps, isListedProfile, type RuleSection } from '../lib/completeness'
 import { membershipLimits } from '../lib/membership'
 import { spokenLanguages } from '../lib/languages'
 import { useSession } from '../lib/session'
@@ -54,12 +62,35 @@ function entryTestimonialStatus(rows: AudioTestimonial[]): Record<string, EntryT
   return out
 }
 
-/** Entries saved before 015 (or by a seed re-run) get an id, so a testimonial
- *  can point at them; it's saved with the next history save. */
+/** Entries saved before 015/016 (or by a seed re-run) get an id, so a
+ *  testimonial or a verification check can point at them; it's saved with
+ *  the section's next save. */
 function withEntryIds(p: Profile): Profile {
-  return p.work_history.every((w) => w.id)
-    ? p
-    : { ...p, work_history: p.work_history.map((w) => (w.id ? w : { ...w, id: crypto.randomUUID() })) }
+  const ids = <T extends { id?: string }>(rows: T[]) =>
+    rows.every((r) => r.id) ? rows : rows.map((r) => (r.id ? r : { ...r, id: crypto.randomUUID() }))
+  return {
+    ...p,
+    work_history: ids(p.work_history),
+    education_history: ids(p.education_history),
+    accreditations: ids(p.accreditations),
+  }
+}
+
+/** Verification labels by entry id, for the editors' "editing removes this
+ *  label" notes (spec §3.1). An employer confirmed by a referee's email
+ *  keeps its label while the organization is unchanged (§4.4). */
+function checkedMarks(state: VerificationState | null, profile: Profile): Record<string, CheckedMark> {
+  const out: Record<string, CheckedMark> = {}
+  for (const item of state?.items ?? []) {
+    if (!item.mark) continue
+    const entry = item.mark.testimonial ? profile.work_history.find((w) => w.id === item.id) : null
+    out[item.id] = {
+      label: item.mark.label,
+      fingerprint: entry ? employerOrgFingerprint(entry) : item.fingerprint,
+      viaTestimonial: !!entry,
+    }
+  }
+  return out
 }
 
 const SECTIONS = [
@@ -72,6 +103,7 @@ const SECTIONS = [
   ['history', 'History'],
   ['portfolio', 'Portfolio'],
   ['links', 'Résumé & links'],
+  ['verification', 'Verification'],
   ['testimonials', 'Audio testimonials'],
   ['media', 'Video Q&As'],
   ['tier', 'Membership & review'],
@@ -85,6 +117,8 @@ export default function Onboarding() {
   const [portfolioCount, setPortfolioCount] = useState<number | null>(null)
   const [taxonomy, setTaxonomy] = useState<{ cats: TaxonomyCategory[]; items: TaxonomyItem[] } | null>(null)
   const testimonials = useTestimonials(profile?.id)
+  const verification = useVerification(profile?.id)
+  const orgs = useOrganizations()
 
   useEffect(() => {
     if (profile && !draft) setDraft(withEntryIds(profile))
@@ -122,7 +156,7 @@ export default function Onboarding() {
     )
 
   if (error) return <p className="mx-auto max-w-3xl px-4 py-16 text-red-600">{error}</p>
-  if (!draft || !taxonomy || !profile || portfolioCount === null || !testimonials.rows)
+  if (!draft || !taxonomy || !profile || portfolioCount === null || !testimonials.rows || !verification.data)
     return <p className="mx-auto max-w-3xl px-4 py-16 text-ink-faint">Loading…</p>
 
   const isFirm = draft.consultant_type !== 'Individual'
@@ -131,11 +165,25 @@ export default function Onboarding() {
   // profile: the panel lists the gaps, and each section save is refused if it
   // goes over a maximum or (listed profiles) takes a section below a minimum.
   const saved = { profile, portfolioCount, testimonials: testimonials.rows }
-  const gaps = completenessGaps(saved)
+  // Verification (spec §3): where each item stands, from the saved profile.
+  const verifyInput = { ...verification.data, profile, testimonials: testimonials.rows, orgs }
+  const vState = verificationState(verifyInput)
+  // Minimums plus what verification still needs from the consultant (§10).
+  const gaps = [...completenessGaps(saved), ...verificationGaps(vState)]
+  const marks = checkedMarks(vState, profile)
+  const identityMark = vState?.items.find((i) => i.kind === 'identity')?.mark
+  // A save that removes the label from the identity, most recent employer or
+  // most recent degree (or makes a newer job or degree the most recent one)
+  // opens the re-check window on a listed profile; one that restores them
+  // clears it (lib/verification/recheck).
+  const withRecheckWindow = (patch: Partial<Profile>): Partial<Profile> => {
+    const after = verificationState({ ...verifyInput, profile: { ...profile, ...patch } })
+    return { ...patch, ...recheckPatch(profile, vState.corePassed, after.corePassed) }
+  }
   const guarded = (section: RuleSection, patch: Partial<Profile>) =>
     Promise.resolve(
       checkSectionSave(section, saved, { ...saved, profile: { ...profile, ...patch } }),
-    ).then((err) => (err ? `${err}.` : save(patch)))
+    ).then((err) => (err ? `${err}.` : save(withRecheckWindow(patch))))
   const saveAndSet = async (patch: Partial<Profile>) => {
     const err = await save(patch)
     if (!err) set(patch)
@@ -183,7 +231,7 @@ export default function Onboarding() {
       </div>
 
       <div className="mt-6">
-        <CompletenessPanel gaps={gaps} listed={isListedProfile(profile)} />
+        <CompletenessPanel gaps={gaps} listed={isListedProfile(profile)} waiting={verificationWaiting(vState)} profile={profile} />
       </div>
 
       {/* New testimonials to listen to and publish (spec §4.4; email mocked). */}
@@ -261,6 +309,13 @@ export default function Onboarding() {
                 value={spokenLanguages(draft)}
                 onChange={(spoken_languages) => set({ spoken_languages })}
               />
+              {identityMark && (
+                <CheckedNote
+                  mark={{ label: identityMark.label, fingerprint: identityFingerprint(profile) }}
+                  current={identityFingerprint(draft)}
+                  fields="name or photo"
+                />
+              )}
               <FieldRow>
                 <TextField label="Photo URL" value={draft.photo_url ?? ''} onChange={(v) => set({ photo_url: v || null })} />
                 <TextField label="Cover image URL" value={draft.cover_image_url ?? ''} onChange={(v) => set({ cover_image_url: v || null })} />
@@ -392,7 +447,7 @@ export default function Onboarding() {
             title="Accreditations & certifications"
             onSave={() => guarded('accreditations', { accreditations: draft.accreditations })}
           >
-            <AccreditationsEditor value={draft.accreditations} onChange={(v) => set({ accreditations: v })} />
+            <AccreditationsEditor value={draft.accreditations} onChange={(v) => set({ accreditations: v })} marks={marks} />
           </EditorSection>
 
           <EditorSection
@@ -467,6 +522,7 @@ export default function Onboarding() {
               onEducation={(v) => set({ education_history: v })}
               onAdditional={(v) => set({ additional_experience: v })}
               testimonials={entryTestimonialStatus(testimonials.rows)}
+              marks={marks}
             />
           </EditorSection>
 
@@ -547,6 +603,20 @@ export default function Onboarding() {
           </EditorSection>
 
           <EditorSection
+            id="verification"
+            title="Verification"
+            description="We check what's saved, so save the sections above first."
+          >
+            <VerificationSection
+              profile={profile}
+              state={vState}
+              reload={async () => {
+                await verification.reload()
+              }}
+            />
+          </EditorSection>
+
+          <EditorSection
             id="testimonials"
             title="Audio testimonials"
             description="Spoken references from people who supervised or contracted you, confirmed through their work email. Only signed-in hiring managers can listen; never on your public website."
@@ -580,7 +650,7 @@ export default function Onboarding() {
           <EditorSection id="tier" title="Membership & review">
             <MembershipSection
               profile={profile}
-              gapCount={gaps.length}
+              gapCount={blockingGaps(gaps).length}
               videoQnas={videoQnas}
               save={saveAndSet}
             />

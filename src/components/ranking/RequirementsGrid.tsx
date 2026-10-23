@@ -42,6 +42,7 @@ const ADD_ORDER: SingleKind[] = (
     'career_level',
     'work_arrangement',
     'video_qna',
+    'audio_testimonial',
   ] as SingleKind[]
 ).filter((k) => FIRMS_ENABLED || k !== 'type')
 
@@ -54,6 +55,7 @@ const ADD_LABELS: Record<SingleKind, string> = {
   career_level: 'Career level',
   work_arrangement: 'Work arrangement',
   video_qna: 'Has video Q&As',
+  audio_testimonial: 'Has audio testimonial',
 }
 
 function AddChip({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
