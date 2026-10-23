@@ -1,34 +1,41 @@
 import { Camera, Film, Link2, Trash2, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { uploadVideoFile, VIDEO_MAX_SECONDS } from '../../lib/media'
+import { videoQnaStatus, type VideoQnaStatus } from '../../lib/membership'
 import { supabase } from '../../lib/supabase'
-import type { InterviewQuestion, PortfolioItem, Profile, VideoResponse } from '../../types/db'
+import type { InterviewQuestion, Profile, VideoResponse } from '../../types/db'
 import { RecorderControl } from '../media/Recorder'
 import { VideoPlayer } from '../media/VideoPlayer'
 
-// Video Q&As editor (PRD 7.5): general intro (both tiers, public teaser),
-// 5 standard-question videos + portfolio-attached videos (Premium, gated on
-// display). Every video: upload to Storage OR paste a URL, hard 2-minute cap
-// on uploads (client-side duration check), optional transcript.
-// Native in-browser recording is the P1 fast-follow — not built here.
+// Video Q&As editor (profiles-membership §5): Featured Members answer all the
+// standard questions; Featured status starts once every one is in (§2.2).
+// Members have no videos, and there is no general intro video for anyone.
+// Every answer: in-browser recording, upload to Storage, or a pasted URL;
+// hard 2-minute cap on recordings and uploads; optional transcript, never
+// used in ranking.
 
 export function VideoQnASection({
   profile,
-  portfolio,
+  onStatus,
 }: {
   profile: Profile
-  portfolio: PortfolioItem[]
+  /** Reports answered / required after every change, so Featured status
+   *  (and its caps) follow the videos without a reload. */
+  onStatus?: (status: VideoQnaStatus) => void
 }) {
   const [videos, setVideos] = useState<VideoResponse[] | null>(null)
   const [questions, setQuestions] = useState<InterviewQuestion[]>([])
 
   const load = async () => {
     const [v, q] = await Promise.all([
-      supabase.from('video_responses').select('*').eq('profile_id', profile.id),
+      supabase.from('video_responses').select('*').eq('profile_id', profile.id).eq('kind', 'question'),
       supabase.from('interview_questions').select('*').eq('active', true).order('sort_order'),
     ])
-    setVideos((v.data as VideoResponse[]) ?? [])
-    setQuestions((q.data as InterviewQuestion[]) ?? [])
+    const vids = (v.data as VideoResponse[]) ?? []
+    const qs = (q.data as InterviewQuestion[]) ?? []
+    setVideos(vids)
+    setQuestions(qs)
+    onStatus?.(videoQnaStatus(profile.id, vids, qs))
   }
   useEffect(() => {
     load()
@@ -37,12 +44,11 @@ export function VideoQnASection({
 
   if (!videos) return <p className="text-sm text-ink-faint">Loading…</p>
 
-  const intro = videos.find((v) => v.kind === 'intro')
+  const status = videoQnaStatus(profile.id, videos, questions)
 
   const addVideo = async (
-    kind: VideoResponse['kind'],
+    questionId: string,
     source: { file?: File; url?: string; recordedDuration?: number },
-    refs: { question_id?: string; portfolio_item_id?: string } = {},
   ) => {
     let video_path: string | null = null
     let video_url: string | null = null
@@ -61,11 +67,11 @@ export function VideoQnASection({
     }
     const { error } = await supabase.from('video_responses').insert({
       profile_id: profile.id,
-      kind,
+      kind: 'question',
+      question_id: questionId,
       video_path,
       video_url,
       duration_seconds,
-      ...refs,
     })
     if (error) throw new Error(error.message)
     await load()
@@ -86,38 +92,35 @@ export function VideoQnASection({
   }
 
   return (
-    <div className="space-y-7">
-      <div>
-        <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-ink-faint">
-          General introduction — public
-        </h3>
-        <p className="mb-2.5 text-xs text-ink-faint">
-          Your "tell us about yourself" teaser: shows on your public website, to anonymous
-          browsers, and as a flip-card face. One per profile, 2 minutes max.
+    <div>
+      <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-ink-faint">
+        Video Q&As — Featured Members
+      </h3>
+      {!profile.is_premium ? (
+        <p className="rounded-lg bg-paper px-3.5 py-3 text-sm text-ink-faint">
+          Video Q&As are part of Featured Membership: every Featured Member answers the same{' '}
+          {questions.length} interview questions, shown to signed-in hiring managers only. Members
+          have no videos.
         </p>
-        {intro ? (
-          <ExistingVideo video={intro} onRemove={removeVideo} onTranscript={saveTranscript} />
-        ) : (
-          <UploadOrUrlVideo label="Add introduction" onSubmit={(src) => addVideo('intro', src)} />
-        )}
-      </div>
-
-      <div>
-        <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-ink-faint">
-          Standard questions — Premium
-        </h3>
-        <p className="mb-2.5 text-xs text-ink-faint">
-          Everyone answers the same prompts so hiring managers can compare like with like.
-          Visible to logged-in hiring accounts only.
-        </p>
-        {!profile.is_premium ? (
-          <p className="rounded-lg bg-paper px-3.5 py-3 text-sm text-ink-faint">
-            Available on Premium profiles — apply in the Tier section below.
+      ) : (
+        <>
+          <p className="mb-2.5 text-xs text-ink-faint">
+            Everyone answers the same prompts so hiring managers can compare like with like. Visible
+            to signed-in hiring managers only; never on your public website.
           </p>
-        ) : (
+          <p
+            className={`mb-3 rounded-lg px-3.5 py-2.5 text-sm ${
+              status.complete ? 'bg-brand-50 text-brand-800' : 'bg-amber-50 text-amber-900'
+            }`}
+            role="status"
+          >
+            {status.complete
+              ? `All ${status.required} answered — your Featured status is active.`
+              : `${status.answered} of ${status.required} answered. Featured status starts when all ${status.required} are in; until then your profile shows as a Member.`}
+          </p>
           <div className="space-y-4">
             {questions.map((q, i) => {
-              const existing = videos.find((v) => v.kind === 'question' && v.question_id === q.id)
+              const existing = videos.find((v) => v.question_id === q.id)
               return (
                 <div key={q.id} className="rounded-xl border border-line bg-paper/60 p-3.5">
                   <p className="mb-2 text-sm font-medium">
@@ -126,54 +129,14 @@ export function VideoQnASection({
                   {existing ? (
                     <ExistingVideo video={existing} onRemove={removeVideo} onTranscript={saveTranscript} />
                   ) : (
-                    <UploadOrUrlVideo
-                      label="Add answer"
-                      onSubmit={(src) => addVideo('question', src, { question_id: q.id })}
-                    />
+                    <UploadOrUrlVideo label="Add answer" onSubmit={(src) => addVideo(q.id, src)} />
                   )}
                 </div>
               )
             })}
           </div>
-        )}
-      </div>
-
-      <div>
-        <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-ink-faint">
-          Portfolio videos — Premium
-        </h3>
-        <p className="mb-2.5 text-xs text-ink-faint">
-          One video per portfolio item, embedded on that project (gated like the Q&As).
-        </p>
-        {!profile.is_premium ? (
-          <p className="rounded-lg bg-paper px-3.5 py-3 text-sm text-ink-faint">
-            Available on Premium profiles.
-          </p>
-        ) : portfolio.length === 0 ? (
-          <p className="text-sm text-ink-faint">Add portfolio items first.</p>
-        ) : (
-          <div className="space-y-4">
-            {portfolio.map((item) => {
-              const existing = videos.find(
-                (v) => v.kind === 'portfolio' && v.portfolio_item_id === item.id,
-              )
-              return (
-                <div key={item.id} className="rounded-xl border border-line bg-paper/60 p-3.5">
-                  <p className="mb-2 text-sm font-medium">{item.project_name}</p>
-                  {existing ? (
-                    <ExistingVideo video={existing} onRemove={removeVideo} onTranscript={saveTranscript} />
-                  ) : (
-                    <UploadOrUrlVideo
-                      label="Attach video"
-                      onSubmit={(src) => addVideo('portfolio', src, { portfolio_item_id: item.id })}
-                    />
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   )
 }

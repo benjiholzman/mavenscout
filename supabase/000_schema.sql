@@ -107,9 +107,10 @@ CREATE TABLE profiles (
   social_links                  jsonb NOT NULL DEFAULT '[]',  -- [{platform, label, url}], tier cap (2/5) app-enforced
   is_premium                    bool NOT NULL DEFAULT false,
   verification_status           text NOT NULL DEFAULT 'unverified' CHECK (verification_status IN ('unverified','pending','verified')),
-  custom_domain                 text,                         -- reserved; no live DNS integration this build
+  custom_domain                 text,                         -- Featured Members only (app-enforced); no live DNS integration this build
   subscription_status           text NOT NULL DEFAULT 'none' CHECK (subscription_status IN ('active','past_due','canceled','paused','none')),
   approval_status               text NOT NULL DEFAULT 'pending' CHECK (approval_status IN ('pending','approved','rejected')),
+  submitted_at                  timestamptz,                  -- submitted for review (013); NULL = draft. Minimums are checked at submission
   is_demo                       bool NOT NULL DEFAULT false,  -- seeded demo data (006); removed by purge_demo.sql
   created_at                    timestamptz NOT NULL DEFAULT now(),
   updated_at                    timestamptz NOT NULL DEFAULT now()
@@ -197,8 +198,9 @@ CREATE TABLE portfolio_items (
   role         text NOT NULL,
   description  text NOT NULL,
   results      text,
-  cover_image  text,
-  images       jsonb NOT NULL DEFAULT '[]',  -- [{url, caption}] — carousel
+  cover_image  text,                          -- LEGACY: the cover is images[0] (013); dropped by 014
+  images       jsonb NOT NULL DEFAULT '[]',  -- [{url, caption}], max 3 app-enforced; the first is the cover (013)
+  video_url    text,                          -- one YouTube/Vimeo link (013); replaces portfolio video uploads
   links        jsonb NOT NULL DEFAULT '[]',  -- [{label, url}], max 3 app-enforced
   sort_order   int NOT NULL DEFAULT 0
 );
@@ -235,12 +237,12 @@ CREATE POLICY "dev_write_verification_evidence" ON verification_evidence FOR ALL
 CREATE TABLE video_responses (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id        uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  kind              text NOT NULL CHECK (kind IN ('intro','question','portfolio')),
+  kind              text NOT NULL CHECK (kind IN ('intro','question','portfolio')),  -- only 'question' now (Video Q&As); 014 removes 'intro'/'portfolio'
   question_id       uuid REFERENCES interview_questions(id),   -- set when kind='question'
-  portfolio_item_id uuid REFERENCES portfolio_items(id) ON DELETE SET NULL,  -- set when kind='portfolio'
+  portfolio_item_id uuid REFERENCES portfolio_items(id) ON DELETE SET NULL,  -- LEGACY (kind='portfolio'); dropped by 014
   video_url         text,
   video_path        text,
-  transcript        text,             -- feeds Demonstrated Experience matching (PRD 7.7)
+  transcript        text,             -- accessibility only; never used in ranking (profiles-membership §5, §11)
   duration_seconds  int NOT NULL DEFAULT 0,   -- 2-min cap enforced client-side on upload
   created_at        timestamptz NOT NULL DEFAULT now()
 );

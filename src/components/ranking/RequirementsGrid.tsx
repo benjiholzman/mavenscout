@@ -1,6 +1,7 @@
 import { Info, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { describeExpertiseSelection, type ExpertiseIndex } from '../../lib/expertise'
+import { FIRMS_ENABLED } from '../../lib/config'
 import { MAX_TAG_ROWS } from '../../lib/matching/config'
 import { ALWAYS_PRESENT_KINDS, type Requirement, type RequirementOf } from '../../lib/matching/types'
 import {
@@ -29,17 +30,20 @@ export interface GridOptions extends PickerOptions {
   expertise: ExpertiseIndex
 }
 
-/** Add-chip order for "Other requirements". */
-const ADD_ORDER: SingleKind[] = [
-  'location',
-  'language',
-  'availability',
-  'org_history',
-  'type',
-  'career_level',
-  'work_arrangement',
-  'verified',
-]
+/** Add-chip order for "Other requirements". Type is offered only while firm
+ *  listings are on (spec §1). */
+const ADD_ORDER: SingleKind[] = (
+  [
+    'location',
+    'language',
+    'availability',
+    'org_history',
+    'type',
+    'career_level',
+    'work_arrangement',
+    'video_qna',
+  ] as SingleKind[]
+).filter((k) => FIRMS_ENABLED || k !== 'type')
 
 const ADD_LABELS: Record<SingleKind, string> = {
   location: 'Location',
@@ -49,7 +53,7 @@ const ADD_LABELS: Record<SingleKind, string> = {
   type: 'Type',
   career_level: 'Career level',
   work_arrangement: 'Work arrangement',
-  verified: 'Verified',
+  video_qna: 'Has video Q&As',
 }
 
 function AddChip({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {

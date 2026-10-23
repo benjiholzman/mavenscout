@@ -12,7 +12,7 @@ export const KIND_LABELS: Record<RequirementKind, string> = {
   type: 'Type',
   availability: 'Availability',
   career_level: 'Career level',
-  verified: 'Verified',
+  video_qna: 'Has video Q&As',
   work_arrangement: 'Work arrangement',
 }
 
@@ -47,7 +47,7 @@ export function describeRequirement(r: Requirement): string {
       return `${kind}: ${r.value.values.join(', ')}`
     case 'availability':
       return kind
-    case 'verified':
-      return 'Verified only'
+    case 'video_qna':
+      return kind
   }
 }

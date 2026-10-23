@@ -27,10 +27,11 @@ export function fmtMonth(value: string): string {
 }
 
 /** Portfolio year span: "2023–2024", "2023" when start and end match,
- *  "2023–present" when there's no end year. Null when no years are set. */
+ *  "2023–ongoing" when there's no end year (spec §7.2). Null when no years
+ *  are set. */
 export function fmtYearSpan(start: number | null, end: number | null): string | null {
   if (!start) return end ? String(end) : null
-  if (end === null) return `${start}–present`
+  if (end === null) return `${start}–ongoing`
   return start === end ? String(start) : `${start}–${end}`
 }
 

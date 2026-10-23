@@ -1,3 +1,4 @@
+import { FIRMS_ENABLED } from '../config'
 import { EMPTY_FILTERS, type FilterState, type SearchMode } from '../filters'
 import {
   ALWAYS_PRESENT_KINDS,
@@ -29,7 +30,8 @@ import {
 // arrangement) may have TWO rows: one Required row (what the filter bar shows)
 // and one preference row (Nice to have / Important) — e.g. Required: French
 // plus Nice to have: English. Other single-instance kinds (availability,
-// verified, org history) have at most one row.
+// video Q&As, org history) have at most one row. "Has video Q&As"
+// is Required only (isRequiredOnly): Featured membership never scores.
 //
 // Semantics carried over from the filter bar:
 // - Several Required expertise rows follow the unified list's rule
@@ -82,16 +84,16 @@ export function defaultValue<K extends RequirementKind>(kind: K): RequirementVal
     type: () => ({ values: [] }),
     availability: () => ({ engagement: 'either', fromMonth: null, untilMonth: null }),
     career_level: () => ({ values: [] }),
-    verified: () => ({}),
+    video_qna: () => ({}),
     work_arrangement: () => ({ values: [] }),
   }
   return defaults[kind]()
 }
 
-/** A new row. Availability / verified / org history (one row at most) get
- *  their kind as id; expertise and multi-value rows (which can have a
- *  Required and a preference row) get a fresh id. Rows added in the grid
- *  start at Nice to have. */
+/** A new row. Availability / video Q&A / org history (one row at
+ *  most) get their kind as id; expertise and multi-value rows (which can have
+ *  a Required and a preference row) get a fresh id. Rows added in the grid
+ *  start at Nice to have, except Required-only kinds. */
 export function makeRow<K extends RequirementKind>(
   kind: K,
   value: RequirementValueByKind[K] = defaultValue(kind),
@@ -100,10 +102,16 @@ export function makeRow<K extends RequirementKind>(
   return {
     id: isTagKind(kind) || isValuesKind(kind) ? newRequirementId(kind) : kind,
     kind,
-    level: opts.level ?? 'slight',
+    level: isRequiredOnly(kind) ? 'must' : (opts.level ?? 'slight'),
     source: opts.source ?? 'manual',
     value,
   } as Requirement
+}
+
+/** Kinds that only filter and are never scored: "Has video Q&As" is Featured
+ *  membership, and payment must never add points (profiles-membership §2.2). */
+export function isRequiredOnly(kind: RequirementKind): boolean {
+  return kind === 'video_qna'
 }
 
 /** No rows: no preferences, nothing required (spec §3). */
@@ -120,6 +128,8 @@ export function normalizeRequirements(reqs: Requirement[]): Requirement[] {
   const tags = reqs.filter((r) => isTagKind(r.kind))
   const singles = ALWAYS_PRESENT_KINDS.flatMap((k) => {
     const ofKind = reqs.filter((r) => r.kind === k)
+    // A Required-only row is Required whatever was stored or set.
+    if (isRequiredOnly(k)) return ofKind.slice(0, 1).map((r) => ({ ...r, level: 'must' }) as Requirement)
     if (!isValuesKind(k)) return ofKind.slice(0, 1)
     return [ofKind.find(isMust), ofKind.find((r) => !isMust(r))].filter((r): r is Requirement => !!r)
   })
@@ -192,7 +202,7 @@ const unionValues = (a: string[], b: string[]) => [...a, ...b.filter((v) => !a.i
  */
 export function setRowLevel(reqs: Requirement[], id: string, level: Level): Requirement[] {
   const row = reqs.find((r) => r.id === id)
-  if (!row || row.level === level) return reqs
+  if (!row || row.level === level || isRequiredOnly(row.kind)) return reqs
   if (isValuesKind(row.kind) && isMust(row) !== (level === 'must')) {
     const other = level === 'must' ? requiredRowOf(reqs, row.kind) : preferenceRowOf(reqs, row.kind)
     if (other && other.id !== row.id && 'values' in other.value && 'values' in row.value) {
@@ -206,6 +216,21 @@ export function setRowLevel(reqs: Requirement[], id: string, level: Level): Requ
     }
   }
   return reqs.map((r) => (r.id === id ? ({ ...r, level } as Requirement) : r))
+}
+
+/** Kinds a saved run or draft may hold that the app no longer offers: Type
+ *  while firm listings are off (spec §1), and Verified, removed because
+ *  everyone listed is verified (profiles-membership §2.2). */
+const HIDDEN_KINDS: Record<string, string> = { ...(FIRMS_ENABLED ? {} : { type: 'Type' }), verified: 'Verified' }
+const hiddenKind = (kind: string): boolean => kind in HIDDEN_KINDS
+
+/** Drops rows of kinds the grid no longer offers from a saved run or draft.
+ *  The stored rows and scores stay as they were; `dropped` names the rows
+ *  left out, for a notice. */
+export function withoutHiddenKinds(reqs: Requirement[]): { requirements: Requirement[]; dropped: string[] } {
+  const dropped = reqs.filter((r) => hiddenKind(r.kind))
+  if (dropped.length === 0) return { requirements: reqs, dropped: [] }
+  return { requirements: reqs.filter((r) => !hiddenKind(r.kind)), dropped: [...new Set(dropped.map((r) => HIDDEN_KINDS[r.kind]))] }
 }
 
 // ---- reading ----------------------------------------------------------------
@@ -248,8 +273,8 @@ export function mustHavesToFilterState(reqs: Requirement[], search: SearchState)
       case 'availability':
         f.availability = { ...r.value }
         break
-      case 'verified':
-        f.verifiedOnly = true
+      case 'video_qna':
+        f.hasVideoQnas = true
         break
       case 'org_history':
         break
@@ -284,7 +309,7 @@ export function rowHasValue(r: Requirement): boolean {
     case 'work_arrangement':
       return r.value.values.length > 0
     case 'availability':
-    case 'verified':
+    case 'video_qna':
       return true
   }
 }
@@ -299,7 +324,7 @@ export function tagRowCount(reqs: Requirement[]): number {
  * Writes a filter-bar change back into the rows:
  * - a filter that's set creates that kind's Required row or updates it. For
  *   multi-value kinds the preference row (if any) is a separate row and is
- *   left alone; availability and verified (one row at most) turn their row
+ *   left alone; availability and video Q&As (one row at most) turn their row
  *   Required;
  * - a filter that's cleared deletes its Required row (no row = no preference);
  * - selecting an expertise item that already exists as a Nice to have /
@@ -338,7 +363,7 @@ export function applyFilterStateToRequirements(
     }
   }
   setSingle('availability', next.availability ? { ...next.availability } : null)
-  setSingle('verified', next.verifiedOnly ? {} : null)
+  setSingle('video_qna', next.hasVideoQnas ? {} : null)
 
   const wanted = next.expertise
   const withWorking = (name: string) => (next.expertiseIncludeWorking ? { name, includeWorking: true } : { name })

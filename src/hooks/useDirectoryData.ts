@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { isListed } from '../lib/listing'
+import { withVideoQnaStatus } from '../lib/membership'
 import { loadOrgIndex, type OrgIndex } from '../lib/organizations'
 import { supabase } from '../lib/supabase'
 import type {
   AudioTestimonial,
+  InterviewQuestion,
   PortfolioItem,
   Profile,
   TaxonomyCategory,
@@ -13,7 +16,6 @@ import type {
 export interface DirectoryData {
   profiles: Profile[]
   portfolioByProfile: Map<string, PortfolioItem[]>
-  introByProfile: Map<string, VideoResponse>
   audioCountByProfile: Map<string, number>
   taxonomyCategories: TaxonomyCategory[]
   taxonomyItems: TaxonomyItem[]
@@ -22,8 +24,9 @@ export interface DirectoryData {
 }
 
 /** Loads everything the directory needs in one round of parallel queries.
- *  Directory visibility (approved + active only) is enforced here in app code
- *  — the dev RLS policies are deliberately permissive (see 000_schema.sql). */
+ *  Directory visibility (lib/listing: approved + active, individuals while
+ *  firms are hidden) is enforced here in app code — the dev RLS policies are
+ *  deliberately permissive (see 000_schema.sql). */
 export function useDirectoryData() {
   const [data, setData] = useState<DirectoryData | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -31,7 +34,7 @@ export function useDirectoryData() {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const [profilesRes, portfolioRes, videosRes, audioRes, catsRes, itemsRes, orgs] =
+      const [profilesRes, portfolioRes, videosRes, questionsRes, audioRes, catsRes, itemsRes, orgs] =
         await Promise.all([
           supabase
             .from('profiles')
@@ -39,7 +42,8 @@ export function useDirectoryData() {
             .eq('approval_status', 'approved')
             .eq('subscription_status', 'active'),
           supabase.from('portfolio_items').select('*').order('sort_order'),
-          supabase.from('video_responses').select('*').eq('kind', 'intro'),
+          supabase.from('video_responses').select('profile_id,kind,question_id').eq('kind', 'question'),
+          supabase.from('interview_questions').select('id').eq('active', true),
           supabase.from('audio_testimonials').select('id,profile_id').eq('status', 'published'),
           supabase.from('taxonomy_categories').select('*').order('sort_order'),
           supabase.from('taxonomy_items').select('*').order('sort_order'),
@@ -47,14 +51,20 @@ export function useDirectoryData() {
         ])
       if (cancelled) return
       const firstError =
-        profilesRes.error ?? portfolioRes.error ?? videosRes.error ?? audioRes.error ??
+        profilesRes.error ?? portfolioRes.error ?? videosRes.error ?? questionsRes.error ?? audioRes.error ??
         catsRes.error ?? itemsRes.error
       if (firstError) {
         setError(firstError.message)
         return
       }
 
-      const profiles = profilesRes.data as Profile[]
+      const videos = videosRes.data as Pick<VideoResponse, 'profile_id' | 'kind' | 'question_id'>[]
+      // Featured status needs every standard Video Q&A (lib/membership).
+      const profiles = withVideoQnaStatus(
+        (profilesRes.data as Profile[]).filter(isListed),
+        videos,
+        questionsRes.data as Pick<InterviewQuestion, 'id'>[],
+      )
       const profileIds = new Set(profiles.map((p) => p.id))
 
       const portfolioByProfile = new Map<string, PortfolioItem[]>()
@@ -65,11 +75,6 @@ export function useDirectoryData() {
         portfolioByProfile.set(item.profile_id, list)
       }
 
-      const introByProfile = new Map<string, VideoResponse>()
-      for (const v of videosRes.data as VideoResponse[]) {
-        if (profileIds.has(v.profile_id)) introByProfile.set(v.profile_id, v)
-      }
-
       const audioCountByProfile = new Map<string, number>()
       for (const a of audioRes.data as Pick<AudioTestimonial, 'id' | 'profile_id'>[]) {
         audioCountByProfile.set(a.profile_id, (audioCountByProfile.get(a.profile_id) ?? 0) + 1)
@@ -78,7 +83,6 @@ export function useDirectoryData() {
       setData({
         profiles,
         portfolioByProfile,
-        introByProfile,
         audioCountByProfile,
         taxonomyCategories: catsRes.data as TaxonomyCategory[],
         taxonomyItems: itemsRes.data as TaxonomyItem[],

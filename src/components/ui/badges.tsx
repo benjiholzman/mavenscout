@@ -1,4 +1,4 @@
-import { BadgeCheck, Star } from 'lucide-react'
+import { Star } from 'lucide-react'
 import { fmtMonthYear } from '../../lib/dates'
 import type { AvailabilityTrack, CareerLevel, Profile } from '../../types/db'
 import { InfoTip } from './InfoTip'
@@ -12,21 +12,6 @@ export const CAREER_LEVEL_LABELS: Record<CareerLevel, string> = {
 export const FIRM_THRESHOLD_NOTE =
   'Small Firm: 15 or fewer people. Large Firm: more than 15. Self-reported by the firm.'
 
-/** `plain` drops the native title tooltip, for surfaces that use styled
- *  tooltips only (the directory card). */
-export function VerifiedBadge({ compact = false, plain = false }: { compact?: boolean; plain?: boolean }) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full bg-brand-50 font-medium text-brand-700 ${
-        compact ? 'px-1.5 py-0.5 text-[11px]' : 'px-2 py-0.5 text-xs'
-      }`}
-      title={plain ? undefined : "Passed MavenScout's evidence-based vetting"}
-    >
-      <BadgeCheck size={compact ? 12 : 14} /> Verified
-    </span>
-  )
-}
-
 export function FirmTypeBadge({ type }: { type: 'Small Firm' | 'Large Firm' }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 text-xs font-medium text-ink-soft">
@@ -35,9 +20,9 @@ export function FirmTypeBadge({ type }: { type: 'Small Firm' | 'Large Firm' }) {
   )
 }
 
-/** "Featured" pill for Premium profiles (PRD 7.8), pinned top-right of a
- *  relative-positioned cover — pairs with the gold card border applied by the
- *  flip card itself. */
+/** "Featured" pill for Featured Members (profiles-membership §2.2), pinned
+ *  top-right of a relative-positioned cover — pairs with the gold card border
+ *  applied by the flip card itself. */
 export function FeaturedRibbon() {
   return (
     <span className="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full border border-gold-500 bg-white/95 px-[7px] py-0.5 text-[11px] font-semibold uppercase tracking-[.05em] text-gold-800 shadow-sm">

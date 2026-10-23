@@ -1,5 +1,6 @@
 import { BadgeDollarSign, Film, Globe2, ListChecks, RefreshCcw, Search, Sparkles, UserCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { FIRMS_ENABLED } from '../lib/config'
 
 // About page (PRD 7.12) — explains the platform to a first-time visitor in
 // either persona, adapted from the PRD's problem statement.
@@ -63,7 +64,7 @@ export default function About() {
         and word-of-mouth keeps recycling the same short contact list.
       </p>
       <p className="mt-4 max-w-3xl text-lg leading-relaxed text-ink-soft">
-        MavenScout is the third option: a curated pool of vetted consultants and firms — each with a
+        MavenScout is the third option: a curated pool of vetted {FIRMS_ENABLED ? 'consultants and firms' : 'experts'} — each with a
         track record at the sector&rsquo;s respected institutions — searchable, screenable by video
         and audio, and rankable against your job description.
       </p>
@@ -85,7 +86,7 @@ export default function About() {
       </section>
 
       <section className="mt-14">
-        <h2 className="text-2xl font-semibold">For consultants & firms</h2>
+        <h2 className="text-2xl font-semibold">{FIRMS_ENABLED ? 'For consultants & firms' : 'For consultants'}</h2>
         <p className="mt-1 text-sm text-ink-faint">
           One profile: your listing in the pool and your public professional website.
         </p>

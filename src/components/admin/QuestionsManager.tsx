@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { InterviewQuestion } from '../../types/db'
 
-/** Manage the Premium standard Video Q&A question list (PRD 7.5/7.10).
- *  The general intro ("Tell us about yourself") is a fixed UI label, not a row. */
+/** Manage the standard Video Q&A question list (Featured Members answer all of
+ *  them, profiles-membership §5). There is no general intro video. */
 export function QuestionsManager() {
   const [questions, setQuestions] = useState<InterviewQuestion[] | null>(null)
   const [draft, setDraft] = useState('')

@@ -15,7 +15,8 @@ import { FieldRow, TextArea, TextField } from './fields'
 //     attach it to yourself or a portfolio item. Fully self-managed —
 //     verification is effectively none (a conscious product choice).
 // Submitted testimonials land as pending; the candidate publishes; admin
-// retains takedown power. Cap: 1 Standard / 10 Premium.
+// retains takedown power. Cap: 1 Member / 10 Featured Member (the per-entry rule comes with the
+// testimonial flow, spec §4).
 
 export function TestimonialsSection({
   profile,
@@ -25,7 +26,7 @@ export function TestimonialsSection({
   portfolio: PortfolioItem[]
 }) {
   const [rows, setRows] = useState<AudioTestimonial[] | null>(null)
-  const cap = audioTestimonialCap(profile.is_premium)
+  const cap = audioTestimonialCap(profile)
 
   const load = () =>
     supabase
@@ -63,7 +64,7 @@ export function TestimonialsSection({
 
       {capReached ? (
         <p className="rounded-lg bg-paper px-3.5 py-3 text-sm text-ink-faint">
-          Testimonial limit reached for your tier ({cap}). Premium raises it to 10.
+          Testimonial limit reached ({cap}).{cap === 1 && ' Add more testimonials as a Featured Member.'}
         </p>
       ) : (
         <>

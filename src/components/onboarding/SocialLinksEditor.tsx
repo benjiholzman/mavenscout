@@ -1,12 +1,13 @@
 import { Plus, X } from 'lucide-react'
 import { useState } from 'react'
+import { MEMBERSHIP_LIMITS } from '../../lib/config'
 import { PLATFORMS, platformIcon } from '../../lib/socials'
 import { validateSocialUrl } from '../../lib/validation'
 import type { SocialLink } from '../../types/db'
 
 // Social/account links editor (PRD 7.13): fixed platform list + Other,
 // per-platform URL validation (lenient about www/country variants),
-// tier-capped count (2 Standard / 5 Premium).
+// count capped by membership level (2 Member / 5 Featured Member).
 
 export function SocialLinksEditor({
   value,
@@ -95,7 +96,9 @@ export function SocialLinksEditor({
         </div>
       ) : (
         <p className="mt-3 text-xs text-ink-faint">
-          Link limit reached for your tier ({cap}). Premium raises it to 5.
+          Link limit reached ({cap}).
+          {cap < MEMBERSHIP_LIMITS.featured.socialLinks &&
+            ` Featured Members can add up to ${MEMBERSHIP_LIMITS.featured.socialLinks}.`}
         </p>
       )}
     </div>

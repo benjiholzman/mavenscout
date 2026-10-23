@@ -18,8 +18,25 @@ RLS notes) — the PRD defines *what* was intended; this defines *where the seam
 ## What is mocked vs. real (the load-bearing distinction)
 
 **Real, keep as-is:** all Supabase reads/writes, video/audio/résumé uploads to Storage,
-tier logic driven by `is_premium`/`subscription_status`, the visibility rules
-(`src/lib/visibility.ts`), openings/notes/shares data model, in-browser recording.
+membership logic driven by `is_premium`/`subscription_status` (`src/lib/membership.ts`),
+the visibility rules (`src/lib/visibility.ts`), the listing rule (`src/lib/listing.ts`),
+the profile minimums (`src/lib/completeness.ts`), openings/notes/shares data model,
+in-browser recording.
+
+**Membership (profiles-membership §2).** UI names are **Member** and **Featured
+Member**; `is_premium` means "chose Featured". Featured *status* (`isFeatured`) also
+needs every active standard Video Q&A answered. Until then the profile shows, is
+capped and is placed as a Member. The loaders set a derived
+`Profile.video_qnas_complete`; it is not a column and must never be written back.
+Membership never affects AI rank, and "Has video Q&As" (requirement kind `video_qna`)
+is Required-only by construction (`isRequiredOnly` in `lib/requirements/model.ts`).
+
+**Firms are hidden** behind `FIRMS_ENABLED = false` (`src/lib/config.ts`, spec §1):
+excluded from the directory, search, ranking and the baseline pool through
+`isListed`; the Type filter, Type requirement row and firm onboarding options are
+hidden. Firm code, columns and data stay. Direct `/profile` and `/site` links to a
+firm still open (e.g. firms already saved in openings). There is no sitemap yet;
+when one is added, build it from `isListed`.
 
 **Mocked/stubbed, yours to wire:**
 
@@ -28,11 +45,12 @@ tier logic driven by `is_premium`/`subscription_status`, the visibility rules
 | Auth | localStorage role switcher, no real identity | `src/lib/session.tsx`, `src/components/layout/DevRoleSwitcher.tsx` |
 | Billing | Admin-settable `subscription_status`; Subscribe disabled | `src/pages/Billing.tsx`, admin Tier tab |
 | Outbound email | ALL of it is stubbed: contact relay, testimonial request emails (copy-paste template instead), async video-request notifications, "email this list" (mailto:) | `ContactModal.tsx`, `TestimonialsSection.tsx`, `VideoRequestsPanel.tsx`, `SharePanels.tsx` |
-| Verification evidence | Upload UI exists; **no file is persisted** — `file_path` holds a `STUB/…` placeholder | `TierSection.tsx`, `verification_evidence` table |
+| Verification evidence | The old Premium evidence application is removed (spec §2.2). The `verification_evidence` table stays for the verification queue (spec §3, §13 step 4), whose uploads must stay stubbed too | `verification_evidence` table |
+| Membership choice | The editor's Membership & review section sets `is_premium` directly; no payment is taken | `src/components/onboarding/MembershipSection.tsx` |
 | AI matching | Placeholder JD extraction + placeholder Fit and preference adjustments (deterministic keyword matching) behind the real contract | `src/lib/matching/` (see Loop8 section; spec `docs/MavenScout-match-rework.md`) |
 | Account ops | Email/password change forms render disabled | `src/pages/Account.tsx` |
 | Brandfetch | Fully built; organization logos come from the organizations list through one hook (`orgLogoUrl`: explicit `logo_url`, else Brandfetch by primary domain). Dormant until a client id exists. Spec §8 wants logos in Supabase Storage: copy each into Storage and set `logo_url` | `src/lib/organizations.ts`, `src/lib/brandfetch.ts` (env var or localStorage `ms_brandfetch_client_id`) |
-| Custom domains | `profiles.custom_domain` reserved, no DNS integration (PRD Decisions) | — |
+| Custom domains | Featured Members can save `profiles.custom_domain` in the editor; no DNS integration. Every personal site, custom domains included, keeps the "Listed on MavenScout" footer (spec §2.1) | `Onboarding.tsx` links section, `SitePage.tsx` |
 
 ## Pass 1 — Real authentication (Supabase Auth)
 
@@ -81,12 +99,13 @@ tier logic driven by `is_premium`/`subscription_status`, the visibility rules
 - `Billing.tsx`'s pause/cancel/resume currently write `subscription_status` directly
   (sanctioned for demo realism, PRD 7.9b). Re-point these at Stripe subscription
   mutations, and let your **webhook** be the only writer of `subscription_status` /
-  `is_premium`. Everything downstream (publication gating, Featured treatment, priority
-  sort, all tier caps) already keys off those two fields — no UI changes needed.
-- Wire the disabled "Subscribe — coming soon" button to Stripe Checkout. Note the PRD's
-  product rule: **Premium is applied for, not just bought** — payment should follow the
-  admin's verified-Premium approval (see `TierSection.tsx` + admin review queue), not
-  bypass it.
+  `is_premium`. Everything downstream (publication gating, Featured treatment, browse
+  placement, all caps) already keys off those two fields plus the Video Q&A count —
+  no UI changes needed.
+- Wire the disabled "Subscribe — coming soon" button and the editor's level choice
+  (`MembershipSection.tsx`) to Stripe Checkout. Spec §2.2: a Featured Member is listed
+  as a Member straight away, and **the higher fee starts only once all 5 Video Q&As
+  are in** (`isFeatured`), so the price change follows the videos, not the choice.
 - Replace the sample billing-history rows with real invoice data.
 - The admin Tier tab's manual toggles were the billing stand-in; keep them as an
   operator override or remove.
@@ -98,11 +117,12 @@ tier logic driven by `is_premium`/`subscription_status`, the visibility rules
       consider expiring tokens.
 - [ ] Storage buckets (`videos`, `audio-testimonials`, `resumes`) — currently public
       read + anon write. Scope writes to owners; make `resumes` private (signed URLs).
-- [ ] **Verification evidence — the most sensitive data in the app** (payslips,
-      employment letters). Storage is deliberately **stubbed**: design it fresh —
-      private bucket, admin-only access, retention/deletion policy, then replace the
-      `STUB/…` placeholder writes in `TierSection.tsx`. Do not simply "enable" uploads
-      into the current dev posture.
+- [ ] **Verification evidence — the most sensitive data in the app** (employment
+      letters, contracts, degree certificates; spec §3). Storage is deliberately
+      **stubbed**: design it fresh — private bucket, admin-only access, delete after
+      review. Do not simply "enable" uploads into the current dev posture.
+- [ ] Profile minimums and the review gate (`lib/completeness.ts`) are app-side only;
+      enforce them server-side (submission and approval) with real auth.
 - [ ] `/admin` — real access control (see Pass 1).
 - [ ] Contact relay (`ContactModal.tsx`) — when wiring real email, keep the PRD rule:
       candidate addresses are never exposed to the client; relay server-side.
@@ -156,7 +176,7 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   3 points, Important 8, partials × credit; not-applicable rows count toward
   neither earned nor possible. The pure formula is `total.ts`, shared by the scorer
   and the display. Every tunable number is in `config.ts`. Ties: Fit → more
-  recent `availability_updated_at` → id. Premium never affects rank.
+  recent `availability_updated_at` → id. Membership level never affects rank.
 - **What stays app-side** (don't move it into the engine):
   - The requirements grid / filter-bar state (`src/lib/requirements/`). Required
     rows are evaluated by `applyMustHaves()` (`mustHaves.ts`), which reuses the
@@ -223,7 +243,9 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
 
 - Fixed demo UUIDs (`aaaaaaaa-…`, `bbbbbbbb-…`, `cccccccc-…`) come from
   `003_seed_demo_accounts.sql` and are referenced in `session.tsx`.
-- Intro videos are YouTube placeholder URLs from the seed; Amara Diallo additionally
+- The four seeded intro videos (YouTube placeholder URLs) are no longer shown — the
+  intro video is removed for everyone — and `014_cleanup_profiles_membership.sql`
+  deletes them. Amara Diallo additionally
   has: a test-PDF résumé, one published audio testimonial with a placeholder tone clip
   ("Jean-Baptiste Kouassi"), a submitted async video response (YouTube URL), and the
   Sahel opening holds a persisted full-pool AI ranking. All are safe to replace/delete;
@@ -252,9 +274,16 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
 - The Sahel ranking above was saved before the unified expertise list; it opens
   through the read-time translation (its 5 `skill` rows show as expertise rows) and
   its stored scores display as scored. Re-run it to score under the new list.
+- **Demo data and the new minimums.** 84 of the 92 listed individuals miss a
+  profile minimum (Strong tag count, portfolio not exactly 3, Core tag count). They
+  stay listed and editable (edits can't make a section worse) and see the gaps in the
+  editor's completeness panel. No profile has Video Q&A answers yet, so no one has
+  Featured status until the re-seed adds them. The step 5 re-seed fixes both.
+- **After 014** the seed files and `scripts/demo-seed` no longer match the schema
+  (they write `cover_image` and intro videos); the step 5 re-seed rewrites them.
 - **Synthetic demo profiles (`is_demo`).** `007_seed_demo_profiles_{1..4}.sql` add 100
   fictional profiles (handles `demo-*`): 80 individuals, 20 firms, spread across UN M49
-  sub-regions, 30 Premium/verified, some with stale availability. They are generated —
+  sub-regions, 30 with `is_premium` (Featured chosen) and `verified`, some with stale availability. They are generated —
   edit `scripts/demo-seed/data/*.mjs` and run `node scripts/demo-seed/build.mjs` (it
   validates taxonomy names, tag caps, canonical countries/languages in
   `scripts/demo-seed/vocab.mjs`, and coverage). Re-running a 007 file is idempotent.

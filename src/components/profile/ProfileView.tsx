@@ -2,7 +2,8 @@ import { Bookmark, Download, ExternalLink, Globe, Mail, MapPin, Star } from 'luc
 import { useMemo, useState } from 'react'
 import type { ProfileData } from '../../hooks/useProfile'
 import { fmtPortfolioMeta } from '../../lib/dates'
-import { resumeDownloadUrl } from '../../lib/media'
+import { resumeDownloadUrl, videoLinkEmbed } from '../../lib/media'
+import { portfolioImages } from '../../lib/portfolio'
 import { useSession } from '../../lib/session'
 import { platformIcon } from '../../lib/socials'
 import { visibilityFor, type Surface } from '../../lib/visibility'
@@ -15,12 +16,12 @@ import {
   CAREER_LEVEL_LABELS,
   FirmTypeBadge,
   SelfAttestedMark,
-  VerifiedBadge,
 } from '../ui/badges'
 import { Carousel } from '../ui/Carousel'
 import { GatePrompt } from '../ui/GatePrompt'
 import { useOrganizations } from '../../hooks/useOrganizations'
 import { expertiseTags } from '../../lib/expertise'
+import { isFeatured } from '../../lib/membership'
 import { formatLanguages, spokenLanguages } from '../../lib/languages'
 import { entryLogoUrl, orgAcronym, resolveOrganization } from '../../lib/organizations'
 import { OrgLogo } from '../ui/OrgLogo'
@@ -34,7 +35,7 @@ import { ContactModal } from './ContactModal'
 type TabId = 'overview' | 'experience' | 'portfolio' | 'videos' | 'audio'
 
 export function ProfileView({ data, surface }: { data: ProfileData; surface: Surface }) {
-  const { profile, videos, testimonials, questions } = data
+  const { profile, testimonials, questions } = data
   const { isLoggedIn } = useSession()
   const rules = visibilityFor(surface, isLoggedIn)
 
@@ -43,8 +44,10 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
   const { save, ui: saveUi } = useSaveCandidate()
 
   const isFirm = profile.consultant_type !== 'Individual'
-  const intro = videos.find((v) => v.kind === 'intro') ?? null
   const resumeHref = resumeDownloadUrl(profile)
+  // Video Q&As are a Featured Member feature (profiles-membership §5): the
+  // tab exists only once Featured status is active.
+  const hasVideoTab = rules.gatedTabsExist && isFeatured(profile)
 
   const tabs = useMemo(() => {
     const t: { id: TabId; label: string }[] = [{ id: 'overview', label: 'Overview' }]
@@ -53,12 +56,10 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
     if (!isFirm || profile.additional_experience.length > 0)
       t.push({ id: 'experience', label: 'Experience' })
     t.push({ id: 'portfolio', label: 'Portfolio' })
-    if (rules.gatedTabsExist) {
-      t.push({ id: 'videos', label: 'Video Q&As' })
-      t.push({ id: 'audio', label: 'Audio Testimonials' })
-    }
+    if (hasVideoTab) t.push({ id: 'videos', label: 'Video Q&As' })
+    if (rules.gatedTabsExist) t.push({ id: 'audio', label: 'Audio Testimonials' })
     return t
-  }, [isFirm, profile.additional_experience.length, rules.gatedTabsExist])
+  }, [isFirm, profile.additional_experience.length, rules.gatedTabsExist, hasVideoTab])
 
   return (
     <div>
@@ -132,7 +133,6 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
         <div className="mt-3">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold sm:text-3xl">{profile.name}</h1>
-            {profile.verification_status === 'verified' && <VerifiedBadge />}
             {isFirm && <FirmTypeBadge type={profile.consultant_type as 'Small Firm' | 'Large Firm'} />}
           </div>
           <p className="mt-1 max-w-2xl text-ink-soft">{profile.headline}</p>
@@ -172,12 +172,10 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
         </div>
 
         <div className="py-8">
-          {tab === 'overview' && <OverviewTab data={data} rules={rules} intro={intro} />}
+          {tab === 'overview' && <OverviewTab data={data} rules={rules} />}
           {tab === 'experience' && <ExperienceTab profile={profile} isFirm={isFirm} />}
           {tab === 'portfolio' && <PortfolioTab data={data} rules={rules} />}
-          {tab === 'videos' && (
-            <VideosTab data={data} rules={rules} intro={intro} questions={questions} />
-          )}
+          {tab === 'videos' && hasVideoTab && <VideosTab data={data} rules={rules} questions={questions} />}
           {tab === 'audio' && (
             <div className="space-y-4">
               {rules.audioTestimonials === 'gated' ? (
@@ -203,24 +201,14 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
 function OverviewTab({
   data,
   rules,
-  intro,
 }: {
   data: ProfileData
   rules: ReturnType<typeof visibilityFor>
-  intro: ProfileData['videos'][number] | null
 }) {
   const { profile } = data
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr,300px]">
       <div className="space-y-8">
-        {/* On /site the Video Q&As tab doesn't exist, but the general intro
-            video is public (PRD 7.2a) — it surfaces here instead. */}
-        {!rules.gatedTabsExist && intro && (
-          <section>
-            <h2 className="mb-2 text-lg font-semibold">Introduction</h2>
-            <VideoPlayer video={intro} title={`${profile.name} — introduction`} />
-          </section>
-        )}
         {profile.detailed_bio && (
           <section>
             <h2 className="mb-2 text-lg font-semibold">Professional summary</h2>
@@ -478,7 +466,7 @@ function PortfolioTab({
   data: ProfileData
   rules: ReturnType<typeof visibilityFor>
 }) {
-  const { portfolio, videos, testimonials } = data
+  const { portfolio, testimonials } = data
   if (portfolio.length === 0)
     return <p className="text-sm text-ink-faint">No portfolio items yet.</p>
   return (
@@ -487,7 +475,6 @@ function PortfolioTab({
         <PortfolioCard
           key={item.id}
           item={item}
-          attachedVideo={videos.find((v) => v.kind === 'portfolio' && v.portfolio_item_id === item.id)}
           attachedAudio={testimonials.filter((t) => t.portfolio_item_id === item.id)}
           rules={rules}
         />
@@ -498,19 +485,17 @@ function PortfolioTab({
 
 function PortfolioCard({
   item,
-  attachedVideo,
   attachedAudio,
   rules,
 }: {
   item: PortfolioItem
-  attachedVideo: ProfileData['videos'][number] | undefined
   attachedAudio: ProfileData['testimonials']
   rules: ReturnType<typeof visibilityFor>
 }) {
-  const images = item.cover_image
-    ? [{ url: item.cover_image }, ...item.images.filter((i) => i.url !== item.cover_image)]
-    : item.images
+  const images = portfolioImages(item)
   const meta = fmtPortfolioMeta(item)
+  // The video link is portfolio content (spec §7.2), shown on both surfaces.
+  const videoEmbed = item.video_url ? videoLinkEmbed(item.video_url) : null
   return (
     <article className="grid gap-6 rounded-card border border-line bg-white p-5 md:grid-cols-2">
       <div>
@@ -542,16 +527,20 @@ function PortfolioCard({
             ))}
           </div>
         )}
-        {/* Portfolio-attached media follow the same visibility rules as their
-            tabs — stripped on /site, gated for anonymous platform browsers. */}
-        {attachedVideo && rules.premiumVideos === 'shown' && (
+        {videoEmbed && (
           <div className="mt-4">
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint">
-              Project video
-            </p>
-            <VideoPlayer video={attachedVideo} title={`${item.project_name} — project video`} />
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint">Project video</p>
+            <iframe
+              src={videoEmbed}
+              title={`${item.project_name} — project video`}
+              className="aspect-video w-full rounded-lg"
+              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
           </div>
         )}
+        {/* Portfolio-attached testimonials follow the testimonial visibility
+            rules — stripped on /site, gated for anonymous platform browsers. */}
         {attachedAudio.length > 0 && rules.audioTestimonials === 'shown' && (
           <div className="mt-4 space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
@@ -562,12 +551,9 @@ function PortfolioCard({
             ))}
           </div>
         )}
-        {((attachedVideo && rules.premiumVideos === 'gated') ||
-          (attachedAudio.length > 0 && rules.audioTestimonials === 'gated')) && (
+        {attachedAudio.length > 0 && rules.audioTestimonials === 'gated' && (
           <p className="mt-4 rounded-lg bg-paper px-3 py-2 text-xs text-ink-faint">
-            This project has attached {attachedVideo ? 'video' : ''}
-            {attachedVideo && attachedAudio.length > 0 ? ' and ' : ''}
-            {attachedAudio.length > 0 ? 'a client reference' : ''} —{' '}
+            This project has a client reference —{' '}
             <a href="/signup" className="font-medium text-brand-600">
               create a free account
             </a>{' '}
@@ -584,49 +570,38 @@ function PortfolioCard({
 function VideosTab({
   data,
   rules,
-  intro,
   questions,
 }: {
   data: ProfileData
   rules: ReturnType<typeof visibilityFor>
-  intro: ProfileData['videos'][number] | null
   questions: ProfileData['questions']
 }) {
-  const questionVideos = data.videos.filter((v) => v.kind === 'question')
+  // The standard questions in their admin order; Featured Members answer all
+  // of them (profiles-membership §5). Never public: a free hiring-manager
+  // account is needed to watch.
+  const answers = questions
+    .map((q) => ({ q, v: data.videos.find((v) => v.kind === 'question' && v.question_id === q.id) }))
+    .filter((a): a is { q: (typeof questions)[number]; v: ProfileData['videos'][number] } => !!a.v)
   return (
-    <div className="max-w-3xl space-y-8">
-      <section>
-        <h2 className="mb-3 text-lg font-semibold">Introduction</h2>
-        {intro ? (
-          <VideoPlayer video={intro} title={`${data.profile.name} — introduction`} />
-        ) : (
-          <p className="text-sm text-ink-faint">No introduction video yet.</p>
-        )}
-      </section>
-
-      <section>
-        <h2 className="mb-3 text-lg font-semibold">Standard questions</h2>
-        {rules.premiumVideos === 'gated' ? (
-          <GatePrompt what="watch this candidate answer the standard interview questions every candidate gets" />
-        ) : questionVideos.length === 0 ? (
-          <p className="text-sm text-ink-faint">
-            No standard-question videos yet.
-            {!data.profile.is_premium && ' (Available on Premium profiles.)'}
-          </p>
-        ) : (
-          <div className="space-y-6">
-            {questionVideos.map((v) => {
-              const q = questions.find((q) => q.id === v.question_id)
-              return (
-                <div key={v.id}>
-                  <p className="mb-2 text-sm font-medium">{q?.question_text ?? 'Standard question'}</p>
-                  <VideoPlayer video={v} title={q?.question_text ?? 'Standard question'} />
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </section>
+    <div className="max-w-3xl space-y-6">
+      <p className="text-sm text-ink-soft">
+        Every Featured Member answers the same {questions.length} interview questions, so you can
+        compare like with like.
+      </p>
+      {rules.videoQnas === 'gated' ? (
+        <GatePrompt what="watch this candidate answer the standard interview questions every Featured Member gets" />
+      ) : (
+        <div className="space-y-6">
+          {answers.map(({ q, v }, i) => (
+            <div key={v.id}>
+              <p className="mb-2 text-sm font-medium">
+                {i + 1}. {q.question_text}
+              </p>
+              <VideoPlayer video={v} title={q.question_text} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
