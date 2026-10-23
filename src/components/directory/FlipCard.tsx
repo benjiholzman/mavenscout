@@ -559,12 +559,12 @@ function TagsFace({ tags }: { tags: ExpertiseTag[] }) {
         {strong.length > 0 && (
           <section className="shrink-0">
             <SectionLabel>{TIER_LABELS.strong}</SectionLabel>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1.5">
               {strong.map((t) => (
                 <span
                   key={t.name}
                   title={t.name}
-                  className="max-w-full truncate rounded-full border border-line bg-white px-2 py-0.5 text-[12px] leading-4 text-ink-soft"
+                  className="max-w-full truncate rounded-full border border-line bg-white px-2.5 py-1 text-[12.5px] leading-4 text-ink-soft"
                 >
                   {t.name}
                 </span>
