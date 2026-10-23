@@ -77,9 +77,14 @@ export function CompletenessPanel({
           {gaps.length} {gaps.length === 1 ? 'thing' : 'things'} to fix
         </p>
         <p className="mt-0.5 text-xs text-amber-900/80">
-          {listed
-            ? 'Your profile stays listed. These requirements are newer than your profile; edits can’t take a section further from them.'
-            : 'Fix these before submitting your profile for review. You can save sections while you build it up.'}
+          {gaps.every((g) => g.blocking === false)
+            ? // Only gaps with a deadline after listing (TESTIMONIAL_DEADLINE_DAYS).
+              listed
+              ? 'Your profile is listed. Do this by the date shown to stay listed.'
+              : 'You can submit for review now; this can follow once you’re listed.'
+            : listed
+              ? 'Your profile stays listed. These requirements are newer than your profile; edits can’t take a section further from them.'
+              : 'Fix these before submitting your profile for review. You can save sections while you build it up.'}
         </p>
         <ul className="mt-2 space-y-1">
           {gaps.map((g) => (
