@@ -243,6 +243,19 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
 `src/lib/matching/types.ts`; replacing the engine touches nothing outside
 `src/lib/matching/`.
 
+- **Before the `loop8-handoff` tag (profiles-membership §13 step 6): a fresh
+  Supabase project must build cleanly.** Loop8 will likely run their own copy, and
+  today it can't be rebuilt from the repo: `000_schema.sql` already has the current
+  shape, so the pre-spec seeds (`002`, `007`) fail on it, and 003's openings need the
+  demo profiles first (see *Demo data → Fresh projects*). To do in step 6, whichever
+  is simpler: either make the numbered files run end to end on an empty project, or
+  ship one consolidated schema-plus-demo file (current schema, reference lists,
+  demo profiles from `npm run demo:build`, demo accounts and openings) with the
+  numbered migrations kept for existing databases. Done when a new project, after
+  that setup and the Storage bucket upload (`node scripts/demo-seed/media.mjs
+  --upload`), passes `npm run baseline` with the same results as
+  `docs/samples/ranking-baseline.md`.
+
 - **Data the engine reads (profiles-membership §6, §8, §11; `data-foundations`):**
   - Expertise is **one list** (`taxonomy_items` under `taxonomy_categories` of type
     `expertise`): each item has a browsing group, a **kind** (sector / theme /
@@ -398,8 +411,8 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
 - **Fresh projects:** `000_schema.sql` has the current shape, so the pre-spec seeds
   (`002`, the four `007` files, `scripts/demo-seed/build-007.mjs`, frozen) no longer
   load on it. They are kept as history. A fresh project needs the demo profiles
-  created before 003's openings and 018 can run; until a fresh-install seed exists,
-  copy the demo rows from an existing project.
+  created before 003's openings and 018 can run. Fixing this is step 6 work (see
+  *Loop8* above); until then, copy the demo rows from an existing project.
 - **Purging demo data:** `supabase/purge_demo.sql` deletes every `is_demo` hiring
   manager (cascading their openings, notes, shares, reviewer grants and rankings) and
   every `is_demo` profile (cascading portfolio, media rows, testimonials and their
