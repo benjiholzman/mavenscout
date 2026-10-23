@@ -16,7 +16,6 @@ import type {
 export interface DirectoryData {
   profiles: Profile[]
   portfolioByProfile: Map<string, PortfolioItem[]>
-  introByProfile: Map<string, VideoResponse>
   audioCountByProfile: Map<string, number>
   taxonomyCategories: TaxonomyCategory[]
   taxonomyItems: TaxonomyItem[]
@@ -43,7 +42,7 @@ export function useDirectoryData() {
             .eq('approval_status', 'approved')
             .eq('subscription_status', 'active'),
           supabase.from('portfolio_items').select('*').order('sort_order'),
-          supabase.from('video_responses').select('*').in('kind', ['intro', 'question']),
+          supabase.from('video_responses').select('profile_id,kind,question_id').eq('kind', 'question'),
           supabase.from('interview_questions').select('id').eq('active', true),
           supabase.from('audio_testimonials').select('id,profile_id').eq('status', 'published'),
           supabase.from('taxonomy_categories').select('*').order('sort_order'),
@@ -59,7 +58,7 @@ export function useDirectoryData() {
         return
       }
 
-      const videos = videosRes.data as VideoResponse[]
+      const videos = videosRes.data as Pick<VideoResponse, 'profile_id' | 'kind' | 'question_id'>[]
       // Featured status needs every standard Video Q&A (lib/membership).
       const profiles = withVideoQnaStatus(
         (profilesRes.data as Profile[]).filter(isListed),
@@ -76,11 +75,6 @@ export function useDirectoryData() {
         portfolioByProfile.set(item.profile_id, list)
       }
 
-      const introByProfile = new Map<string, VideoResponse>()
-      for (const v of videos) {
-        if (v.kind === 'intro' && profileIds.has(v.profile_id)) introByProfile.set(v.profile_id, v)
-      }
-
       const audioCountByProfile = new Map<string, number>()
       for (const a of audioRes.data as Pick<AudioTestimonial, 'id' | 'profile_id'>[]) {
         audioCountByProfile.set(a.profile_id, (audioCountByProfile.get(a.profile_id) ?? 0) + 1)
@@ -89,7 +83,6 @@ export function useDirectoryData() {
       setData({
         profiles,
         portfolioByProfile,
-        introByProfile,
         audioCountByProfile,
         taxonomyCategories: catsRes.data as TaxonomyCategory[],
         taxonomyItems: itemsRes.data as TaxonomyItem[],

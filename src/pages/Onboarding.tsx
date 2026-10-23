@@ -19,7 +19,7 @@ import { FIRM_THRESHOLD_NOTE } from '../components/ui/badges'
 import { useEditorProfile } from '../hooks/useEditorProfile'
 import { EXPERTISE_TIER_LIMITS, FIRMS_ENABLED } from '../lib/config'
 import { buildExpertiseIndex, expertiseTags } from '../lib/expertise'
-import { membershipLimits } from '../lib/membership'
+import { membershipLimits, type VideoQnaStatus } from '../lib/membership'
 import { spokenLanguages } from '../lib/languages'
 import { useSession } from '../lib/session'
 import { supabase } from '../lib/supabase'
@@ -40,9 +40,16 @@ import type { PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../
 // editing (edits auto-publish, v1 rule). Media sections (Video Q&As, audio
 // testimonials) land in build step 6 and slot in as further sections here.
 
-/** Fetches the portfolio list once for both media editors (video attach +
- *  testimonial attach pickers). */
-function MediaSections({ profileId, draft }: { profileId: string; draft: Profile }) {
+/** Fetches the portfolio list once for the testimonial attach picker. */
+function MediaSections({
+  profileId,
+  draft,
+  onVideoStatus,
+}: {
+  profileId: string
+  draft: Profile
+  onVideoStatus: (status: VideoQnaStatus) => void
+}) {
   const [portfolio, setPortfolio] = useState<PortfolioItem[] | null>(null)
   useEffect(() => {
     supabase
@@ -55,7 +62,7 @@ function MediaSections({ profileId, draft }: { profileId: string; draft: Profile
   if (!portfolio) return <p className="text-sm text-ink-faint">Loading…</p>
   return (
     <>
-      <VideoQnASection profile={draft} portfolio={portfolio} />
+      <VideoQnASection profile={draft} onStatus={onVideoStatus} />
       <div className="border-t border-line pt-6">
         <TestimonialsSection profile={draft} portfolio={portfolio} />
       </div>
@@ -79,7 +86,7 @@ const SECTIONS = [
 
 export default function Onboarding() {
   const { role } = useSession()
-  const { profile, error, save, setProfile } = useEditorProfile()
+  const { profile, error, save, setProfile, updateVideoQnas } = useEditorProfile()
   const [draft, setDraft] = useState<Profile | null>(null)
   const [taxonomy, setTaxonomy] = useState<{ cats: TaxonomyCategory[]; items: TaxonomyItem[] } | null>(null)
 
@@ -487,10 +494,17 @@ export default function Onboarding() {
           <EditorSection
             id="media"
             title="Video Q&As & audio testimonials"
-            description="Real uploads (2-minute cap enforced before saving) with a paste-a-URL alternative for video. In-browser recording is a later fast-follow."
+            description="Record in the browser or upload (2-minute cap enforced before saving); video answers can also be a pasted link."
           >
             <div className="space-y-8">
-              <MediaSections profileId={draft.id} draft={draft} />
+              <MediaSections
+                profileId={draft.id}
+                draft={draft}
+                onVideoStatus={(status) => {
+                  updateVideoQnas(status)
+                  setDraft((d) => (d ? { ...d, video_qnas_complete: status.complete } : d))
+                }}
+              />
             </div>
           </EditorSection>
 

@@ -213,6 +213,9 @@ export interface InterviewQuestion {
 export interface VideoResponse {
   id: string
   profile_id: string
+  /** Only 'question' is written now (Video Q&As, profiles-membership §5).
+   *  'intro' (removed for everyone) and 'portfolio' (replaced by
+   *  portfolio_items.video_url) are legacy rows that 014 deletes. */
   kind: 'intro' | 'question' | 'portfolio'
   question_id: string | null
   portfolio_item_id: string | null

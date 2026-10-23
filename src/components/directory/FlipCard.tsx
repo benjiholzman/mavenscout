@@ -9,7 +9,6 @@ import {
   MapPin,
   Mic,
   Star,
-  Video,
 } from 'lucide-react'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
@@ -17,7 +16,6 @@ import { logoIconUrl } from '../../lib/brandfetch'
 import { fmtPortfolioMeta } from '../../lib/dates'
 import { nameInitials } from '../../lib/monogram'
 import { EMPTY_ORG_INDEX, sectorExperience, type OrgIndex } from '../../lib/organizations'
-import { resolveVideo } from '../../lib/media'
 import { preferencePercent, rowPointsLabel, rowsByWeight, scoreBreakdown } from '../../lib/matching/display'
 import type { MatchResult } from '../../lib/matching/types'
 import { OutcomeIcon, ScoreEquation } from '../match/outcome'
@@ -25,15 +23,16 @@ import { RankStrip } from '../match/RankStrip'
 import { EXPERTISE_TIER_LIMITS } from '../../lib/config'
 import { isFeatured } from '../../lib/membership'
 import { expertiseTags, TIER_LABELS } from '../../lib/expertise'
-import type { ExpertiseTag, PortfolioItem, Profile, VideoResponse } from '../../types/db'
+import type { ExpertiseTag, PortfolioItem, Profile } from '../../types/db'
 import { AvailabilityChip } from '../ui/AvailabilityChip'
 import { ButtonLink } from '../ui/Button'
 import { OrgLogo } from '../ui/OrgLogo'
 import { Tooltip } from '../ui/Tooltip'
 import { CAREER_LEVEL_LABELS, FeaturedRibbon, VerifiedBadge } from '../ui/badges'
 
-// Flip card (PRD 7.1): cycles through Front → Expertise → one face
-// per portfolio item (up to 3) → Video Intro. In ranking mode (match rework
+// Flip card (PRD 7.1; faces per profiles-membership §2.1): cycles through
+// Front → Expertise → one face per portfolio item (up to 3) — the same faces
+// for every member; there is no intro video. In ranking mode (match rework
 // spec §7) the card also gets a fixed-height rank strip in the top of its
 // frame and a "Match" face inserted right after Front. Faces change only via the
 // ‹ dots › row or a horizontal swipe — no click-anywhere flip, so links and
@@ -44,7 +43,6 @@ type Face =
   | { kind: 'match'; result: MatchResult }
   | { kind: 'tags'; tags: ExpertiseTag[] }
   | { kind: 'portfolio'; item: PortfolioItem; n: number; of: number }
-  | { kind: 'video'; video: VideoResponse }
 
 const SECTOR_LOGO_CAP = 5
 const PORTFOLIO_FACE_CAP = 3
@@ -53,7 +51,6 @@ const PORTFOLIO_FACE_CAP = 3
 export function FlipCard({
   profile,
   portfolio,
-  intro,
   audioCount,
   orgs = EMPTY_ORG_INDEX,
   onFavorite,
@@ -62,7 +59,6 @@ export function FlipCard({
 }: {
   profile: Profile
   portfolio: PortfolioItem[]
-  intro: VideoResponse | null
   audioCount: number
   onFavorite: (profile: Profile) => void
   onTopPick: (profile: Profile) => void
@@ -82,9 +78,8 @@ export function FlipCard({
     if (tags.length > 0) f.push({ kind: 'tags', tags })
     const items = portfolio.slice(0, PORTFOLIO_FACE_CAP)
     items.forEach((item, i) => f.push({ kind: 'portfolio', item, n: i + 1, of: items.length }))
-    if (intro) f.push({ kind: 'video', video: intro })
     return f
-  }, [profile, portfolio, intro, ranked])
+  }, [profile, portfolio, ranked])
 
   const go = (delta: number) =>
     setNav(({ index: i }) => ({
@@ -149,7 +144,6 @@ export function FlipCard({
                 portfolio={portfolio}
                 orgs={orgs}
                 isFirm={isFirm}
-                hasVideo={!!intro}
                 audioCount={audioCount}
                 squareTop={!!ranked}
               />
@@ -159,7 +153,6 @@ export function FlipCard({
                 {face.kind === 'match' && <MatchFace result={face.result} onMore={ranked?.onAbout} />}
                 {face.kind === 'tags' && <TagsFace tags={face.tags} />}
                 {face.kind === 'portfolio' && <PortfolioFace face={face} href={profileHref} />}
-                {face.kind === 'video' && <VideoFace video={face.video} name={profile.name} />}
               </div>
             )}
           </motion.div>
@@ -284,7 +277,6 @@ function FrontFace({
   portfolio,
   orgs: orgIndex,
   isFirm,
-  hasVideo,
   audioCount,
   squareTop = false,
 }: {
@@ -292,7 +284,6 @@ function FrontFace({
   portfolio: PortfolioItem[]
   orgs: OrgIndex
   isFirm: boolean
-  hasVideo: boolean
   audioCount: number
   /** The rank strip sits above, so the cover's top corners stay square. */
   squareTop?: boolean
@@ -317,11 +308,6 @@ function FrontFace({
         <div className="relative -mt-[34px] mb-2 flex items-end justify-between gap-2">
           <Avatar profile={profile} isFirm={isFirm} />
           <div className="flex shrink-0 items-center gap-1.5 pb-1">
-            {hasVideo && (
-              <MediaIcon label="Has intro video">
-                <Video size={14} />
-              </MediaIcon>
-            )}
             {audioCount > 0 && (
               <MediaIcon label="Has audio references">
                 <Mic size={14} />
@@ -633,29 +619,5 @@ function SaveButton({
     >
       {children}
     </button>
-  )
-}
-
-function VideoFace({ video, name }: { video: VideoResponse; name: string }) {
-  const playable = resolveVideo(video)
-  return (
-    <div className="flex min-h-0 flex-1 flex-col bg-ink">
-      <div className="flex min-h-0 flex-1 items-center justify-center">
-        {playable?.kind === 'embed' ? (
-          <iframe
-            src={playable.src}
-            title={`${name} — video introduction`}
-            className="aspect-video w-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        ) : playable ? (
-          <video src={playable.src} controls className="max-h-full w-full" preload="metadata" />
-        ) : (
-          <p className="text-sm text-white/60">Video unavailable</p>
-        )}
-      </div>
-      <p className="px-4 py-2.5 text-xs text-white/70">Video introduction</p>
-    </div>
   )
 }

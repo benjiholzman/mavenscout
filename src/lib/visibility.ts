@@ -14,14 +14,13 @@ export type Visibility = 'shown' | 'gated' | 'hidden'
 export interface VisibilityRules {
   /** Header, bio, portfolio, experience/education, skills — always full. */
   coreContent: 'shown'
-  /** General intro video (kind='intro') — the public teaser. */
-  introVideo: 'shown'
   /** Availability in At-a-Glance: platform-facing, never on the public site. */
   availability: Visibility
   /** Contracting & Work Eligibility (PRD 7.18). */
   contractingEligibility: Visibility
-  /** The 5 Featured Member standard-question videos + portfolio-attached videos. */
-  premiumVideos: Visibility
+  /** Video Q&As — the 5 standard-question videos, Featured Members only
+   *  (profiles-membership §5). Never public; never on the personal site. */
+  videoQnas: Visibility
   /** Audio testimonials — tab AND portfolio-attached embeds. */
   audioTestimonials: Visibility
   /** Favorite / Top Pick save actions. */
@@ -36,10 +35,9 @@ export function visibilityFor(surface: Surface, isLoggedIn: boolean): Visibility
     // wherever attached (tab or portfolio item) — regardless of viewer.
     return {
       coreContent: 'shown',
-      introVideo: 'shown',
       availability: 'hidden',
       contractingEligibility: 'hidden',
-      premiumVideos: 'hidden',
+      videoQnas: 'hidden',
       audioTestimonials: 'hidden',
       saveActions: 'hidden',
       gatedTabsExist: false,
@@ -48,10 +46,9 @@ export function visibilityFor(surface: Surface, isLoggedIn: boolean): Visibility
   const gate: Visibility = isLoggedIn ? 'shown' : 'gated'
   return {
     coreContent: 'shown',
-    introVideo: 'shown',
     availability: 'shown', // shown on /profile even logged out (PRD 7.2a table)
     contractingEligibility: gate,
-    premiumVideos: gate,
+    videoQnas: gate,
     audioTestimonials: gate,
     saveActions: gate,
     gatedTabsExist: true,

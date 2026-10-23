@@ -1,9 +1,8 @@
 import { supabase } from './supabase'
 import type { VideoResponse } from '../types/db'
 
-// Resolution helpers for the upload-or-URL model (PRD 7.5/7.6).
-// Upload/duration-check logic lands in step 6; these read-side helpers are
-// needed as soon as the flip card's Video Intro face renders.
+// Resolution helpers for the upload-or-URL model (PRD 7.5/7.6): Video Q&As,
+// opening video requests and portfolio video links.
 
 export type PlayableVideo =
   | { kind: 'embed'; src: string }   // YouTube / Loom / Vimeo → iframe

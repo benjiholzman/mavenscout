@@ -557,7 +557,6 @@ export default function Directory() {
               key={`${p.id}-${epoch}`}
               profile={p}
               portfolio={data.portfolioByProfile.get(p.id) ?? []}
-              intro={data.introByProfile.get(p.id) ?? null}
               audioCount={data.audioCountByProfile.get(p.id) ?? 0}
               orgs={data.orgs}
               onFavorite={(p) => save(p, 'favorite')}
