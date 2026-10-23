@@ -198,7 +198,6 @@ CREATE TABLE portfolio_items (
   role         text NOT NULL,
   description  text NOT NULL,
   results      text,
-  cover_image  text,                          -- LEGACY: the cover is images[0] (013); dropped by 014
   images       jsonb NOT NULL DEFAULT '[]',  -- [{url, caption}], max 3 app-enforced; the first is the cover (013)
   video_url    text,                          -- one YouTube/Vimeo link (013); replaces portfolio video uploads
   links        jsonb NOT NULL DEFAULT '[]',  -- [{label, url}], max 3 app-enforced
@@ -237,9 +236,8 @@ CREATE POLICY "dev_write_verification_evidence" ON verification_evidence FOR ALL
 CREATE TABLE video_responses (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id        uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  kind              text NOT NULL CHECK (kind IN ('intro','question','portfolio')),  -- only 'question' now (Video Q&As); 014 removes 'intro'/'portfolio'
-  question_id       uuid REFERENCES interview_questions(id),   -- set when kind='question'
-  portfolio_item_id uuid REFERENCES portfolio_items(id) ON DELETE SET NULL,  -- LEGACY (kind='portfolio'); dropped by 014
+  kind              text NOT NULL CHECK (kind IN ('question')),  -- Video Q&A answers only (014 removed 'intro' / 'portfolio')
+  question_id       uuid REFERENCES interview_questions(id),
   video_url         text,
   video_path        text,
   transcript        text,             -- accessibility only; never used in ranking (profiles-membership §5, §11)

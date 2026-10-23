@@ -1,7 +1,6 @@
 import { ChevronDown } from 'lucide-react'
 import { useState } from 'react'
-import { resolveVideo } from '../../lib/media'
-import type { VideoResponse } from '../../types/db'
+import { resolveVideo, type VideoSource } from '../../lib/media'
 
 export function TranscriptDisclosure({ transcript }: { transcript: string | null }) {
   const [open, setOpen] = useState(false)
@@ -24,7 +23,7 @@ export function TranscriptDisclosure({ transcript }: { transcript: string | null
   )
 }
 
-export function VideoPlayer({ video, title }: { video: VideoResponse; title: string }) {
+export function VideoPlayer({ video, title }: { video: VideoSource & { transcript?: string | null }; title: string }) {
   const playable = resolveVideo(video)
   return (
     <div>
@@ -43,7 +42,7 @@ export function VideoPlayer({ video, title }: { video: VideoResponse; title: str
           <p className="p-6 text-center text-sm text-white/60">Video unavailable</p>
         )}
       </div>
-      <TranscriptDisclosure transcript={video.transcript} />
+      <TranscriptDisclosure transcript={video.transcript ?? null} />
     </div>
   )
 }

@@ -155,18 +155,7 @@ export function VideoRequestsPanel({
         <Modal open onClose={() => setWatching(null)} title={`${watching.profiles?.name} — video response`} wide>
           <p className="mb-2 text-xs text-ink-faint">"{watching.prompt}"</p>
           <VideoPlayer
-            video={{
-              id: watching.id,
-              profile_id: watching.profile_id,
-              kind: 'portfolio',
-              question_id: null,
-              portfolio_item_id: null,
-              video_url: watching.video_url,
-              video_path: watching.video_path,
-              transcript: null,
-              duration_seconds: watching.duration_seconds ?? 0,
-              created_at: watching.created_at,
-            }}
+            video={{ video_url: watching.video_url, video_path: watching.video_path }}
             title="Async video response"
           />
         </Modal>
