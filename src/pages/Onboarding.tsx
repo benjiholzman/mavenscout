@@ -29,7 +29,7 @@ import { employerOrgFingerprint, identityFingerprint } from '../lib/verification
 import { verificationGaps, verificationWaiting } from '../lib/verification/gaps'
 import { recheckPatch } from '../lib/verification/window'
 import { verificationState, type VerificationState } from '../lib/verification/state'
-import { isActive, STAGE_LABELS, testimonialStage } from '../lib/testimonials/rules'
+import { isActive, publishedEmployerTestimonials, STAGE_LABELS, testimonialStage } from '../lib/testimonials/rules'
 import { EXPERTISE_TIER_LIMITS, FIRMS_ENABLED, PROFILE_LIMITS } from '../lib/config'
 import { buildExpertiseIndex, expertiseTags } from '../lib/expertise'
 import { blockingGaps, checkSectionSave, completenessGaps, isListedProfile, type RuleSection } from '../lib/completeness'
@@ -652,6 +652,7 @@ export default function Onboarding() {
               profile={profile}
               gapCount={blockingGaps(gaps).length}
               videoQnas={videoQnas}
+              hasEmployerTestimonial={publishedEmployerTestimonials(profile, testimonials.rows).length > 0}
               save={saveAndSet}
             />
           </EditorSection>

@@ -1,5 +1,5 @@
 import { TESTIMONIAL_DEADLINE_DAYS, TESTIMONIAL_REQUIRED } from '../config'
-import { membershipLevel, membershipLimits } from '../membership'
+import { membershipLimits } from '../membership'
 import type { AudioTestimonial, PortfolioItem, Profile, WorkHistoryEntry } from '../../types/db'
 
 // Testimonial rules (docs/MavenScout-profiles-membership.md §2.2, §4.1, §4.5):
@@ -82,11 +82,12 @@ export function publishedEmployerTestimonials(profile: Profile, rows: AudioTesti
 }
 
 /** Whether this profile's level needs a published employer-entry testimonial
- *  to be listed (config TESTIMONIAL_REQUIRED). Where Featured status isn't
- *  loaded (video_qnas_complete unset), the profile counts as a Member, as it
- *  does everywhere else. */
-export function testimonialRequired(profile: Profile): boolean {
-  return TESTIMONIAL_REQUIRED[membershipLevel(profile)]
+ *  to be listed (config TESTIMONIAL_REQUIRED). It follows the level chosen
+ *  (is_premium), not active Featured status: a Featured Member still
+ *  recording their Video Q&As already needs one, so Featured status never
+ *  starts without it, and every loader has the column. */
+export function testimonialRequired(profile: Pick<Profile, 'is_premium'>): boolean {
+  return TESTIMONIAL_REQUIRED[profile.is_premium ? 'featured' : 'member']
 }
 
 /** The required testimonial (§4.5): the only published one on an employer

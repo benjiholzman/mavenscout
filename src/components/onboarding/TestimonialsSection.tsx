@@ -43,7 +43,7 @@ import { FieldRow, TextArea, TextField } from './fields'
 // Audio testimonials in the editor (docs/MavenScout-profiles-membership.md
 // §4.1–4.2). One row per saved employer entry (and, for Featured Members,
 // per portfolio item): request a testimonial, follow its progress, send the
-// link yourself. Members get exactly 1, on an employer entry; Featured
+// link yourself. Members get up to 1, on an employer entry; Featured
 // Members one per entry. Referees confirm themselves on /testimonial/:token.
 
 export function TestimonialsSection({
@@ -97,12 +97,12 @@ export function TestimonialsSection({
     <div className="space-y-5">
       <p className="text-sm text-ink-soft">
         {limits.total === 1
-          ? `Members have ${testimonialRequired(profile) ? 'exactly' : 'up to'} 1 audio testimonial, on an employer entry: from someone who supervised or contracted you, ideally in the last 5 years.`
+          ? `${testimonialRequired(profile) ? 'Featured Members need 1 audio testimonial' : 'Members can have 1 audio testimonial (optional)'}, on an employer entry: from someone who supervised or contracted you, ideally in the last 5 years.`
           : `One testimonial per employer entry or portfolio project.${testimonialRequired(profile) ? ' At least one must be on an employer entry.' : ''}`}{' '}
         You send the link yourself; your referee confirms it's them with a code sent to their work email.
       </p>
 
-      {profile.testimonial_grace_until && (
+      {profile.testimonial_grace_until && testimonialRequired(profile) && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3.5 text-sm text-red-900" role="alert">
           <p className="flex items-center gap-1.5 font-semibold">
             <AlertTriangle size={15} /> Replace your required testimonial by {fmtDate(profile.testimonial_grace_until)}

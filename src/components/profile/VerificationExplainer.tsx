@@ -1,5 +1,5 @@
 import { BadgeCheck, Clock, FileCheck2, Mic, UserRound } from 'lucide-react'
-import { EVERY_EXPERT_VOUCHED_FOR, VERIFIED_STATEMENT } from '../../lib/testimonials/copy'
+import { TESTIMONIAL_COVERAGE_LINE, VERIFIED_STATEMENT } from '../../lib/testimonials/copy'
 
 // "What verification means" (docs/MavenScout-profiles-membership.md §3.2):
 // the labels, what's checked and how, and that consultants choose their
@@ -50,7 +50,7 @@ export function VerificationExplainer() {
         <p className="mt-1.5 flex gap-2.5">
           <Mic size={16} className="mt-0.5 shrink-0 text-brand-500" />
           <span>
-            {EVERY_EXPERT_VOUCHED_FOR ? 'Every expert has at least one. ' : ''}Referees confirm who they are with a
+            {TESTIMONIAL_COVERAGE_LINE ? `${TESTIMONIAL_COVERAGE_LINE} ` : ''}Referees confirm who they are with a
             code sent to their work email at a recognised organization. Experts choose their referees, so a testimonial
             shows someone real will vouch for them on record; it isn’t a reference check you ran yourself.
           </span>

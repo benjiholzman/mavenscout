@@ -211,6 +211,25 @@ for (const p of [...profiles].sort((a, b) => a.id.localeCompare(b.id))) {
 
 // ---- testimonials, Video Q&As, verification ---------------------------------------
 
+// Members without an audio testimonial (it's optional for Members, required
+// for Featured; config TESTIMONIAL_REQUIRED), so "Has audio testimonial" has
+// something to filter: about 40% of Members. Never Featured, never a profile
+// in the ranking baseline (named in docs/samples/expectations.json or in a
+// t*-*.mjs test-case file), never the demo consultant (Amara). Their authored
+// testimonial stays in the source; it's dropped here, after the audio clips
+// are dealt out, so everyone else keeps the same clip.
+const WITHOUT_TESTIMONIAL = new Set([
+  'james-okafor', 'rohan-mehta', 'tariq-hassan',
+  'demo-achta-mahamat-saleh', 'demo-aline-uwimana', 'demo-celso-mabunda', 'demo-edvania-kiala',
+  'demo-grace-wanjiru-kamau', 'demo-kwabena-owusu-ansah', 'demo-lerato-mokoena',
+  'demo-aigerim-toktogulova', 'demo-arjun-raghavan', 'demo-joana-ximenes-soares', 'demo-mehwish-tariq-khan',
+  'demo-rajan-shrestha', 'demo-sherzod-yuldashev', 'demo-sushila-gurung-thapa',
+  'demo-alvaro-choque-mendoza', 'demo-daniel-whitfield-okoro', 'demo-mariana-ospina-restrepo',
+  'demo-rafael-tavares-moura', 'demo-rosa-quispe-mamani', 'demo-yokasta-feliz-matos',
+  'demo-elif-kaya-demir', 'demo-jonas-weber-lindqvist', 'demo-kila-nangui', 'demo-losana-vakaloloma',
+  'demo-oksana-melnyk-hrytsenko', 'demo-thomas-ashworth', 'demo-youssef-ben-amor',
+])
+
 let clip = 0
 for (const p of profiles) {
   const prof = p.profile
@@ -263,6 +282,7 @@ for (const p of profiles) {
       _on: t.on,
     }
   })
+  if (WITHOUT_TESTIMONIAL.has(p.handle)) (p as any).testimonials = []
   ;(p as any).videos = (p.src.featured ? p.src.qna ?? [] : []).map((transcript: string, i: number) => ({
     id: uuid(`${p.handle}:qna:${i + 1}`),
     question: i + 1,
@@ -465,6 +485,12 @@ for (const tor of expectations.tors) {
   }
   tor.expected_extraction.expertise.forEach((e: string) => torItems.add(e))
   for (const h of [...tor.expected_top.map((e: any) => e.handle), ...tor.checks.flatMap((c: any) => [c.handle, c.other])]) if (h) named.add(h)
+}
+for (const h of WITHOUT_TESTIMONIAL) {
+  const p = profiles.find((x) => x.handle === h)
+  if (!p) errors.push(`WITHOUT_TESTIMONIAL: no profile ${h}`)
+  else if (p.profile.is_premium || named.has(h) || /^t\d/.test(p.src._file) || p.handle === 'amara-diallo')
+    err(p, 'WITHOUT_TESTIMONIAL: Featured, baseline test case or the demo consultant')
 }
 for (const p of profiles) {
   const old = before[p.handle]

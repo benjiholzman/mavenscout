@@ -41,17 +41,29 @@ pre-check (the referee volume flag doesn't hold it). The consultant sends the
 link personally. The referee confirms their institutional email with a code on
 `/testimonial/:token`, reviews the details, records (AAC/MP4 preferred; WebM is
 converted to WAV on the device, `lib/audioFormat.ts`, so every browser plays it),
-consents and submits; the consultant publishes. The required testimonial (the
-only published one on an employer entry) can only be replaced; others can be
-removed; the referee can withdraw at any time on `/testimonial/withdraw/:token`,
-which starts a 30-day grace period if it was the required one (`isListed` drops
-the profile when it lapses). Every step writes `testimonial_events`.
+consents and submits; the consultant publishes. Testimonials are **required for
+Featured Members and optional for Members** (`TESTIMONIAL_REQUIRED` in
+`src/lib/config.ts`: `{ member: false, featured: true }`). A Featured Member's
+required testimonial (their only published one on an employer entry) can only be
+replaced; everything else, including a Member's one testimonial, can be removed;
+the referee can withdraw at any time on `/testimonial/withdraw/:token`, which
+starts a 30-day grace period if it was the required one (`isListed` drops the
+profile when it lapses). Every step writes `testimonial_events`.
 Transcripts never feed ranking. A published employer-entry testimonial is a
-profile minimum (`lib/completeness.ts`) for each level that
-`TESTIMONIAL_REQUIRED` in `src/lib/config.ts` marks (both, today); the same
-setting drives the replace-only rule, the grace period and the listing check
-(`testimonialRequired` in `lib/testimonials/rules.ts`), and the "every expert is
-vouched for" copy lives in `lib/testimonials/copy.ts`.
+profile minimum (`lib/completeness.ts`) for each level that `TESTIMONIAL_REQUIRED`
+marks; the same setting drives Submit, admin Approve, the replace-only rule, the
+grace period and the listing check (`testimonialRequired` in
+`lib/testimonials/rules.ts`). It follows the level *chosen* (`is_premium`), not
+active Featured status, so it reads the same in every loader (the directory, the
+admin queue and the lifecycle functions don't all load Video Q&A status), and a
+listed Member can't switch to Featured until a testimonial is published
+(`MembershipSection`), so a listed Featured Member always has one. Members stay
+capped at 1 with the upgrade prompt for more. Everything we promise about
+verification and testimonials (directory header, About, the verification
+explainer, manager sign-up, billing, the referee page and request message) lives
+in `lib/testimonials/copy.ts` and follows the settings: today it says identity and
+credentials are checked for everyone, and testimonials are on every Featured
+Member and many Members.
 `TESTIMONIAL_DEADLINE_DAYS` (unset by default) lets a verified profile be approved
 without its testimonial and gives it that many days to publish one, using the same
 `testimonial_grace_until` column as the withdrawal grace period; while it's set the
@@ -371,7 +383,7 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   `scripts/demo-seed/profiles/*.mjs` (edit those, never the SQL). The build validates
   every profile with the app's own rules before writing anything: completeness
   (bio, 3 Core / 5 Strong / ≤10 Working, languages, portfolio per level, the employer
-  testimonial), verification labels, testimonial confirmation lines and referee email
+  testimonial where the level requires it), verification labels, testimonial confirmation lines and referee email
   rules, Featured status and the listing rule. A baseline guard keeps each profile's
   role in `docs/samples/expectations.json` (no ToR item added as a tag to an existing
   profile, Required languages stay Fluent, tie pairs identical). The parts are
@@ -379,10 +391,14 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   testimonials, Video Q&As and verification rows with fixed ids.
 - **What it contains:** 98 listed individuals (the 92 that existed, ids and handles
   kept, plus six for tor-05), all `is_demo`. 24 are Featured Members with all five
-  Video Q&A answers; every profile has a published testimonial on an employer entry
-  (Featured: several, some on portfolio items) from a fictional referee at a real
-  organization's domain, gender-matched randomuser.me photos (never repeated), and
-  verification checks so labels show. Demo states for admin: four certifications
+  Video Q&A answers. Every Featured Member and 44 of the 74 Members have a published
+  testimonial on an employer entry (Featured: several, some on portfolio items) from
+  a fictional referee at a real organization's domain; the other 30 Members (about
+  40%, `WITHOUT_TESTIMONIAL` in `scripts/demo-seed/build.ts`, never a baseline
+  test-case profile or Amara) have none, so "Has audio testimonial" has something
+  to filter. Their authored testimonial stays in the profile source, dropped at
+  build time. Every profile has gender-matched randomuser.me photos (never
+  repeated) and verification checks so labels show. Demo states for admin: four certifications
   Pending check (credential ID, in the queue), two with link-only evidence awaiting
   review, one profile in a re-check window (a new 2026 employer not yet checked). The
   23 firm profiles are untouched (hidden, `FIRMS_ENABLED = false`).

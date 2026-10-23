@@ -9,7 +9,7 @@
 
 - **Hiring managers are free.** Consultants pay to be listed. Two membership levels: **Member** and **Featured Member**.
 - **Everyone listed is verified:** identity, most recent employer, most recent degree, every certification. There is no "Verified" badge, because everyone has it.
-- **Everyone has at least one audio testimonial** from a referee whose identity is confirmed through their institutional email. This is MavenScout's core trust signal, and the referee flow doubles as the main way hiring managers discover the site.
+- **Audio testimonials:** required for Featured Members, optional for Members (amended October 23, 2026; config `TESTIMONIAL_REQUIRED`). Every Featured Member, and many Members, has at least one from a referee whose identity is confirmed through their institutional email. Testimonials are MavenScout's strongest trust signal on top of verification, and the referee flow doubles as the main way hiring managers discover the site. "Has audio testimonial" is a filter / Required row, never a scored preference.
 - **Individuals only.** Firm listings are hidden behind a setting; firms take part as hiring organizations.
 - **Reputation is left to hiring managers** (their own interviews and reference checks). MavenScout verifies claims; it does not judge quality.
 - **Featured Member** buys richer content and browse placement, never ranking position.
@@ -33,7 +33,7 @@
 
 - Paid membership (prices and trials are commercial settings, §12).
 - Full verification (§3).
-- At least 1 audio testimonial, attached to an employer entry (§4).
+- Audio testimonials attached to employer entries (§4): optional for Members, at least 1 required for Featured Members (§2.2).
 - Expertise: 3 Core / 5 Strong / up to 10 Working knowledge, from one list (§6).
 - Identical flip-card faces: front, expertise, 3 portfolio faces, plus the Match face when ranked.
 - Ranking is merit-only; membership level never affects rank.
@@ -45,7 +45,7 @@
 |---|---|---|
 | Price | Base membership fee | Higher fee |
 | Portfolio items | Exactly 3 | 3 to 10 |
-| Audio testimonials | Exactly 1, on an employer entry | One per entry, on any employer entry or portfolio item. At least one on an employer entry |
+| Audio testimonials | Optional: up to 1, on an employer entry | Required: at least 1 on an employer entry. One per entry, on any employer entry or portfolio item |
 | Video Q&As | None | All 5 standard questions, required |
 | Video Q&A tab on profile | No | Yes |
 | Social/account links | 2 | 5 |
@@ -53,7 +53,7 @@
 | Placement while browsing (no ranking active) | Normal | Shown first |
 | Card treatment | Standard | "Featured" badge + gold border |
 | Effect on AI ranking | None | None |
-| Activation | Listed once verified and the testimonial is published | Lists as a Member immediately; Featured status (and the higher fee) start once all 5 videos are in |
+| Activation | Listed once verified | Needs a published employer testimonial to be listed (or, for a listed Member, to switch to Featured); lists as a Member until all 5 videos are in, then Featured status (and the higher fee) start |
 
 - Rename throughout the UI: "Standard" → **Member**, "Premium" → **Featured Member**. Internal field names (`is_premium`) may stay.
 - **Removed:** the general "Tell us about yourself" intro video (all tiers), the Video Intro flip-card face, the separate Audio Testimonials tab, the "Verified" badge, the "Verified only" filter, and the Premium evidence-upload application.
@@ -83,7 +83,7 @@
 
 ### 3.2 What managers are told
 
-One clear statement in the directory header, the About page and the manager sign-up: *"Every expert on MavenScout has had their identity, most recent employer, most recent degree and certifications checked, and has been vouched for on record by someone they worked with."* Plus a short "What verification means" explainer covering the labels and the fact that consultants choose their referees.
+One clear statement in the directory header, the About page and the manager sign-up: *"Every expert on MavenScout has had their identity, most recent employer, most recent degree and certifications checked. Every Featured Member, and many Members, also has an audio testimonial on record from someone they worked with."* (While testimonials were required for everyone it ended "…and has been vouched for on record by someone they worked with"; the wording follows `TESTIMONIAL_REQUIRED`, in `src/lib/testimonials/copy.ts`.) Plus a short "What verification means" explainer covering the labels and the fact that consultants choose their referees.
 
 ### 3.3 Build scope
 
@@ -95,8 +95,8 @@ The ID/selfie provider and the AI review are **placeholders in this build** (cle
 
 ### 4.1 Rules
 
-- **Every listed expert needs at least 1**, attached to an **employer entry** (current or previous employer), never only to a portfolio item.
-- **Members:** exactly 1. After it exists, "Add audio testimonial" on other entries shows an upgrade prompt ("Add more testimonials as a Featured Member").
+- **Featured Members need at least 1** to be listed, attached to an **employer entry** (current or previous employer), never only to a portfolio item. The requirement follows the level chosen, so a Featured Member still recording Video Q&As already needs it, and a listed Member publishes one before switching to Featured.
+- **Members:** optional, at most 1, on an employer entry. A Member is listed without one and can remove theirs freely. After one exists, "Add audio testimonial" on other entries shows an upgrade prompt ("Add more testimonials as a Featured Member").
 - **Featured Members:** one per entry, on any employer entry or portfolio item.
 - **Audio required.** No written-reference exception in v1.
 - **Referee:** someone who supervised or contracted the consultant. Ideally within the last 5 years (guidance, not a hard rule).
@@ -137,10 +137,10 @@ The ID/selfie provider and the AI review are **placeholders in this build** (cle
 
 ### 4.5 Removing, replacing, withdrawing
 
-- **The required testimonial can only be replaced,** never just removed: the new one must be live before the old one comes down.
-- **Featured Members' extra testimonials can be removed freely.**
+- **The required testimonial can only be replaced,** never just removed: the new one must be live before the old one comes down. Only Featured Members have a required one (a Featured Member's only published employer testimonial).
+- **Members' testimonials and Featured Members' extra testimonials can be removed freely.**
 - **No notification to the referee on removal.** Removal deletes the recording (keep only the audit record).
-- **Referee withdrawal:** possible at any time via their link. The consultant is notified; if it was the required testimonial, they get a grace period (e.g. 30 days) to replace it before the profile is unlisted.
+- **Referee withdrawal:** possible at any time via their link. The consultant is notified; if it was the required testimonial (Featured Members), they get a grace period (e.g. 30 days) to replace it before the profile is unlisted. A Member's withdrawn testimonial just comes off the profile.
 
 ### 4.6 Integrity rules
 
@@ -213,7 +213,7 @@ Accepted residual risk: collusion by a real referee. Their verified identity is 
 | Languages | 1 | 10 |
 | Expertise | 3 Core + 5 Strong | + up to 10 Working knowledge |
 | Portfolio items | 3 | 3 (Member) / 10 (Featured) |
-| Audio testimonials | 1 | 1 (Member) / one per entry (Featured) |
+| Audio testimonials | 0 (Member) / 1 on an employer entry (Featured) | 1 (Member) / one per entry (Featured) |
 | Video Q&As | 0 (Member) / 5 (Featured) | 0 / 5 |
 | Location, availability | Required | — |
 
@@ -258,7 +258,7 @@ One table used everywhere an organization appears:
 
 ## 10. Onboarding sequence (consultant)
 
-Create account → build profile (bio, work history, education, certifications, expertise tiers, portfolio, availability, location, languages) → choose Member or Featured Member → pay → verification (§3) → request testimonial (§4) → listed when verification passes and the required testimonial is published. Featured Members record 5 videos; Featured status activates when all are in.
+Create account → build profile (bio, work history, education, certifications, expertise tiers, portfolio, availability, location, languages) → choose Member or Featured Member → pay → verification (§3) → request testimonial (§4; optional for Members) → listed when verification passes and, for Featured Members, the required testimonial is published. Featured Members record 5 videos; Featured status activates when all are in.
 
 A progress checklist shows what's done and what's waiting (e.g. "Testimonial: waiting for Dr. Bello").
 

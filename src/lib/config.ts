@@ -44,7 +44,7 @@ export const MEMBERSHIP_LIMITS = {
     portfolio: { min: 3, max: 3 },
     socialLinks: 2,
     customDomain: false,
-    // Exactly 1, on an employer entry (spec §2.2, §4.1).
+    // At most 1, on an employer entry (spec §2.2, §4.1).
     testimonials: { total: 1, onPortfolio: false },
   },
   featured: {
@@ -69,10 +69,11 @@ export const PORTFOLIO_FIELD_LIMITS = {
  *  employer entry to be listed (spec §2.1, §4.1). Read through
  *  lib/testimonials/rules testimonialRequired by the completeness rule (the
  *  editor panel, Submit and admin Approve), the replace-only rule, the
- *  withdrawal grace period and the listing check; the "vouched for" copy
- *  follows it (lib/testimonials/copy). TUNABLE. */
+ *  withdrawal grace period, the listing check and the switch to Featured;
+ *  the "vouched for" copy follows it (lib/testimonials/copy). Members may
+ *  have one but don't need it. TUNABLE. */
 export const TESTIMONIAL_REQUIRED: Record<'member' | 'featured', boolean> = {
-  member: true,
+  member: false,
   featured: true,
 }
 

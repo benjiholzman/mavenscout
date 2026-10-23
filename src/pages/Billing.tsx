@@ -5,7 +5,7 @@ import { useEditorProfile } from '../hooks/useEditorProfile'
 import { fmtDate } from '../lib/dates'
 import { isFeaturedPending, MEMBERSHIP_LABELS, membershipLevel, type MembershipLevel } from '../lib/membership'
 import { useSession } from '../lib/session'
-import { TESTIMONIAL_REQUIREMENT_LINE } from '../lib/testimonials/copy'
+import { TESTIMONIAL_MATRIX, TESTIMONIAL_REQUIREMENT_LINE } from '../lib/testimonials/copy'
 import type { SubscriptionStatus } from '../types/db'
 
 // /billing (PRD 7.9b; levels per profiles-membership §2) — SCAFFOLD: no live
@@ -24,7 +24,7 @@ const PRICES: Record<MembershipLevel, { month: string; amount: string }> = {
 /** Spec §2.2. Membership never changes AI rank. */
 const MATRIX: { label: string; member: string | boolean; featured: string | boolean }[] = [
   { label: 'Portfolio items', member: 'Exactly 3', featured: '3 to 10' },
-  { label: 'Audio testimonials', member: '1, on an employer entry', featured: 'One per entry or project' },
+  { label: 'Audio testimonials', ...TESTIMONIAL_MATRIX },
   { label: 'Video Q&As (all 5 standard questions)', member: false, featured: 'Required' },
   { label: 'Video Q&A tab on your profile', member: false, featured: true },
   { label: 'Social / account links', member: '2', featured: '5' },
