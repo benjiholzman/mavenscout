@@ -132,7 +132,7 @@ export function CandidateRow({
               await setListTag(entry.id, entry.list_tag === 'top_pick' ? 'favorite' : 'top_pick')
               onChanged()
             }}
-            title={entry.list_tag === 'top_pick' ? 'Demote to long list' : 'Promote to short list (Top Pick)'}
+            title={entry.list_tag === 'top_pick' ? 'Unstar (keep in Favorites)' : 'Star (short list)'}
             className="rounded-full p-1.5 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Star

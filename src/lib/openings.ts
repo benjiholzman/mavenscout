@@ -5,7 +5,13 @@ import type { CandidateNoteScore, Opening, OpeningEntry } from '../types/db'
 // Openings data operations (PRD 7.4). All writes act as the mocked demo
 // hiring manager; real per-user identity lands with the developer's auth pass.
 
-/** The always-present quick-save opening — created on demand if missing. */
+/** What the app calls an opening: the default quick-save opening is
+ *  "General" whatever name it was stored with (older rows say "Saved"). */
+export function openingDisplayName(o: Pick<Opening, 'name' | 'is_default'>): string {
+  return o.is_default ? 'General' : o.name
+}
+
+/** The always-present quick-save opening ("General") — created on demand if missing. */
 export async function ensureDefaultOpening(): Promise<Opening> {
   const { data } = await supabase
     .from('openings')
@@ -16,7 +22,7 @@ export async function ensureDefaultOpening(): Promise<Opening> {
   if (data) return data as Opening
   const { data: created, error } = await supabase
     .from('openings')
-    .insert({ hiring_manager_id: DEMO_HIRING_MANAGER_ID, name: 'Saved', is_default: true })
+    .insert({ hiring_manager_id: DEMO_HIRING_MANAGER_ID, name: 'General', is_default: true })
     .select('*')
     .single()
   if (error) throw new Error(error.message)

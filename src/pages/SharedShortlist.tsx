@@ -4,7 +4,7 @@ import { CandidateRow } from '../components/openings/CandidateRow'
 import { useOpeningDetail } from '../hooks/useOpeningData'
 import { RowsSkeleton } from '../components/ui/Skeletons'
 import { loadLatestForOpening, type RankingRecord } from '../lib/matching/persist'
-import { computeTeamStats } from '../lib/openings'
+import { computeTeamStats, openingDisplayName } from '../lib/openings'
 import { DEMO_HIRING_MANAGER_ID, useSession } from '../lib/session'
 import NotFound from './NotFound'
 
@@ -72,7 +72,7 @@ export default function SharedShortlist() {
       <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">
         Shared shortlist {canParticipate ? '· you can contribute' : '· view only'}
       </p>
-      <h1 className="mt-1 text-3xl font-semibold">{opening.name}</h1>
+      <h1 className="mt-1 text-3xl font-semibold">{openingDisplayName(opening)}</h1>
       {opening.description && <p className="mt-1.5 text-sm text-ink-soft">{opening.description}</p>}
       {!canParticipate && (
         <p className="mt-3 rounded-lg bg-paper px-3.5 py-2.5 text-xs text-ink-faint">

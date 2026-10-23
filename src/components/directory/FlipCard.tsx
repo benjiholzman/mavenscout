@@ -29,6 +29,7 @@ import { AvailabilityChip } from '../ui/AvailabilityChip'
 import { ButtonLink } from '../ui/Button'
 import { OrgLogo } from '../ui/OrgLogo'
 import { Tooltip } from '../ui/Tooltip'
+import { useSavedMarks } from '../openings/SaveCandidateFlow'
 import { CAREER_LEVEL_LABELS, FeaturedRibbon } from '../ui/badges'
 
 // Flip card (PRD 7.1; faces per profiles-membership §2.1): cycles through
@@ -69,6 +70,7 @@ export function FlipCard({
   /** Canonical organizations, for Sector Experience logos and dedupe. */
   orgs?: OrgIndex
 }) {
+  const marks = useSavedMarks(profile.id)
   const [{ index, direction }, setNav] = useState({ index: 0, direction: 1 })
   const reduceMotion = useReducedMotion()
   const touchStart = useRef<{ x: number; y: number } | null>(null)
@@ -197,24 +199,36 @@ export function FlipCard({
             <Tooltip
               content={
                 <>
-                  <b className="font-semibold">Favorite</b> · save to long list
+                  <b className="font-semibold">Favorites</b> · {marks.saved ? 'saved: change or remove' : 'save to a long list'}
                 </>
               }
             >
-              <SaveButton label="Save to long list (Favorite)" hover="hover:text-brand-600" onClick={() => onFavorite(profile)}>
-                <Bookmark size={18} />
+              <SaveButton
+                label={marks.saved ? 'Saved to Favorites: change or remove' : 'Save to Favorites (long list)'}
+                pressed={marks.saved}
+                hover="hover:text-brand-600"
+                on="text-brand-600"
+                onClick={() => onFavorite(profile)}
+              >
+                <Bookmark size={18} className={marks.saved ? 'fill-current' : ''} />
               </SaveButton>
             </Tooltip>
             <Tooltip
               align="center"
               content={
                 <>
-                  <b className="font-semibold">Top Pick</b> · save to short list
+                  <b className="font-semibold">Starred</b> · {marks.starred ? 'starred: change or unstar' : 'save to a short list'}
                 </>
               }
             >
-              <SaveButton label="Save as Top Pick (short list)" hover="hover:text-gold-500" onClick={() => onTopPick(profile)}>
-                <Star size={18} />
+              <SaveButton
+                label={marks.starred ? 'Starred: change or unstar' : 'Star (short list)'}
+                pressed={marks.starred}
+                hover="hover:text-gold-500"
+                on="text-gold-500"
+                onClick={() => onTopPick(profile)}
+              >
+                <Star size={18} className={marks.starred ? 'fill-current' : ''} />
               </SaveButton>
             </Tooltip>
           </div>
@@ -603,12 +617,17 @@ function NavArrow({ label, onClick, children }: { label: string; onClick: () => 
 
 function SaveButton({
   label,
+  pressed,
   hover,
+  on,
   onClick,
   children,
 }: {
   label: string
+  pressed: boolean
   hover: string
+  /** Colour while filled (saved / starred somewhere). */
+  on: string
   onClick: () => void
   children: ReactNode
 }) {
@@ -616,7 +635,8 @@ function SaveButton({
     <button
       onClick={onClick}
       aria-label={label}
-      className={`flex h-10 w-[34px] items-center justify-center rounded-full text-ink-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${hover}`}
+      aria-pressed={pressed}
+      className={`flex h-10 w-[34px] items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${pressed ? on : 'text-ink-faint'} ${hover}`}
     >
       {children}
     </button>

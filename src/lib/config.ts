@@ -17,6 +17,11 @@ export const FIRMS_ENABLED = false
  *  is treated as unknown. TUNABLE. */
 export const AVAILABILITY_FRESH_DAYS = 90
 
+/** Caps on the General list (the default quick-save opening, PRD 7.4):
+ *  Favorites counts everyone in it, Starred the short list within it.
+ *  Named openings have no caps. TUNABLE. */
+export const GENERAL_LIST_LIMITS = { favorites: 100, starred: 20 }
+
 /** Profile minimums and maximums (spec §7.1). Maximums are checked on every
  *  section save; minimums when a profile is submitted, and for listed
  *  profiles a save can't take a section below a minimum it meets (lib/

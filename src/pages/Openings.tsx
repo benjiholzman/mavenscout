@@ -5,7 +5,7 @@ import { Modal } from '../components/ui/Modal'
 import { RowsSkeleton } from '../components/ui/Skeletons'
 import { useOpeningsList } from '../hooks/useOpeningData'
 import { fmtDate } from '../lib/dates'
-import { clearOpening, createOpening, deleteOpening } from '../lib/openings'
+import { clearOpening, createOpening, deleteOpening, openingDisplayName } from '../lib/openings'
 import { useSession } from '../lib/session'
 import { ManagerStatusNotice } from '../components/account/ManagerStatusNotice'
 
@@ -65,7 +65,7 @@ export default function Openings() {
             </span>
             <div className="min-w-0 flex-1">
               <Link to={`/openings/${o.id}`} className="font-semibold hover:text-brand-700">
-                {o.name}
+                {openingDisplayName(o)}
                 {o.is_default && <span className="ml-2 text-xs font-normal text-ink-faint">quick-save list</span>}
               </Link>
               {o.description && <p className="truncate text-xs text-ink-soft">{o.description}</p>}

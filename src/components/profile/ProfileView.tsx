@@ -10,7 +10,7 @@ import { visibilityFor, type Surface } from '../../lib/visibility'
 import type { AudioTestimonial, PortfolioItem, Profile } from '../../types/db'
 import { TestimonialCard } from '../media/AudioPlayer'
 import { VideoPlayer } from '../media/VideoPlayer'
-import { useSaveCandidate } from '../openings/SaveCandidateFlow'
+import { useSaveCandidate, useSavedMarks } from '../openings/SaveCandidateFlow'
 import {
   AvailabilityBadges,
   CAREER_LEVEL_LABELS,
@@ -55,6 +55,7 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
   const [tab, setTab] = useState<TabId>('overview')
   const [contactOpen, setContactOpen] = useState(false)
   const { save, ui: saveUi } = useSaveCandidate()
+  const marks = useSavedMarks(profile.id)
 
   const isFirm = profile.consultant_type !== 'Individual'
   const resumeHref = resumeDownloadUrl(profile)
@@ -104,15 +105,21 @@ export function ProfileView({ data, surface }: { data: ProfileData; surface: Sur
               <>
                 <button
                   onClick={() => save(profile, 'favorite')}
-                  className="flex items-center gap-1.5 rounded-full border border-line bg-white px-3.5 py-1.5 text-sm font-medium text-ink-soft hover:border-ink-faint"
+                  aria-pressed={marks.saved}
+                  className={`flex items-center gap-1.5 rounded-full border bg-white px-3.5 py-1.5 text-sm font-medium hover:border-ink-faint ${
+                    marks.saved ? 'border-brand-400 text-brand-700' : 'border-line text-ink-soft'
+                  }`}
                 >
-                  <Bookmark size={15} /> Favorite
+                  <Bookmark size={15} className={marks.saved ? 'fill-current' : ''} /> {marks.saved ? 'Saved' : 'Save'}
                 </button>
                 <button
                   onClick={() => save(profile, 'top_pick')}
-                  className="flex items-center gap-1.5 rounded-full border border-line bg-white px-3.5 py-1.5 text-sm font-medium text-ink-soft hover:border-ink-faint"
+                  aria-pressed={marks.starred}
+                  className={`flex items-center gap-1.5 rounded-full border bg-white px-3.5 py-1.5 text-sm font-medium hover:border-ink-faint ${
+                    marks.starred ? 'border-gold-300 text-gold-800' : 'border-line text-ink-soft'
+                  }`}
                 >
-                  <Star size={15} /> Top Pick
+                  <Star size={15} className={marks.starred ? 'fill-gold-500 text-gold-500' : ''} /> {marks.starred ? 'Starred' : 'Star'}
                 </button>
               </>
             )}

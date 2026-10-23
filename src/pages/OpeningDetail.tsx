@@ -9,7 +9,7 @@ import { useOpeningDetail } from '../hooks/useOpeningData'
 import { fmtDate } from '../lib/dates'
 import { BAND_LABELS } from '../lib/matching/config'
 import { loadLatestForOpening, type RankingRecord } from '../lib/matching/persist'
-import { computeTeamStats } from '../lib/openings'
+import { computeTeamStats, openingDisplayName } from '../lib/openings'
 import { DEMO_HIRING_MANAGER_ID, useSession } from '../lib/session'
 import { ManagerStatusNotice } from '../components/account/ManagerStatusNotice'
 import { supabase } from '../lib/supabase'
@@ -88,7 +88,7 @@ export default function OpeningDetail() {
           <p className="text-xs text-ink-faint">
             <Link to="/openings" className="hover:text-ink">My openings</Link> /
           </p>
-          <h1 className="mt-0.5 text-3xl font-semibold">{opening.name}</h1>
+          <h1 className="mt-0.5 text-3xl font-semibold">{openingDisplayName(opening)}</h1>
           {opening.description && <p className="mt-1.5 max-w-2xl text-sm text-ink-soft">{opening.description}</p>}
           {opening.deadline && (
             <p className="mt-1.5 flex items-center gap-1 text-xs text-ink-faint">

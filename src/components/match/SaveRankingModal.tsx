@@ -1,6 +1,6 @@
 import { Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { createOpening } from '../../lib/openings'
+import { createOpening, openingDisplayName } from '../../lib/openings'
 import { attachToOpening } from '../../lib/matching/persist'
 import { DEMO_HIRING_MANAGER_ID } from '../../lib/session'
 import { supabase } from '../../lib/supabase'
@@ -67,7 +67,7 @@ export function SaveRankingModal({
             onClick={() => saveTo(o)}
             className="w-full rounded-lg border border-line px-3.5 py-2.5 text-left text-sm font-medium hover:border-brand-400 hover:bg-brand-50/50 disabled:opacity-50"
           >
-            {o.name}
+            {openingDisplayName(o)}
             {o.is_default && <span className="ml-2 text-xs font-normal text-ink-faint">quick-save list</span>}
           </button>
         ))}
