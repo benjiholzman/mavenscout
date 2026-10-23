@@ -7,6 +7,7 @@ import {
   AdditionalExperienceEditor,
   EducationEditor,
   WorkHistoryEditor,
+  type EntryTestimonialStatus,
 } from './HistoryEditors'
 
 /** Groups the three history editors with the firm-conditional rule (PRD 7.19):
@@ -20,6 +21,7 @@ export function HistoryEditorsBundle({
   onWork,
   onEducation,
   onAdditional,
+  testimonials,
 }: {
   isFirm: boolean
   workHistory: WorkHistoryEntry[]
@@ -29,6 +31,8 @@ export function HistoryEditorsBundle({
   onWork: (v: WorkHistoryEntry[]) => void
   onEducation: (v: EducationEntry[]) => void
   onAdditional: (v: AdditionalExperienceEntry[]) => void
+  /** Audio testimonial status per work-history entry id. */
+  testimonials?: Record<string, EntryTestimonialStatus>
 }) {
   return (
     <div className="space-y-7">
@@ -37,7 +41,7 @@ export function HistoryEditorsBundle({
           <h3 className="mb-2.5 text-sm font-semibold uppercase tracking-wide text-ink-faint">
             Work history
           </h3>
-          <WorkHistoryEditor value={workHistory} onChange={onWork} cap={caps.work} />
+          <WorkHistoryEditor value={workHistory} onChange={onWork} cap={caps.work} testimonials={testimonials} />
         </div>
       )}
       {!isFirm && (

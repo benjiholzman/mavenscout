@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react'
+import { Mic, Plus } from 'lucide-react'
 import { useOrganizations } from '../../hooks/useOrganizations'
 import { resolveOrganization } from '../../lib/organizations'
 import type {
@@ -57,22 +57,47 @@ export function YearFields({
   )
 }
 
+/** An entry's audio testimonial, mirrored from the testimonials section. */
+export interface EntryTestimonialStatus {
+  label: string
+  /** An active request or testimonial: the entry can't be removed. */
+  locked: boolean
+}
+
 export function WorkHistoryEditor({
   value,
   onChange,
   cap,
+  testimonials = {},
 }: {
   value: WorkHistoryEntry[]
   onChange: (next: WorkHistoryEntry[]) => void
   cap: number
+  /** By entry id. */
+  testimonials?: Record<string, EntryTestimonialStatus>
 }) {
   const orgs = useOrganizations()
   const update = (i: number, patch: Partial<WorkHistoryEntry>) =>
     onChange(value.map((e, j) => (j === i ? { ...e, ...patch } : e)))
   return (
     <div className="space-y-3">
-      {value.map((entry, i) => (
-        <ListItemCard key={i} onRemove={() => onChange(value.filter((_, j) => j !== i))}>
+      {value.map((entry, i) => {
+        const testimonial = entry.id ? testimonials[entry.id] : undefined
+        return (
+        <ListItemCard
+          key={entry.id ?? i}
+          onRemove={() => onChange(value.filter((_, j) => j !== i))}
+          removeBlockedReason={
+            testimonial?.locked
+              ? 'This entry has an audio testimonial or an open request. Cancel or replace it under Audio testimonials first.'
+              : null
+          }
+        >
+          {testimonial && (
+            <p className="flex items-center gap-1.5 text-xs text-ink-soft">
+              <Mic size={12} className="text-brand-500" /> Audio testimonial: {testimonial.label}
+            </p>
+          )}
           <FieldRow>
             <OrgPicker
               label="Organization"
@@ -113,14 +138,15 @@ export function WorkHistoryEditor({
             onChange={(v) => update(i, { description: v || null })}
           />
         </ListItemCard>
-      ))}
+        )
+      })}
       <AddButton
         label={`Add role (${value.length}/${cap})`}
         disabled={value.length >= cap}
         onClick={() =>
           onChange([
             ...value,
-            { organization: '', organization_id: null, role: '', start_year: new Date().getFullYear(), end_year: null, logo_url: null, description: null },
+            { id: crypto.randomUUID(), organization: '', organization_id: null, role: '', start_year: new Date().getFullYear(), end_year: null, logo_url: null, description: null },
           ])
         }
       />

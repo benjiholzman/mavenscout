@@ -21,18 +21,20 @@ export interface VisibilityRules {
   /** Video Q&As — the 5 standard-question videos, Featured Members only
    *  (profiles-membership §5). Never public; never on the personal site. */
   videoQnas: Visibility
-  /** Audio testimonials — tab AND portfolio-attached embeds. */
+  /** Audio testimonials, inline on employer entries and portfolio items
+   *  (profiles-membership §4.4), and the Overview summary line. */
   audioTestimonials: Visibility
   /** Favorite / Top Pick save actions. */
   saveActions: Visibility
-  /** Whether the Video Q&As / Audio Testimonials tabs exist at all. */
-  gatedTabsExist: boolean
+  /** Whether the Video Q&As tab can exist at all (Featured Members only).
+   *  There is no separate Audio Testimonials tab (spec §2.2). */
+  videoTabExists: boolean
 }
 
 export function visibilityFor(surface: Surface, isLoggedIn: boolean): VisibilityRules {
   if (surface === 'site') {
     // Public personal website: gated/richer material is stripped entirely —
-    // wherever attached (tab or portfolio item) — regardless of viewer.
+    // wherever attached (employer entry or portfolio item), regardless of viewer.
     return {
       coreContent: 'shown',
       availability: 'hidden',
@@ -40,7 +42,7 @@ export function visibilityFor(surface: Surface, isLoggedIn: boolean): Visibility
       videoQnas: 'hidden',
       audioTestimonials: 'hidden',
       saveActions: 'hidden',
-      gatedTabsExist: false,
+      videoTabExists: false,
     }
   }
   const gate: Visibility = isLoggedIn ? 'shown' : 'gated'
@@ -51,6 +53,6 @@ export function visibilityFor(surface: Surface, isLoggedIn: boolean): Visibility
     videoQnas: gate,
     audioTestimonials: gate,
     saveActions: gate,
-    gatedTabsExist: true,
+    videoTabExists: true,
   }
 }

@@ -40,8 +40,21 @@ export const EXPERTISE_TIER_LIMITS: Record<ExpertiseTier, { min: number; max: nu
  *  standard Video Q&A is in (lib/membership isFeatured); until then the
  *  profile is a Member everywhere. TUNABLE. */
 export const MEMBERSHIP_LIMITS = {
-  member: { portfolio: { min: 3, max: 3 }, socialLinks: 2, customDomain: false },
-  featured: { portfolio: { min: 3, max: 10 }, socialLinks: 5, customDomain: true },
+  member: {
+    portfolio: { min: 3, max: 3 },
+    socialLinks: 2,
+    customDomain: false,
+    // Exactly 1, on an employer entry (spec §2.2, §4.1).
+    testimonials: { total: 1, onPortfolio: false },
+  },
+  featured: {
+    portfolio: { min: 3, max: 10 },
+    socialLinks: 5,
+    customDomain: true,
+    // One per entry, any employer entry or portfolio item; at least one on an
+    // employer entry. `total: null` = no overall cap.
+    testimonials: { total: null, onPortfolio: true },
+  },
 } as const
 
 /** Portfolio item fields (spec §7.2). TUNABLE. */
@@ -50,4 +63,41 @@ export const PORTFOLIO_FIELD_LIMITS = {
   results: 500,
   images: 3,
   links: 3,
+} as const
+
+/** Whether each membership level needs a published audio testimonial on an
+ *  employer entry to be listed (spec §2.1, §4.1). Read through
+ *  lib/testimonials/rules testimonialRequired by the completeness rule (the
+ *  editor panel, Submit and admin Approve), the replace-only rule, the
+ *  withdrawal grace period and the listing check; the "vouched for" copy
+ *  follows it (lib/testimonials/copy). TUNABLE. */
+export const TESTIMONIAL_REQUIRED: Record<'member' | 'featured', boolean> = {
+  member: true,
+  featured: true,
+}
+
+/** Audio testimonial flow (spec §4.3, §4.5, §4.6). TUNABLE. */
+export const TESTIMONIAL_RULES = {
+  /** "Confirm it's me" code: single-use, valid this long. */
+  codeTtlMinutes: 10,
+  /** Wrong entries before the code is void (a new one can be sent). */
+  codeMaxAttempts: 5,
+  /** Codes one request can send in total. */
+  codeMaxSends: 3,
+  /** Recording cap, seconds (same as lib/media AUDIO_MAX_SECONDS). */
+  maxSeconds: 120,
+  /** After the required testimonial is withdrawn: days to replace it before
+   *  the profile is unlisted. */
+  graceDays: 30,
+  /** A referee with more testimonials than this in the window is flagged. */
+  volumeFlag: { max: 5, windowDays: 365 },
+  /** Organizations added to the list this recently go to admin review. */
+  newOrgDays: 90,
+  /** Shared mailboxes, never a person (local part before @). */
+  genericMailboxes: [
+    'info', 'admin', 'administrator', 'projects', 'project', 'contact', 'office', 'hello',
+    'team', 'hr', 'jobs', 'careers', 'support', 'mail', 'enquiries', 'enquiry', 'inquiries',
+    'inquiry', 'secretariat', 'reception', 'general', 'noreply', 'no-reply', 'communications',
+    'media', 'press', 'webmaster', 'postmaster', 'registry', 'procurement', 'finance',
+  ],
 } as const

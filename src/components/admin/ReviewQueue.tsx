@@ -5,10 +5,11 @@ import { completenessGaps, type Gap } from '../../lib/completeness'
 import { fmtDate } from '../../lib/dates'
 import { MEMBERSHIP_LABELS } from '../../lib/membership'
 import { supabase } from '../../lib/supabase'
-import type { Profile } from '../../types/db'
+import type { AudioTestimonial, Profile } from '../../types/db'
 
 // Admin review queue (PRD 7.10; profiles-membership §7.1): new profiles wait
-// here. Approve needs the profile submitted and every minimum met; Reject is
+// here. Approve needs the profile submitted and every minimum met, including
+// a published audio testimonial on an employer entry (spec §4.1); Reject is
 // always available. The membership level is the consultant's own choice.
 // Verification (identity, employer, degree, certifications) gets its own
 // queue in §13 step 4.
@@ -25,16 +26,20 @@ export function ReviewQueue() {
       .order('submitted_at', { ascending: true, nullsFirst: false })
     const rows = (data as Profile[]) ?? []
     const counts = new Map<string, number>()
+    const testimonials = new Map<string, AudioTestimonial[]>()
     if (rows.length) {
-      const { data: items } = await supabase
-        .from('portfolio_items')
-        .select('profile_id')
-        .in('profile_id', rows.map((p) => p.id))
+      const ids = rows.map((p) => p.id)
+      const [{ data: items }, { data: audio }] = await Promise.all([
+        supabase.from('portfolio_items').select('profile_id').in('profile_id', ids),
+        supabase.from('audio_testimonials').select('*').in('profile_id', ids),
+      ])
       for (const it of items ?? []) counts.set(it.profile_id, (counts.get(it.profile_id) ?? 0) + 1)
+      for (const t of (audio as AudioTestimonial[]) ?? [])
+        testimonials.set(t.profile_id, [...(testimonials.get(t.profile_id) ?? []), t])
     }
     // Featured status isn't known here, so portfolio counts use the Member
     // limits, the ones every new profile starts from.
-    setGaps(new Map(rows.map((p) => [p.id, completenessGaps({ profile: p, portfolioCount: counts.get(p.id) ?? 0 })])))
+    setGaps(new Map(rows.map((p) => [p.id, completenessGaps({ profile: p, portfolioCount: counts.get(p.id) ?? 0, testimonials: testimonials.get(p.id) ?? [] })])))
     setPending(rows)
   }
   useEffect(() => {

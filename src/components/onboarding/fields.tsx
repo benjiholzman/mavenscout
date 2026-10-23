@@ -91,16 +91,21 @@ export function FieldRow({ children }: { children: ReactNode }) {
 export function ListItemCard({
   children,
   onRemove,
+  removeBlockedReason,
 }: {
   children: ReactNode
   onRemove: () => void
+  /** When set, the entry can't be removed; shown as the button's tooltip. */
+  removeBlockedReason?: string | null
 }) {
   return (
     <div className="relative rounded-xl border border-line bg-paper/60 p-3.5">
       <button
         onClick={onRemove}
-        aria-label="Remove entry"
-        className="absolute right-2.5 top-2.5 rounded-full p-1 text-ink-faint hover:bg-white hover:text-red-600"
+        disabled={!!removeBlockedReason}
+        title={removeBlockedReason ?? undefined}
+        aria-label={removeBlockedReason ? `Can't remove: ${removeBlockedReason}` : 'Remove entry'}
+        className="absolute right-2.5 top-2.5 rounded-full p-1 text-ink-faint hover:bg-white hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink-faint"
       >
         ✕
       </button>

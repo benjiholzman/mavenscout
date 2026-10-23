@@ -17,7 +17,7 @@ const TABS = [
   ['organizations', 'Organizations'],
   ['tiers', 'Tiers & subscriptions'],
   ['questions', 'Video Q&A questions'],
-  ['moderation', 'Testimonial moderation'],
+  ['moderation', 'Testimonials'],
 ] as const
 
 type TabId = (typeof TABS)[number][0]

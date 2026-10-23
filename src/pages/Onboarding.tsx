@@ -1,3 +1,4 @@
+import { Mic } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AccreditationsEditor } from '../components/onboarding/AccreditationsEditor'
@@ -6,6 +7,7 @@ import { EditorSection } from '../components/onboarding/EditorSection'
 import { FieldRow, TextArea, TextField } from '../components/onboarding/fields'
 import { ExpertiseEditor } from '../components/onboarding/ExpertiseEditor'
 import { HistoryEditorsBundle } from '../components/onboarding/HistoryBundle'
+import type { EntryTestimonialStatus } from '../components/onboarding/HistoryEditors'
 import { LanguagesEditor } from '../components/onboarding/LanguagesEditor'
 import { PortfolioEditor } from '../components/onboarding/PortfolioEditor'
 import { ResumeUploader } from '../components/onboarding/ResumeUploader'
@@ -18,10 +20,12 @@ import { VideoRequestsInbox } from '../components/onboarding/VideoRequestsInbox'
 import { InfoTip } from '../components/ui/InfoTip'
 import { FIRM_THRESHOLD_NOTE } from '../components/ui/badges'
 import { useEditorProfile } from '../hooks/useEditorProfile'
+import { useTestimonials } from '../hooks/useTestimonials'
+import { isActive, STAGE_LABELS, testimonialStage } from '../lib/testimonials/rules'
 import { EXPERTISE_TIER_LIMITS, FIRMS_ENABLED, PROFILE_LIMITS } from '../lib/config'
 import { buildExpertiseIndex, expertiseTags } from '../lib/expertise'
 import { checkSectionSave, completenessGaps, isListedProfile, type RuleSection } from '../lib/completeness'
-import { membershipLimits, type VideoQnaStatus } from '../lib/membership'
+import { membershipLimits } from '../lib/membership'
 import { spokenLanguages } from '../lib/languages'
 import { useSession } from '../lib/session'
 import { supabase } from '../lib/supabase'
@@ -34,41 +38,28 @@ import {
   portfolioCap,
   socialLinkCap,
 } from '../lib/validation'
-import type { PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../types/db'
+import type { AudioTestimonial, Profile, TaxonomyCategory, TaxonomyItem } from '../types/db'
 
 // The consultant/firm profile editor (PRD 7.3) — one page, sections saving
 // independently, doubling as onboarding (new pending draft) and post-approval
-// editing (edits auto-publish, v1 rule). Media sections (Video Q&As, audio
-// testimonials) land in build step 6 and slot in as further sections here.
+// editing (edits auto-publish, v1 rule).
 
-/** Fetches the portfolio list once for the testimonial attach picker. */
-function MediaSections({
-  profileId,
-  draft,
-  onVideoStatus,
-}: {
-  profileId: string
-  draft: Profile
-  onVideoStatus: (status: VideoQnaStatus) => void
-}) {
-  const [portfolio, setPortfolio] = useState<PortfolioItem[] | null>(null)
-  useEffect(() => {
-    supabase
-      .from('portfolio_items')
-      .select('*')
-      .eq('profile_id', profileId)
-      .order('sort_order')
-      .then(({ data }) => setPortfolio((data as PortfolioItem[]) ?? []))
-  }, [profileId])
-  if (!portfolio) return <p className="text-sm text-ink-faint">Loading…</p>
-  return (
-    <>
-      <VideoQnASection profile={draft} onStatus={onVideoStatus} />
-      <div className="border-t border-line pt-6">
-        <TestimonialsSection profile={draft} portfolio={portfolio} />
-      </div>
-    </>
-  )
+/** Audio testimonial status per work-history entry id, for the history
+ *  editor's chips and its removal guard. */
+function entryTestimonialStatus(rows: AudioTestimonial[]): Record<string, EntryTestimonialStatus> {
+  const out: Record<string, EntryTestimonialStatus> = {}
+  for (const t of rows)
+    if (t.work_history_entry_id && isActive(t))
+      out[t.work_history_entry_id] = { label: STAGE_LABELS[testimonialStage(t)].toLowerCase(), locked: true }
+  return out
+}
+
+/** Entries saved before 015 (or by a seed re-run) get an id, so a testimonial
+ *  can point at them; it's saved with the next history save. */
+function withEntryIds(p: Profile): Profile {
+  return p.work_history.every((w) => w.id)
+    ? p
+    : { ...p, work_history: p.work_history.map((w) => (w.id ? w : { ...w, id: crypto.randomUUID() })) }
 }
 
 const SECTIONS = [
@@ -81,7 +72,8 @@ const SECTIONS = [
   ['history', 'History'],
   ['portfolio', 'Portfolio'],
   ['links', 'Résumé & links'],
-  ['media', 'Videos & audio'],
+  ['testimonials', 'Audio testimonials'],
+  ['media', 'Video Q&As'],
   ['tier', 'Membership & review'],
 ] as const
 
@@ -92,9 +84,10 @@ export default function Onboarding() {
   /** Saved portfolio items, for the portfolio count rules (spec §7.1). */
   const [portfolioCount, setPortfolioCount] = useState<number | null>(null)
   const [taxonomy, setTaxonomy] = useState<{ cats: TaxonomyCategory[]; items: TaxonomyItem[] } | null>(null)
+  const testimonials = useTestimonials(profile?.id)
 
   useEffect(() => {
-    if (profile && !draft) setDraft(profile)
+    if (profile && !draft) setDraft(withEntryIds(profile))
   }, [profile, draft])
 
   useEffect(() => {
@@ -129,7 +122,7 @@ export default function Onboarding() {
     )
 
   if (error) return <p className="mx-auto max-w-3xl px-4 py-16 text-red-600">{error}</p>
-  if (!draft || !taxonomy || !profile || portfolioCount === null)
+  if (!draft || !taxonomy || !profile || portfolioCount === null || !testimonials.rows)
     return <p className="mx-auto max-w-3xl px-4 py-16 text-ink-faint">Loading…</p>
 
   const isFirm = draft.consultant_type !== 'Individual'
@@ -137,11 +130,11 @@ export default function Onboarding() {
   // Minimums and maximums (lib/completeness), checked against the saved
   // profile: the panel lists the gaps, and each section save is refused if it
   // goes over a maximum or (listed profiles) takes a section below a minimum.
-  const saved = { profile, portfolioCount }
+  const saved = { profile, portfolioCount, testimonials: testimonials.rows }
   const gaps = completenessGaps(saved)
   const guarded = (section: RuleSection, patch: Partial<Profile>) =>
     Promise.resolve(
-      checkSectionSave(section, saved, { profile: { ...profile, ...patch }, portfolioCount }),
+      checkSectionSave(section, saved, { ...saved, profile: { ...profile, ...patch } }),
     ).then((err) => (err ? `${err}.` : save(patch)))
   const saveAndSet = async (patch: Partial<Profile>) => {
     const err = await save(patch)
@@ -193,6 +186,22 @@ export default function Onboarding() {
         <CompletenessPanel gaps={gaps} listed={isListedProfile(profile)} />
       </div>
 
+      {/* New testimonials to listen to and publish (spec §4.4; email mocked). */}
+      {testimonials.rows
+        .filter((t) => testimonialStage(t) === 'recorded')
+        .map((t) => (
+          <a
+            key={t.id}
+            href="#testimonials"
+            className="mt-4 flex items-center gap-2 rounded-card border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-ink-soft hover:border-brand-400"
+          >
+            <Mic size={16} className="shrink-0 text-brand-600" />
+            <span>
+              <strong className="text-ink">New testimonial from {t.reference_name}.</strong> Listen and publish it.
+            </span>
+          </a>
+        ))}
+
       {/* Async video requests from hiring orgs surface here (7.17 — email stubbed). */}
       <div className="mt-6">
         <VideoRequestsInbox profile={draft} />
@@ -222,6 +231,7 @@ export default function Onboarding() {
                 headline: draft.headline,
                 location: draft.location,
                 spoken_languages: spokenLanguages(draft),
+                email: draft.email?.trim().toLowerCase() || null,
                 photo_url: draft.photo_url,
                 cover_image_url: draft.cover_image_url,
               })
@@ -239,6 +249,13 @@ export default function Onboarding() {
                 maxLength={HEADLINE_MAX}
                 placeholder="M&E Specialist | Gender & Social Inclusion | USAID & FCDO Programs"
                 hint="Shown on your card front and profile hero"
+              />
+              <TextField
+                label="Account email"
+                type="email"
+                value={draft.email ?? ''}
+                onChange={(v) => set({ email: v || null })}
+                hint="Never shown on your profile. Referees can't use your own address or a domain you control."
               />
               <LanguagesEditor
                 value={spokenLanguages(draft)}
@@ -449,6 +466,7 @@ export default function Onboarding() {
               onWork={(v) => set({ work_history: v })}
               onEducation={(v) => set({ education_history: v })}
               onAdditional={(v) => set({ additional_experience: v })}
+              testimonials={entryTestimonialStatus(testimonials.rows)}
             />
           </EditorSection>
 
@@ -461,7 +479,7 @@ export default function Onboarding() {
               profileId={draft.id}
               cap={portfolioCap(draft)}
               checkCount={(before, after) =>
-                checkSectionSave('portfolio', { profile, portfolioCount: before }, { profile, portfolioCount: after })
+                checkSectionSave('portfolio', { ...saved, portfolioCount: before }, { ...saved, portfolioCount: after })
               }
               onSaved={setPortfolioCount}
             />
@@ -529,20 +547,34 @@ export default function Onboarding() {
           </EditorSection>
 
           <EditorSection
-            id="media"
-            title="Video Q&As & audio testimonials"
-            description="Record in the browser or upload (2-minute cap enforced before saving); video answers can also be a pasted link."
+            id="testimonials"
+            title="Audio testimonials"
+            description="Spoken references from people who supervised or contracted you, confirmed through their work email. Only signed-in hiring managers can listen; never on your public website."
           >
-            <div className="space-y-8">
-              <MediaSections
-                profileId={draft.id}
-                draft={draft}
-                onVideoStatus={(status) => {
-                  updateVideoQnas(status)
-                  setDraft((d) => (d ? { ...d, video_qnas_complete: status.complete } : d))
-                }}
-              />
-            </div>
+            <TestimonialsSection
+              profile={profile}
+              rows={testimonials.rows}
+              reload={testimonials.reload}
+              portfolioCount={portfolioCount}
+              onProfileChanged={(patch) => {
+                setProfile((p) => (p ? { ...p, ...patch } : p))
+                setDraft((d) => (d ? { ...d, ...patch } : d))
+              }}
+            />
+          </EditorSection>
+
+          <EditorSection
+            id="media"
+            title="Video Q&As"
+            description="Record in the browser or upload (2-minute cap enforced before saving), or paste a link."
+          >
+            <VideoQnASection
+              profile={draft}
+              onStatus={(status) => {
+                updateVideoQnas(status)
+                setDraft((d) => (d ? { ...d, video_qnas_complete: status.complete } : d))
+              }}
+            />
           </EditorSection>
 
           <EditorSection id="tier" title="Membership & review">

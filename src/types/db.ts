@@ -51,6 +51,9 @@ export interface Accreditation {
 }
 
 export interface WorkHistoryEntry {
+  /** Stable id (015) so a testimonial can point at the entry. Assigned by the
+   *  editor; entries saved before 015 got one in its backfill. */
+  id?: string
   organization: string // as shown; the canonical name when picked from the list
   organization_id?: string | null // set when picked from `organizations` (009); else resolved by name at read time
   role: string
@@ -113,6 +116,11 @@ export interface Profile {
   website_name: string | null
   website_url: string | null
   social_links: SocialLink[]
+  /** Account email (015), never shown. A referee can't use it (spec §4.6). */
+  email: string | null
+  /** Set when the required testimonial is withdrawn (015): replace it by then
+   *  or the profile is unlisted (spec §4.5). */
+  testimonial_grace_until: string | null
   is_premium: boolean
   verification_status: VerificationStatus
   custom_domain: string | null
@@ -227,22 +235,84 @@ export interface VideoResponse {
   created_at: string
 }
 
+export type TestimonialRelationship = 'supervisor' | 'client'
+export type PrecheckStatus = 'passed' | 'review' | 'cleared' | 'rejected'
+
+/** An integrity or pre-check finding that sends a request to admin review. */
+export interface ReviewFlag {
+  code: string
+  message: string
+}
+
+/** One audio testimonial and the request behind it (spec §4; 015). `status`
+ *  is publication only; the request lifecycle comes from the timestamps
+ *  (lib/testimonials/rules testimonialStage). */
 export interface AudioTestimonial {
   id: string
   profile_id: string
+  /** An employer entry (`work_history[].id`) — or, Featured only, a portfolio item. */
+  work_history_entry_id: string | null
   portfolio_item_id: string | null
+  /** Referee name and CURRENT title and organization. */
   reference_name: string | null
   reference_org: string | null
   reference_title: string | null
+  /** 'supervisor' | 'client' on requests made through the flow; free text on legacy rows. */
   relationship: string | null
+  referee_email: string | null
+  /** Organization of the email domain (canonical list). */
+  referee_org_id: string | null
+  period_start: number | null
+  period_end: number | null
+  context: string | null
+  /** Legacy rows only: month given. New rows use submitted_at. */
   reference_date: string | null
+  /** Legacy rows only. */
   verification_url: string | null
   audio_path: string | null
+  /** Never used in ranking (spec §4.1). */
   transcript: string | null
+  transcript_source: 'auto' | 'edited' | null
+  transcript_confirmed_at: string | null
   duration_seconds: number
   source: 'reference_direct' | 'candidate_upload'
+  /** The referee's link. Null while a request is held for review. */
   submission_token: string | null
   status: 'pending' | 'published' | 'removed'
+  precheck_status: PrecheckStatus | null
+  review_flags: ReviewFlag[]
+  replaces_id: string | null
+  code_hash: string | null
+  code_sent_at: string | null
+  code_expires_at: string | null
+  code_attempts: number
+  code_sends: number
+  confirm_nonce_hash: string | null
+  opened_at: string | null
+  confirmed_at: string | null
+  details_accepted_at: string | null
+  consent_at: string | null
+  /** Recording date. */
+  submitted_at: string | null
+  published_at: string | null
+  removed_at: string | null
+  withdrawn_at: string | null
+  withdraw_token: string | null
+  referee_manager_id: string | null
+  referee_opt_in: boolean
+  created_at: string
+}
+
+export type TestimonialActor = 'consultant' | 'referee' | 'admin' | 'manager' | 'system'
+
+/** Audit trail entry (spec §4.6 rule 7; 015). Mocked emails are events too. */
+export interface TestimonialEvent {
+  id: string
+  testimonial_id: string
+  event: string
+  actor: TestimonialActor
+  detail: Record<string, unknown>
+  fingerprint: Record<string, unknown> | null
   created_at: string
 }
 
@@ -251,6 +321,8 @@ export interface HiringManager {
   user_id: string | null
   name: string
   organization: string | null
+  email: string | null // 015
+  updates_opt_in: boolean // 015
   created_at: string
 }
 
