@@ -19,6 +19,9 @@ function toEmbedUrl(raw: string): string | null {
     if (host === 'youtu.be') return `https://www.youtube.com/embed${url.pathname}`
     if (host.endsWith('youtube.com') && url.pathname === '/watch' && url.searchParams.get('v'))
       return `https://www.youtube.com/embed/${url.searchParams.get('v')}`
+    // vimeo.com/123456 → the player URL.
+    if (host === 'vimeo.com' && /^\/\d+/.test(url.pathname))
+      return `https://player.vimeo.com/video${url.pathname.match(/^\/\d+/)![0]}`
     if (host === 'loom.com' && url.pathname.startsWith('/share/'))
       return raw.replace('/share/', '/embed/')
     return raw // already an embed-style URL
@@ -37,6 +40,11 @@ export function resolveVideo(video: VideoResponse): PlayableVideo | null {
     return embed ? { kind: 'embed', src: embed } : { kind: 'file', src: video.video_url }
   }
   return null
+}
+
+/** Embed URL for a portfolio video link (YouTube / Vimeo), or null. */
+export function videoLinkEmbed(raw: string): string | null {
+  return toEmbedUrl(raw)
 }
 
 export function audioPublicUrl(audioPath: string): string {

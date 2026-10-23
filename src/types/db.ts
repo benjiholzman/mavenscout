@@ -189,9 +189,14 @@ export interface PortfolioItem {
   role: string
   description: string
   results: string | null
+  /** LEGACY: the cover is images[0] (013). Kept in step on save until 014
+   *  drops it; read only through lib/portfolio's fallback. */
   cover_image: string | null
+  /** Up to 3, the first is the cover (spec §7.2). */
   images: { url: string; caption?: string | null }[]
   links: { label: string; url: string }[]
+  /** One YouTube or Vimeo link (013); replaces portfolio video uploads. */
+  video_url: string | null
   sort_order: number
 }
 

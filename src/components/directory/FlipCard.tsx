@@ -22,6 +22,7 @@ import { OutcomeIcon, ScoreEquation } from '../match/outcome'
 import { RankStrip } from '../match/RankStrip'
 import { EXPERTISE_TIER_LIMITS } from '../../lib/config'
 import { isFeatured } from '../../lib/membership'
+import { portfolioCover } from '../../lib/portfolio'
 import { expertiseTags, TIER_LABELS } from '../../lib/expertise'
 import type { ExpertiseTag, PortfolioItem, Profile } from '../../types/db'
 import { AvailabilityChip } from '../ui/AvailabilityChip'
@@ -549,13 +550,14 @@ function PortfolioFace({
 }) {
   const { item } = face
   const meta = fmtPortfolioMeta(item)
+  const cover = portfolioCover(item)
   return (
     <>
       <div
         className="relative h-[138px] shrink-0 bg-line bg-cover bg-center"
         style={
-          item.cover_image
-            ? { backgroundImage: `url(${item.cover_image})` }
+          cover
+            ? { backgroundImage: `url(${cover})` }
             : { backgroundImage: 'repeating-linear-gradient(135deg,#EEEAE3 0 8px,#F4F1EC 8px 16px)' }
         }
       >

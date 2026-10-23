@@ -2,7 +2,7 @@
 // per-platform social URL validation (lenient about www/country
 // subdomains/paths), handle slugs.
 
-import { EXPERTISE_TIER_LIMITS } from './config'
+import { EXPERTISE_TIER_LIMITS, PORTFOLIO_FIELD_LIMITS } from './config'
 import { TIER_LABELS, TIERS } from './expertise'
 import { isFeatured, membershipLimits } from './membership'
 import type { ExpertiseTag, Profile } from '../types/db'
@@ -12,7 +12,7 @@ export const ELIGIBILITY_MAX = 300
 export const WORK_HISTORY_CAP = 10
 export const EDUCATION_CAP = 5
 export const ADDITIONAL_CAP = 5
-export const PORTFOLIO_LINK_CAP = 3
+export const PORTFOLIO_LINK_CAP = PORTFOLIO_FIELD_LIMITS.links
 
 /** Caps by membership level (config MEMBERSHIP_LIMITS); Featured caps apply
  *  once Featured status is active (lib/membership). */

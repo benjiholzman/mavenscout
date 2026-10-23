@@ -33,3 +33,11 @@ export const MEMBERSHIP_LIMITS = {
   member: { portfolio: { min: 3, max: 3 }, socialLinks: 2, customDomain: false },
   featured: { portfolio: { min: 3, max: 10 }, socialLinks: 5, customDomain: true },
 } as const
+
+/** Portfolio item fields (spec §7.2). TUNABLE. */
+export const PORTFOLIO_FIELD_LIMITS = {
+  description: 1000,
+  results: 500,
+  images: 3,
+  links: 3,
+} as const

@@ -2,7 +2,8 @@ import { Bookmark, Download, ExternalLink, Globe, Mail, MapPin, Star } from 'luc
 import { useMemo, useState } from 'react'
 import type { ProfileData } from '../../hooks/useProfile'
 import { fmtPortfolioMeta } from '../../lib/dates'
-import { resumeDownloadUrl } from '../../lib/media'
+import { resumeDownloadUrl, videoLinkEmbed } from '../../lib/media'
+import { portfolioImages } from '../../lib/portfolio'
 import { useSession } from '../../lib/session'
 import { platformIcon } from '../../lib/socials'
 import { visibilityFor, type Surface } from '../../lib/visibility'
@@ -493,10 +494,10 @@ function PortfolioCard({
   attachedAudio: ProfileData['testimonials']
   rules: ReturnType<typeof visibilityFor>
 }) {
-  const images = item.cover_image
-    ? [{ url: item.cover_image }, ...item.images.filter((i) => i.url !== item.cover_image)]
-    : item.images
+  const images = portfolioImages(item)
   const meta = fmtPortfolioMeta(item)
+  // The video link is portfolio content (spec §7.2), shown on both surfaces.
+  const videoEmbed = item.video_url ? videoLinkEmbed(item.video_url) : null
   return (
     <article className="grid gap-6 rounded-card border border-line bg-white p-5 md:grid-cols-2">
       <div>
@@ -526,6 +527,18 @@ function PortfolioCard({
                 {l.label} <ExternalLink size={11} />
               </a>
             ))}
+          </div>
+        )}
+        {videoEmbed && (
+          <div className="mt-4">
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint">Project video</p>
+            <iframe
+              src={videoEmbed}
+              title={`${item.project_name} — project video`}
+              className="aspect-video w-full rounded-lg"
+              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
           </div>
         )}
         {/* Portfolio-attached testimonials follow the testimonial visibility
