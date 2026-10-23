@@ -11,14 +11,16 @@ import { PortfolioEditor } from '../components/onboarding/PortfolioEditor'
 import { ResumeUploader } from '../components/onboarding/ResumeUploader'
 import { SocialLinksEditor } from '../components/onboarding/SocialLinksEditor'
 import { TestimonialsSection } from '../components/onboarding/TestimonialsSection'
-import { TierSection } from '../components/onboarding/TierSection'
+import { CompletenessPanel } from '../components/onboarding/CompletenessPanel'
+import { MembershipSection } from '../components/onboarding/MembershipSection'
 import { VideoQnASection } from '../components/onboarding/VideoQnASection'
 import { VideoRequestsInbox } from '../components/onboarding/VideoRequestsInbox'
 import { InfoTip } from '../components/ui/InfoTip'
 import { FIRM_THRESHOLD_NOTE } from '../components/ui/badges'
 import { useEditorProfile } from '../hooks/useEditorProfile'
-import { EXPERTISE_TIER_LIMITS, FIRMS_ENABLED } from '../lib/config'
+import { EXPERTISE_TIER_LIMITS, FIRMS_ENABLED, PROFILE_LIMITS } from '../lib/config'
 import { buildExpertiseIndex, expertiseTags } from '../lib/expertise'
+import { checkSectionSave, completenessGaps, isListedProfile, type RuleSection } from '../lib/completeness'
 import { membershipLimits, type VideoQnaStatus } from '../lib/membership'
 import { spokenLanguages } from '../lib/languages'
 import { useSession } from '../lib/session'
@@ -31,7 +33,6 @@ import {
   WORK_HISTORY_CAP,
   portfolioCap,
   socialLinkCap,
-  expertiseTierError,
 } from '../lib/validation'
 import type { PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../types/db'
 
@@ -81,18 +82,29 @@ const SECTIONS = [
   ['portfolio', 'Portfolio'],
   ['links', 'Résumé & links'],
   ['media', 'Videos & audio'],
-  ['tier', 'Tier & review'],
+  ['tier', 'Membership & review'],
 ] as const
 
 export default function Onboarding() {
   const { role } = useSession()
-  const { profile, error, save, setProfile, updateVideoQnas } = useEditorProfile()
+  const { profile, error, save, setProfile, videoQnas, updateVideoQnas } = useEditorProfile()
   const [draft, setDraft] = useState<Profile | null>(null)
+  /** Saved portfolio items, for the portfolio count rules (spec §7.1). */
+  const [portfolioCount, setPortfolioCount] = useState<number | null>(null)
   const [taxonomy, setTaxonomy] = useState<{ cats: TaxonomyCategory[]; items: TaxonomyItem[] } | null>(null)
 
   useEffect(() => {
     if (profile && !draft) setDraft(profile)
   }, [profile, draft])
+
+  useEffect(() => {
+    if (!profile) return
+    supabase
+      .from('portfolio_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('profile_id', profile.id)
+      .then(({ count }) => setPortfolioCount(count ?? 0))
+  }, [profile?.id])
 
   useEffect(() => {
     Promise.all([
@@ -117,11 +129,25 @@ export default function Onboarding() {
     )
 
   if (error) return <p className="mx-auto max-w-3xl px-4 py-16 text-red-600">{error}</p>
-  if (!draft || !taxonomy)
+  if (!draft || !taxonomy || !profile || portfolioCount === null)
     return <p className="mx-auto max-w-3xl px-4 py-16 text-ink-faint">Loading…</p>
 
   const isFirm = draft.consultant_type !== 'Individual'
   const set = (patch: Partial<Profile>) => setDraft({ ...draft, ...patch })
+  // Minimums and maximums (lib/completeness), checked against the saved
+  // profile: the panel lists the gaps, and each section save is refused if it
+  // goes over a maximum or (listed profiles) takes a section below a minimum.
+  const saved = { profile, portfolioCount }
+  const gaps = completenessGaps(saved)
+  const guarded = (section: RuleSection, patch: Partial<Profile>) =>
+    Promise.resolve(
+      checkSectionSave(section, saved, { profile: { ...profile, ...patch }, portfolioCount }),
+    ).then((err) => (err ? `${err}.` : save(patch)))
+  const saveAndSet = async (patch: Partial<Profile>) => {
+    const err = await save(patch)
+    if (!err) set(patch)
+    return err
+  }
   const expertiseIndex = buildExpertiseIndex(taxonomy.cats, taxonomy.items)
   const workArrangements = taxonomy.items.filter((i) => {
     const cat = taxonomy.cats.find((c) => c.id === i.category_id)
@@ -153,7 +179,7 @@ export default function Onboarding() {
         </div>
         {draft.approval_status === 'pending' && (
           <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
-            Pending admin review
+            {profile.submitted_at ? 'Pending admin review' : 'Draft — not submitted yet'}
           </span>
         )}
         {draft.approval_status === 'rejected' && (
@@ -161,6 +187,10 @@ export default function Onboarding() {
             Not approved — contact support
           </span>
         )}
+      </div>
+
+      <div className="mt-6">
+        <CompletenessPanel gaps={gaps} listed={isListedProfile(profile)} />
       </div>
 
       {/* Async video requests from hiring orgs surface here (7.17 — email stubbed). */}
@@ -187,7 +217,7 @@ export default function Onboarding() {
             id="basics"
             title="Basics"
             onSave={() =>
-              save({
+              guarded('basics', {
                 name: draft.name,
                 headline: draft.headline,
                 location: draft.location,
@@ -301,7 +331,7 @@ export default function Onboarding() {
             id="bio"
             title="Bio & contracting eligibility"
             onSave={() =>
-              save({
+              guarded('bio', {
                 detailed_bio: draft.detailed_bio,
                 contracting_work_eligibility: draft.contracting_work_eligibility,
               })
@@ -311,6 +341,8 @@ export default function Onboarding() {
               <TextArea
                 label="Professional summary"
                 rows={7}
+                maxLength={PROFILE_LIMITS.bio.max}
+                hint={`${PROFILE_LIMITS.bio.min.toLocaleString()}–${PROFILE_LIMITS.bio.max.toLocaleString()} characters.`}
                 value={draft.detailed_bio ?? ''}
                 onChange={(v) => set({ detailed_bio: v || null })}
               />
@@ -329,9 +361,7 @@ export default function Onboarding() {
             id="tags"
             title="Expertise"
             description={`Self-attested — shown with a marker so managers know these are your claims. ${EXPERTISE_TIER_LIMITS.core.max} Core and ${EXPERTISE_TIER_LIMITS.strong.max} Strong keep specialists looking like specialists.`}
-            onSave={async () =>
-              expertiseTierError(expertiseTags(draft)) ?? save({ tiered_expertise: expertiseTags(draft) })
-            }
+            onSave={() => guarded('tags', { tiered_expertise: expertiseTags(draft) })}
           >
             <ExpertiseEditor
               value={expertiseTags(draft)}
@@ -343,7 +373,7 @@ export default function Onboarding() {
           <EditorSection
             id="accreditations"
             title="Accreditations & certifications"
-            onSave={() => save({ accreditations: draft.accreditations })}
+            onSave={() => guarded('accreditations', { accreditations: draft.accreditations })}
           >
             <AccreditationsEditor value={draft.accreditations} onChange={(v) => set({ accreditations: v })} />
           </EditorSection>
@@ -403,7 +433,7 @@ export default function Onboarding() {
                 : undefined
             }
             onSave={() =>
-              save({
+              guarded('history', {
                 work_history: draft.work_history,
                 education_history: draft.education_history,
                 additional_experience: draft.additional_experience,
@@ -427,7 +457,14 @@ export default function Onboarding() {
             title="Portfolio — featured projects"
             description="Showcased deliverables (not timeline roles). Saved separately from the rest of the profile."
           >
-            <PortfolioEditor profileId={draft.id} cap={portfolioCap(draft)} />
+            <PortfolioEditor
+              profileId={draft.id}
+              cap={portfolioCap(draft)}
+              checkCount={(before, after) =>
+                checkSectionSave('portfolio', { profile, portfolioCount: before }, { profile, portfolioCount: after })
+              }
+              onSaved={setPortfolioCount}
+            />
           </EditorSection>
 
           <EditorSection
@@ -508,13 +545,12 @@ export default function Onboarding() {
             </div>
           </EditorSection>
 
-          <EditorSection id="tier" title="Tier & review">
-            <TierSection
-              profile={draft}
-              onApplied={() => {
-                set({ verification_status: 'pending' })
-                setProfile((p) => (p ? { ...p, verification_status: 'pending' } : p))
-              }}
+          <EditorSection id="tier" title="Membership & review">
+            <MembershipSection
+              profile={profile}
+              gapCount={gaps.length}
+              videoQnas={videoQnas}
+              save={saveAndSet}
             />
           </EditorSection>
         </div>

@@ -1,16 +1,15 @@
-// Editor-side validation (PRD 7.3/7.13/7.14): expertise tier caps,
-// per-platform social URL validation (lenient about www/country
-// subdomains/paths), handle slugs.
+// Editor-side validation (PRD 7.3/7.13): caps, per-platform social URL
+// validation (lenient about www/country subdomains/paths), handle slugs.
+// Profile minimums and maximums live in lib/completeness.
 
-import { EXPERTISE_TIER_LIMITS, PORTFOLIO_FIELD_LIMITS } from './config'
-import { TIER_LABELS, TIERS } from './expertise'
+import { PORTFOLIO_FIELD_LIMITS, PROFILE_LIMITS } from './config'
 import { isFeatured, membershipLimits } from './membership'
-import type { ExpertiseTag, Profile } from '../types/db'
+import type { Profile } from '../types/db'
 
 export const HEADLINE_MAX = 120
 export const ELIGIBILITY_MAX = 300
-export const WORK_HISTORY_CAP = 10
-export const EDUCATION_CAP = 5
+export const WORK_HISTORY_CAP = PROFILE_LIMITS.workHistory.max
+export const EDUCATION_CAP = PROFILE_LIMITS.education.max
 export const ADDITIONAL_CAP = 5
 export const PORTFOLIO_LINK_CAP = PORTFOLIO_FIELD_LIMITS.links
 
@@ -25,18 +24,6 @@ export function socialLinkCap(p: Profile): number {
 /** Testimonial rules move to the testimonial flow (spec §4, §13 step 3). */
 export function audioTestimonialCap(p: Profile): number {
   return isFeatured(p) ? 10 : 1
-}
-
-/** Save-time check for the tier maximums (EXPERTISE_TIER_LIMITS) — catches
- *  over-cap data, which the editor's add/move guards can't prevent. The
- *  minimums are enforced with the new editor (profiles-membership §13 step 2). */
-export function expertiseTierError(tags: ExpertiseTag[]): string | null {
-  for (const tier of TIERS) {
-    const n = tags.filter((t) => t.tier === tier).length
-    const { max } = EXPERTISE_TIER_LIMITS[tier]
-    if (n > max) return `${TIER_LABELS[tier]}: pick at most ${max} (you have ${n}).`
-  }
-  return null
 }
 
 // ---- social link validation (PRD 7.13) -------------------------------------

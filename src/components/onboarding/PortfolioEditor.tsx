@@ -21,7 +21,20 @@ const inputCls = 'rounded-lg border border-line px-2.5 py-1.5 text-xs outline-no
 const yearCls =
   'mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand-400 disabled:bg-paper disabled:text-ink-faint'
 
-export function PortfolioEditor({ profileId, cap }: { profileId: string; cap: number }) {
+export function PortfolioEditor({
+  profileId,
+  cap,
+  checkCount,
+  onSaved,
+}: {
+  profileId: string
+  cap: number
+  /** Count rule for the save (lib/completeness): why going from `before` to
+   *  `after` saved projects is refused, or null. */
+  checkCount?: (before: number, after: number) => string | null
+  /** The saved project count, after each save. */
+  onSaved?: (count: number) => void
+}) {
   const [items, setItems] = useState<Draft[] | null>(null)
   /** Items as loaded, by id: seeded items already over a limit can still be
    *  edited as long as they don't get further over it. */
@@ -37,6 +50,7 @@ export function PortfolioEditor({ profileId, cap }: { profileId: string; cap: nu
     const rows = (data as PortfolioItem[]) ?? []
     setItems(rows)
     setLoaded(new Map(rows.map((r) => [r.id, r])))
+    return rows.length
   }
   useEffect(() => {
     load()
@@ -49,11 +63,20 @@ export function PortfolioEditor({ profileId, cap }: { profileId: string; cap: nu
     setItems(items.map((it, j) => (j === i ? { ...it, ...patch } : it)))
 
   const saveAll = async () => {
+    const countError = checkCount?.(loaded.size, items.length)
+    if (countError) return setStatus(`Error: ${countError}.`)
     for (const [i, item] of items.entries()) {
       const errors = portfolioItemErrors(item, item.id ? loaded.get(item.id) : undefined)
       if (errors.length) return setStatus(`Project ${i + 1}: ${errors.join('; ')}.`)
     }
     setStatus('Saving…')
+    // Removed projects are deleted on save, so the count rule covers them.
+    const kept = new Set(items.map((it) => it.id).filter(Boolean))
+    const removed = [...loaded.keys()].filter((id) => !kept.has(id))
+    if (removed.length) {
+      const { error } = await supabase.from('portfolio_items').delete().in('id', removed)
+      if (error) return setStatus(`Error: ${error.message}`)
+    }
     for (const [i, item] of items.entries()) {
       const row = {
         ...item,
@@ -68,15 +91,14 @@ export function PortfolioEditor({ profileId, cap }: { profileId: string; cap: nu
         : await supabase.from('portfolio_items').insert(row)
       if (error) return setStatus(`Error: ${error.message}`)
     }
-    await load()
+    onSaved?.(await load())
     setStatus('Saved')
     setTimeout(() => setStatus(null), 2000)
   }
 
-  const remove = async (i: number) => {
-    const item = items[i]
-    if (item.id) await supabase.from('portfolio_items').delete().eq('id', item.id)
+  const remove = (i: number) => {
     setItems(items.filter((_, j) => j !== i))
+    setStatus('Removed — save the portfolio to confirm.')
   }
 
   return (

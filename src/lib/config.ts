@@ -12,13 +12,23 @@ import type { ExpertiseTier } from '../types/db'
  *  firm listings can return. Direct /profile and /site links still open. */
 export const FIRMS_ENABLED = false
 
-/** Languages a profile can list (spec §7.1). TUNABLE. */
-export const LANGUAGE_MAX = 10
+/** Profile minimums and maximums (spec §7.1). Maximums are checked on every
+ *  section save; minimums when a profile is submitted, and for listed
+ *  profiles a save can't take a section below a minimum it meets (lib/
+ *  completeness). Expertise and portfolio limits are below. TUNABLE. */
+export const PROFILE_LIMITS = {
+  bio: { min: 300, max: 1500 }, // characters
+  workHistory: { min: 1, max: 10 },
+  education: { min: 1, max: 5 }, // each entry names its degree
+  certifications: { min: 0, max: 10 },
+  languages: { min: 1, max: 10 },
+} as const
+
+/** Languages a profile can list (spec §7.1). */
+export const LANGUAGE_MAX = PROFILE_LIMITS.languages.max
 
 /** Expertise tags per tier (spec §6, §7.1): exactly 3 Core and 5 Strong, up
- *  to 10 Working knowledge. The editor enforces the maximums; the minimums
- *  are shown as guidance until the new editor's minimums land (§13 step 2).
- *  TUNABLE. */
+ *  to 10 Working knowledge. Enforced like PROFILE_LIMITS. TUNABLE. */
 export const EXPERTISE_TIER_LIMITS: Record<ExpertiseTier, { min: number; max: number }> = {
   core: { min: 3, max: 3 },
   strong: { min: 5, max: 5 },

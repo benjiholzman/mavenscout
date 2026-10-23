@@ -1,4 +1,5 @@
 import { Plus } from 'lucide-react'
+import { PROFILE_LIMITS } from '../../lib/config'
 import type { Accreditation } from '../../types/db'
 import { FieldRow, ListItemCard, TextField } from './fields'
 
@@ -45,9 +46,10 @@ export function AccreditationsEditor({
         onClick={() =>
           onChange([...value, { name: '', issuing_organization: '', year: null, credential_id_or_url: null }])
         }
-        className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-ink-faint/50 px-3.5 py-1.5 text-sm font-medium text-ink-soft hover:border-brand-400 hover:text-brand-600"
+        disabled={value.length >= PROFILE_LIMITS.certifications.max}
+        className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-ink-faint/50 px-3.5 py-1.5 text-sm font-medium text-ink-soft hover:border-brand-400 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Plus size={14} /> Add credential
+        <Plus size={14} /> Add credential ({value.length}/{PROFILE_LIMITS.certifications.max})
       </button>
     </div>
   )

@@ -118,6 +118,8 @@ export interface Profile {
   custom_domain: string | null
   subscription_status: SubscriptionStatus
   approval_status: ApprovalStatus
+  /** Submitted for review (013); null = draft. Minimums are checked here. */
+  submitted_at: string | null
   is_demo: boolean // synthetic/demo data; purge with supabase/purge_demo.sql
   created_at: string
   updated_at: string
