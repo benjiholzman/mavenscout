@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { videoQnaStatus, type VideoQnaStatus } from '../lib/membership'
 import { getEditorProfileId } from '../lib/session'
 import { supabase } from '../lib/supabase'
 import type { Profile } from '../types/db'
@@ -10,18 +11,24 @@ export function useEditorProfile() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [videoQnas, setVideoQnas] = useState<VideoQnaStatus | null>(null)
 
   useEffect(() => {
-    supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', getEditorProfileId())
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error) setError(error.message)
-        else if (!data) setError('Editor profile not found — try the role switcher to reset.')
-        else setProfile(data as Profile)
-      })
+    const id = getEditorProfileId()
+    Promise.all([
+      supabase.from('profiles').select('*').eq('id', id).maybeSingle(),
+      supabase.from('video_responses').select('profile_id,kind,question_id').eq('profile_id', id).eq('kind', 'question'),
+      supabase.from('interview_questions').select('id').eq('active', true),
+    ]).then(([{ data, error }, videos, questions]) => {
+      if (error) setError(error.message)
+      else if (!data) setError('Editor profile not found — try the role switcher to reset.')
+      else {
+        // Featured status needs every standard Video Q&A (lib/membership).
+        const status = videoQnaStatus(data.id, videos.data ?? [], questions.data ?? [])
+        setVideoQnas(status)
+        setProfile({ ...(data as Profile), video_qnas_complete: status.complete })
+      }
+    })
   }, [])
 
   const save = useCallback(
@@ -42,5 +49,12 @@ export function useEditorProfile() {
     [profile],
   )
 
-  return { profile, error, saving, save, setProfile }
+  /** The Video Q&A editor reports changes here, so Featured status (and its
+   *  caps) follow the videos without a reload. */
+  const updateVideoQnas = useCallback((status: VideoQnaStatus) => {
+    setVideoQnas(status)
+    setProfile((p) => (p ? { ...p, video_qnas_complete: status.complete } : p))
+  }, [])
+
+  return { profile, error, saving, save, setProfile, videoQnas, updateVideoQnas }
 }

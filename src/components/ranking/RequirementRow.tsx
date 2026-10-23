@@ -6,12 +6,12 @@ import { EXPERTISE_KIND_LABELS, type ExpertiseIndex } from '../../lib/expertise'
 import { locationLabel, type EngagementType } from '../../lib/filters'
 import type { Level, Requirement, RequirementValueByKind } from '../../lib/matching/types'
 import { CAREER_LEVEL_SHORT, KIND_LABELS, ORG_SCOPE_LABELS } from '../../lib/requirements/labels'
-import { rowHasValue } from '../../lib/requirements/model'
+import { isRequiredOnly, rowHasValue } from '../../lib/requirements/model'
 import { MultiSelect, type OptionGroup } from '../ui/MultiSelect'
 import { OrgPicker } from '../ui/OrgPicker'
 import { Segmented } from '../ui/Segmented'
 import { MIN_PROFICIENCY_LABELS } from '../../lib/languages'
-import { LevelControl } from './LevelControl'
+import { LEVEL_LABELS, LevelControl } from './LevelControl'
 
 // One row of the requirements grid (match rework spec §3): label · value
 // picker · level control · source tag · remove. Every row can be removed —
@@ -93,7 +93,15 @@ export function RequirementRow({
       <ValuePicker row={row} options={options} onValue={onValue} requiredValues={requiredValues} />
 
       <div className="mt-2.5">
-        <LevelControl value={row.level} onChange={onLevel} rowLabel={title} />
+        {isRequiredOnly(row.kind) ? (
+          // Membership is a filter, never points (profiles-membership §2.2).
+          <p className="flex items-center gap-2 text-xs text-ink-faint">
+            <span className="rounded-full bg-ink px-2.5 py-1 font-medium text-white">{LEVEL_LABELS.must}</span>
+            Filter only: never adds points to a score.
+          </p>
+        ) : (
+          <LevelControl value={row.level} onChange={onLevel} rowLabel={title} />
+        )}
       </div>
 
       <RowNotes row={row} />
@@ -188,6 +196,12 @@ function ValuePicker({
       return (
         <p className="mt-1.5 text-xs text-ink-faint">
           Profiles that passed evidence-based vetting.
+        </p>
+      )
+    case 'video_qna':
+      return (
+        <p className="mt-1.5 text-xs text-ink-faint">
+          Featured Members who have answered every standard interview question on video.
         </p>
       )
   }

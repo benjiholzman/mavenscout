@@ -4,9 +4,9 @@ import { supabase } from '../../lib/supabase'
 import type { Profile } from '../../types/db'
 import { TextArea } from './fields'
 
-// Tier selection + Premium application (PRD 7.3/7.20). Premium is applied
-// for, not bought: 1-3 evidence items (file + explanation) go to admin
-// vetting; passing grants Premium features AND the Verified badge.
+// Membership level + Featured Member application (PRD 7.3/7.20; the
+// application is removed later in this branch, profiles-membership §2.2):
+// 1-3 evidence items (file + explanation) go to admin vetting.
 //
 // ⚠ EVIDENCE STORAGE IS STUBBED (PRD 7.20 security note): evidence files are
 // payslips/employment letters — the most sensitive data in the app. The file
@@ -35,10 +35,10 @@ export function TierSection({
       <div className="flex items-start gap-3 rounded-xl bg-brand-50 p-4">
         <ShieldCheck size={18} className="mt-0.5 shrink-0 text-brand-600" />
         <p className="text-sm text-ink-soft">
-          This profile is <strong>Premium</strong>
-          {profile.verification_status === 'verified' && ' and Verified'} — featured placement,
-          gold treatment, 5 standard-question videos, 10 audio testimonials, 10 portfolio items,
-          5 social links.
+          This profile is a <strong>Featured Member</strong>
+          {profile.verification_status === 'verified' && ' and Verified'} — shown first while
+          browsing, gold card, the 5 Video Q&As, up to 10 portfolio items, 5 social links and a
+          custom domain.
         </p>
       </div>
     )
@@ -46,8 +46,8 @@ export function TierSection({
   if (profile.verification_status === 'pending' || state === 'done')
     return (
       <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
-        Premium application submitted — an admin reviews your evidence and, if it passes
-        vetting, grants Premium features and the Verified badge. Check back after review
+        Featured Member application submitted — an admin reviews your evidence and, if it passes
+        vetting, grants Featured Member features and the Verified badge. Check back after review
         (or use the admin panel in this demo build).
       </div>
     )
@@ -89,22 +89,22 @@ export function TierSection({
     <div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-line p-4">
-          <p className="font-display font-semibold">Standard</p>
+          <p className="font-display font-semibold">Member</p>
           <p className="mt-1 text-xs text-ink-faint">Current tier</p>
           <ul className="mt-2 space-y-1 text-sm text-ink-soft">
-            <li>1 intro video · 1 audio testimonial</li>
+            <li>1 audio testimonial</li>
             <li>3 portfolio items · 2 social links</li>
           </ul>
         </div>
         <div className="rounded-xl border-2 border-gold-500 p-4">
           <p className="flex items-center gap-1.5 font-display font-semibold">
-            <Sparkles size={15} className="text-gold-500" /> Premium — apply with evidence
+            <Sparkles size={15} className="text-gold-500" /> Featured Member — apply with evidence
           </p>
           <p className="mt-1 text-xs text-ink-faint">Vetted, not just paid</p>
           <ul className="mt-2 space-y-1 text-sm text-ink-soft">
-            <li>Verified badge + featured placement</li>
-            <li>5 standard-question videos · 10 testimonials</li>
-            <li>10 portfolio items · 5 links · custom domain</li>
+            <li>Shown first while browsing · gold card</li>
+            <li>The 5 Video Q&As · more testimonials</li>
+            <li>Up to 10 portfolio items · 5 links · custom domain</li>
           </ul>
         </div>
       </div>
@@ -163,7 +163,7 @@ export function TierSection({
             disabled={state === 'submitting'}
             className="rounded-full bg-ink px-5 py-2 text-sm font-medium text-white hover:bg-ink/85 disabled:opacity-50"
           >
-            {state === 'submitting' ? 'Submitting…' : 'Apply for Premium'}
+            {state === 'submitting' ? 'Submitting…' : 'Apply as a Featured Member'}
           </button>
           {state === 'error' && <span className="text-sm text-red-600">{message}</span>}
         </div>

@@ -1,5 +1,6 @@
 import { expertiseTags, matchesExpertiseSelection, type ExpertiseIndex } from './expertise'
 import { speaks, spokenLanguages } from './languages'
+import { isFeatured } from './membership'
 import type { AvailabilityTrack, PortfolioItem, Proficiency, Profile } from '../types/db'
 
 // Directory filtering (PRD 7.1): AND across filters, OR within a multi-select
@@ -32,6 +33,9 @@ export interface FilterState {
   languageLevel: Proficiency
   availability: AvailabilityFilter | null
   verifiedOnly: boolean
+  /** Featured Members with every standard Video Q&A in (spec §2.2). A filter
+   *  / Required row only — never a scored preference. */
+  hasVideoQnas: boolean
   searchTerm: string
   searchMode: SearchMode
 }
@@ -47,6 +51,7 @@ export const EMPTY_FILTERS: FilterState = {
   languageLevel: 'working',
   availability: null,
   verifiedOnly: false,
+  hasVideoQnas: false,
   searchTerm: '',
   searchMode: 'names',
 }
@@ -61,6 +66,7 @@ export function hasActiveFilters(f: FilterState): boolean {
     f.languages.length > 0 ||
     f.availability !== null ||
     f.verifiedOnly ||
+    f.hasVideoQnas ||
     f.searchTerm.trim() !== ''
   )
 }
@@ -163,6 +169,7 @@ export function applyFilters(
     if (f.languages.length > 0 && speaks(p, f.languages, f.languageLevel).length === 0) return false
     if (f.availability && !matchesAvailability(p, f.availability)) return false
     if (f.verifiedOnly && p.verification_status !== 'verified') return false
+    if (f.hasVideoQnas && !isFeatured(p)) return false
     if (!matchesSearch(p, portfolioByProfile.get(p.id) ?? [], f.searchTerm, f.searchMode))
       return false
     return true

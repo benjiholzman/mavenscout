@@ -611,7 +611,7 @@ function VideosTab({
         ) : questionVideos.length === 0 ? (
           <p className="text-sm text-ink-faint">
             No standard-question videos yet.
-            {!data.profile.is_premium && ' (Available on Premium profiles.)'}
+            {!data.profile.is_premium && ' (A Featured Member benefit.)'}
           </p>
         ) : (
           <div className="space-y-6">

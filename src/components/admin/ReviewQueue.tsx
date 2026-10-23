@@ -5,8 +5,8 @@ import { supabase } from '../../lib/supabase'
 import type { Profile, VerificationEvidence } from '../../types/db'
 
 // Admin review queue (PRD 7.10/7.20): every submitted profile gets one of
-// three outcomes — rejected / approved-Standard / verified-Premium. Premium
-// applications (verification_status='pending') surface here too, with their
+// three outcomes — rejected / approved as a Member / verified as a Featured
+// Member. Featured applications (verification_status='pending') surface here too, with their
 // evidence (file paths are stubs — only explanations carry real content).
 
 export function ReviewQueue() {
@@ -69,7 +69,7 @@ export function ReviewQueue() {
         <Inbox size={24} className="text-ink-faint/60" />
         <p className="mt-3 text-sm font-medium text-ink-soft">All clear</p>
         <p className="mt-0.5 text-xs text-ink-faint">
-          New profile submissions and Premium applications land here for review.
+          New profile submissions and Featured Member applications land here for review.
         </p>
       </div>
     )
@@ -88,7 +88,7 @@ export function ReviewQueue() {
               </p>
               <p className="mt-0.5 text-sm text-ink-soft">{p.headline || '—'}</p>
               <p className="mt-1 text-xs text-ink-faint">
-                {p.approval_status === 'pending' ? 'New profile submission' : 'Premium application'}
+                {p.approval_status === 'pending' ? 'New profile submission' : 'Featured Member application'}
                 {' · '}
                 <Link to={`/profile/${p.handle}`} className="text-brand-600">
                   preview profile
@@ -106,13 +106,13 @@ export function ReviewQueue() {
                 onClick={() => decide(p, 'approved_standard')}
                 className="flex items-center gap-1 rounded-full border border-line px-3 py-1.5 text-xs font-medium text-ink-soft hover:border-ink-faint"
               >
-                <Check size={13} /> Approve — Standard
+                <Check size={13} /> Approve — Member
               </button>
               <button
                 onClick={() => decide(p, 'verified_premium')}
                 className="flex items-center gap-1 rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-white hover:bg-ink/85"
               >
-                <ShieldCheck size={13} className="text-gold-300" /> Verify — Premium
+                <ShieldCheck size={13} className="text-gold-300" /> Verify — Featured Member
               </button>
             </div>
           </div>

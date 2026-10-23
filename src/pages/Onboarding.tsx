@@ -19,6 +19,7 @@ import { FIRM_THRESHOLD_NOTE } from '../components/ui/badges'
 import { useEditorProfile } from '../hooks/useEditorProfile'
 import { EXPERTISE_TIER_LIMITS, FIRMS_ENABLED } from '../lib/config'
 import { buildExpertiseIndex, expertiseTags } from '../lib/expertise'
+import { membershipLimits } from '../lib/membership'
 import { spokenLanguages } from '../lib/languages'
 import { useSession } from '../lib/session'
 import { supabase } from '../lib/supabase'
@@ -419,7 +420,7 @@ export default function Onboarding() {
             title="Portfolio — featured projects"
             description="Showcased deliverables (not timeline roles). Saved separately from the rest of the profile."
           >
-            <PortfolioEditor profileId={draft.id} cap={portfolioCap(draft.is_premium)} />
+            <PortfolioEditor profileId={draft.id} cap={portfolioCap(draft)} />
           </EditorSection>
 
           <EditorSection
@@ -430,6 +431,8 @@ export default function Onboarding() {
                 website_name: draft.website_name,
                 website_url: draft.website_url,
                 social_links: draft.social_links,
+                // Custom domain is Featured only (spec §2.2).
+                ...(membershipLimits(draft).customDomain ? { custom_domain: draft.custom_domain } : {}),
               })
             }
           >
@@ -455,14 +458,27 @@ export default function Onboarding() {
                   placeholder="https://…"
                 />
               </FieldRow>
+              {membershipLimits(draft).customDomain ? (
+                <TextField
+                  label="Custom domain for your personal site"
+                  value={draft.custom_domain ?? ''}
+                  onChange={(v) => set({ custom_domain: v.trim() || null })}
+                  placeholder="www.yourname.com"
+                  hint="Demo build: saved, but the domain isn't connected yet (DNS setup comes with the developer pass). Your site keeps its Listed on MavenScout footer."
+                />
+              ) : (
+                <p className="rounded-lg bg-paper px-3.5 py-2.5 text-xs text-ink-faint">
+                  Custom domain for your personal site: a Featured Member benefit.
+                </p>
+              )}
               <div>
                 <p className="mb-1.5 text-sm font-medium">
-                  Social & account links ({draft.social_links.length}/{socialLinkCap(draft.is_premium)})
+                  Social & account links ({draft.social_links.length}/{socialLinkCap(draft)})
                 </p>
                 <SocialLinksEditor
                   value={draft.social_links}
                   onChange={(v) => set({ social_links: v })}
-                  cap={socialLinkCap(draft.is_premium)}
+                  cap={socialLinkCap(draft)}
                 />
               </div>
             </div>

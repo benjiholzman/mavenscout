@@ -30,7 +30,7 @@ export default {
           soft: '#EFEBE4', // in-card rules and dividers
           strong: '#D9D2C6', // card bottom-bar divider
         },
-        // Premium "Featured" gold treatment (PRD 7.8).
+        // Featured Member gold treatment (profiles-membership §2.2).
         gold: {
           300: '#E5C878',
           500: '#C9A227',

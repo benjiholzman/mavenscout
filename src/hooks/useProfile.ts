@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { withVideoQnaStatus } from '../lib/membership'
 import { supabase } from '../lib/supabase'
 import type {
   AudioTestimonial,
@@ -59,12 +60,15 @@ export function useProfile(handle: string | undefined) {
         portfolioRes.error ?? videosRes.error ?? testimonialsRes.error ?? questionsRes.error
       if (firstError) return setError(firstError.message)
 
+      const questions = questionsRes.data as InterviewQuestion[]
+      const videos = videosRes.data as VideoResponse[]
       setData({
-        profile: profile as Profile,
+        // Featured status needs every standard Video Q&A (lib/membership).
+        profile: withVideoQnaStatus([profile as Profile], videos, questions)[0],
         portfolio: portfolioRes.data as PortfolioItem[],
-        videos: videosRes.data as VideoResponse[],
+        videos,
         testimonials: testimonialsRes.data as AudioTestimonial[],
-        questions: questionsRes.data as InterviewQuestion[],
+        questions,
       })
     }
     load()

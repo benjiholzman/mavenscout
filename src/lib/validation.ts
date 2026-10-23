@@ -4,7 +4,8 @@
 
 import { EXPERTISE_TIER_LIMITS } from './config'
 import { TIER_LABELS, TIERS } from './expertise'
-import type { ExpertiseTag } from '../types/db'
+import { isFeatured, membershipLimits } from './membership'
+import type { ExpertiseTag, Profile } from '../types/db'
 
 export const HEADLINE_MAX = 120
 export const ELIGIBILITY_MAX = 300
@@ -13,14 +14,17 @@ export const EDUCATION_CAP = 5
 export const ADDITIONAL_CAP = 5
 export const PORTFOLIO_LINK_CAP = 3
 
-export function portfolioCap(isPremium: boolean): number {
-  return isPremium ? 10 : 3
+/** Caps by membership level (config MEMBERSHIP_LIMITS); Featured caps apply
+ *  once Featured status is active (lib/membership). */
+export function portfolioCap(p: Profile): number {
+  return membershipLimits(p).portfolio.max
 }
-export function socialLinkCap(isPremium: boolean): number {
-  return isPremium ? 5 : 2
+export function socialLinkCap(p: Profile): number {
+  return membershipLimits(p).socialLinks
 }
-export function audioTestimonialCap(isPremium: boolean): number {
-  return isPremium ? 10 : 1
+/** Testimonial rules move to the testimonial flow (spec §4, §13 step 3). */
+export function audioTestimonialCap(p: Profile): number {
+  return isFeatured(p) ? 10 : 1
 }
 
 /** Save-time check for the tier maximums (EXPERTISE_TIER_LIMITS) — catches

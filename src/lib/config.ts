@@ -24,3 +24,12 @@ export const EXPERTISE_TIER_LIMITS: Record<ExpertiseTier, { min: number; max: nu
   strong: { min: 5, max: 5 },
   working: { min: 0, max: 10 },
 }
+
+/** What each membership level allows (spec §2.2, §7.1). `featured` applies
+ *  once Featured status is active — the member chose Featured and every
+ *  standard Video Q&A is in (lib/membership isFeatured); until then the
+ *  profile is a Member everywhere. TUNABLE. */
+export const MEMBERSHIP_LIMITS = {
+  member: { portfolio: { min: 3, max: 3 }, socialLinks: 2, customDomain: false },
+  featured: { portfolio: { min: 3, max: 10 }, socialLinks: 5, customDomain: true },
+} as const

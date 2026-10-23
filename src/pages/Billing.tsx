@@ -3,27 +3,43 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useEditorProfile } from '../hooks/useEditorProfile'
 import { fmtDate } from '../lib/dates'
+import { isFeaturedPending, MEMBERSHIP_LABELS, membershipLevel, type MembershipLevel } from '../lib/membership'
 import { useSession } from '../lib/session'
 import type { SubscriptionStatus } from '../types/db'
 
-// /billing (PRD 7.8/7.9b) — SCAFFOLD: no live Stripe. The tier display and
-// pause/cancel/resume drive `subscription_status` directly for demo realism
-// (cancel → profile unpublishes; resume → republishes) since that field
-// already gates visibility app-wide. The Subscribe action is deliberately
-// non-functional; real Stripe Checkout + webhook sync is the developer's
-// integration, after which these buttons stop writing the field directly.
+// /billing (PRD 7.9b; levels per profiles-membership §2) — SCAFFOLD: no live
+// Stripe. Pause/cancel/resume drive `subscription_status` directly for demo
+// realism (cancel → profile unpublishes; resume → republishes) since that
+// field already gates visibility app-wide. The Subscribe action is
+// deliberately non-functional; real Stripe Checkout + webhook sync is the
+// developer's integration, after which these buttons stop writing the field
+// directly. Prices are sample values (commercial settings, spec §12).
 
-const MATRIX: { label: string; standard: string | boolean; premium: string | boolean }[] = [
-  { label: 'Video Q&A — general intro (upload or URL)', standard: '1', premium: '1' },
-  { label: 'Video Q&A — standard-question videos', standard: false, premium: 'up to 5' },
-  { label: 'Video Q&A — attached to a portfolio item', standard: false, premium: '1 per item' },
-  { label: 'Audio testimonials', standard: '1', premium: '10' },
-  { label: 'Portfolio items (total on profile)', standard: '3', premium: '10' },
-  { label: 'Portfolio items shown on flip card', standard: '3', premium: '3' },
-  { label: 'Social / account links', standard: '2', premium: '5' },
-  { label: 'Verified badge (passed vetting)', standard: false, premium: true },
-  { label: 'Custom domain on profile page', standard: false, premium: true },
-  { label: 'Featured badge + gold border + priority sort', standard: false, premium: true },
+const PRICES: Record<MembershipLevel, { month: string; amount: string }> = {
+  member: { month: '$12/month (sample price)', amount: '$12.00' },
+  featured: { month: '$29/month (sample price)', amount: '$29.00' },
+}
+
+/** Spec §2.2. Membership never changes AI rank. */
+const MATRIX: { label: string; member: string | boolean; featured: string | boolean }[] = [
+  { label: 'Portfolio items', member: 'Exactly 3', featured: '3 to 10' },
+  { label: 'Audio testimonials', member: '1, on an employer entry', featured: 'One per entry or project' },
+  { label: 'Video Q&As (all 5 standard questions)', member: false, featured: 'Required' },
+  { label: 'Video Q&A tab on your profile', member: false, featured: true },
+  { label: 'Social / account links', member: '2', featured: '5' },
+  { label: 'Custom domain for your personal site', member: false, featured: true },
+  { label: 'Placement while browsing (no ranking)', member: 'Normal', featured: 'Shown first' },
+  { label: 'Featured badge + gold card border', member: false, featured: true },
+  { label: 'Effect on AI ranking', member: 'None', featured: 'None' },
+]
+
+/** Both levels (spec §2.1). */
+const SHARED = [
+  'Full verification: identity, most recent employer and degree, every certification',
+  'At least one audio testimonial from someone you worked with',
+  'Expertise: 3 Core, 5 Strong, up to 10 Working knowledge',
+  'The same flip-card faces in the directory',
+  'Your personal website, with a small "Listed on MavenScout" footer',
 ]
 
 const STATUS_LABELS: Record<SubscriptionStatus, string> = {
@@ -42,7 +58,7 @@ function Cell({ value }: { value: string | boolean }) {
 
 export default function Billing() {
   const { role } = useSession()
-  const { profile, save } = useEditorProfile()
+  const { profile, save, videoQnas } = useEditorProfile()
   const [message, setMessage] = useState<string | null>(null)
 
   if (role !== 'consultant')
@@ -58,6 +74,8 @@ export default function Billing() {
   if (!profile) return <p className="mx-auto max-w-3xl px-4 py-16 text-ink-faint">Loading…</p>
 
   const status = profile.subscription_status
+  const level = membershipLevel(profile)
+  const pending = isFeaturedPending(profile)
 
   const setStatus = async (next: SubscriptionStatus, note: string) => {
     const err = await save({ subscription_status: next })
@@ -77,7 +95,7 @@ export default function Billing() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Current plan</p>
           <p className="mt-1 font-display text-xl font-semibold">
-            {profile.is_premium ? 'Premium' : 'Standard'}
+            {MEMBERSHIP_LABELS[profile.is_premium ? 'featured' : 'member']}
             <span
               className={`ml-2.5 align-middle text-xs font-medium ${
                 status === 'active' ? 'text-emerald-700' : 'text-amber-700'
@@ -87,9 +105,20 @@ export default function Billing() {
             </span>
           </p>
           <p className="mt-0.5 text-xs text-ink-faint">
-            {profile.is_premium ? '$29/month (sample price)' : '$12/month (sample price)'} · profile:{' '}
+            {PRICES[level].month} · profile:{' '}
             <Link to={`/profile/${profile.handle}`} className="text-brand-600">/{profile.handle}</Link>
           </p>
+          {pending && (
+            // Featured starts (and its fee) once every Video Q&A is in (§2.2).
+            <p className="mt-2 max-w-md rounded-lg bg-amber-50 px-3 py-2 text-xs text-gold-800">
+              Featured status starts when all {videoQnas?.required ?? 5} Video Q&As are in
+              {videoQnas ? ` (${videoQnas.answered} of ${videoQnas.required} so far)` : ''}. Until
+              then your profile shows as a Member and is billed as one.{' '}
+              <Link to="/onboarding#media" className="font-medium underline">
+                Record your videos
+              </Link>
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {status === 'active' && (
@@ -129,12 +158,12 @@ export default function Billing() {
           <thead>
             <tr className="border-b border-line text-left">
               <th className="px-3 py-3 font-semibold sm:px-4">Feature</th>
-              <th className={`w-16 px-1 py-3 text-center font-semibold sm:w-24 sm:px-4 ${!profile.is_premium ? 'text-brand-700' : ''}`}>
-                Standard
+              <th className={`w-20 px-1 py-3 text-center font-semibold sm:w-28 sm:px-4 ${level === 'member' ? 'text-brand-700' : ''}`}>
+                {MEMBERSHIP_LABELS.member}
               </th>
-              <th className={`w-16 px-1 py-3 text-center font-semibold sm:w-24 sm:px-4 ${profile.is_premium ? 'text-gold-700' : ''}`}>
+              <th className={`w-20 px-1 py-3 text-center font-semibold sm:w-28 sm:px-4 ${level === 'featured' ? 'text-gold-700' : ''}`}>
                 <span className="inline-flex items-center gap-1">
-                  <Sparkles size={13} className="hidden text-gold-500 sm:inline" /> Premium
+                  <Sparkles size={13} className="hidden shrink-0 text-gold-500 sm:inline" /> {MEMBERSHIP_LABELS.featured}
                 </span>
               </th>
             </tr>
@@ -143,17 +172,25 @@ export default function Billing() {
             {MATRIX.map((row) => (
               <tr key={row.label} className="border-b border-line/60 last:border-0">
                 <td className="px-3 py-2.5 text-xs leading-snug text-ink-soft sm:px-4 sm:text-sm">{row.label}</td>
-                <td className="px-1 py-2.5 text-center text-xs sm:px-4 sm:text-sm"><Cell value={row.standard} /></td>
-                <td className="px-1 py-2.5 text-center text-xs sm:px-4 sm:text-sm"><Cell value={row.premium} /></td>
+                <td className="px-1 py-2.5 text-center text-xs sm:px-4 sm:text-sm"><Cell value={row.member} /></td>
+                <td className="px-1 py-2.5 text-center text-xs sm:px-4 sm:text-sm"><Cell value={row.featured} /></td>
               </tr>
             ))}
           </tbody>
         </table>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-paper/50 px-4 py-3">
-          <p className="text-xs text-ink-faint">
-            Premium is applied for, not just bought — evidence-based vetting grants the Verified
-            badge (see your profile editor's Tier section).
-          </p>
+          <div className="text-xs text-ink-faint">
+            <p className="font-medium text-ink-soft">Both levels include</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-4">
+              {SHARED.map((s) => (
+                <li key={s}>{s}</li>
+              ))}
+            </ul>
+            <p className="mt-2">
+              Featured Members are listed as Members straight away; Featured status and the higher
+              fee start once all 5 Video Q&As are in.
+            </p>
+          </div>
           <button
             disabled
             title="Coming soon — payments are wired by the developer (Stripe Checkout)"
@@ -180,11 +217,11 @@ export default function Billing() {
                 className="flex items-center justify-between border-b border-line/60 px-4 py-2.5 text-sm last:border-0"
               >
                 <span className="text-ink-soft">
-                  {profile.is_premium ? 'Premium' : 'Standard'} subscription —{' '}
+                  {MEMBERSHIP_LABELS[level]} membership —{' '}
                   {fmtDate(d.toISOString().slice(0, 10))}
                 </span>
                 <span className="flex items-center gap-3">
-                  <span className="font-medium">{profile.is_premium ? '$29.00' : '$12.00'}</span>
+                  <span className="font-medium">{PRICES[level].amount}</span>
                   <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
                     sample
                   </span>

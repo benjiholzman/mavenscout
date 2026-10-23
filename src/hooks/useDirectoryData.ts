@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { isListed } from '../lib/listing'
+import { withVideoQnaStatus } from '../lib/membership'
 import { loadOrgIndex, type OrgIndex } from '../lib/organizations'
 import { supabase } from '../lib/supabase'
 import type {
   AudioTestimonial,
+  InterviewQuestion,
   PortfolioItem,
   Profile,
   TaxonomyCategory,
@@ -33,7 +35,7 @@ export function useDirectoryData() {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const [profilesRes, portfolioRes, videosRes, audioRes, catsRes, itemsRes, orgs] =
+      const [profilesRes, portfolioRes, videosRes, questionsRes, audioRes, catsRes, itemsRes, orgs] =
         await Promise.all([
           supabase
             .from('profiles')
@@ -41,7 +43,8 @@ export function useDirectoryData() {
             .eq('approval_status', 'approved')
             .eq('subscription_status', 'active'),
           supabase.from('portfolio_items').select('*').order('sort_order'),
-          supabase.from('video_responses').select('*').eq('kind', 'intro'),
+          supabase.from('video_responses').select('*').in('kind', ['intro', 'question']),
+          supabase.from('interview_questions').select('id').eq('active', true),
           supabase.from('audio_testimonials').select('id,profile_id').eq('status', 'published'),
           supabase.from('taxonomy_categories').select('*').order('sort_order'),
           supabase.from('taxonomy_items').select('*').order('sort_order'),
@@ -49,14 +52,20 @@ export function useDirectoryData() {
         ])
       if (cancelled) return
       const firstError =
-        profilesRes.error ?? portfolioRes.error ?? videosRes.error ?? audioRes.error ??
+        profilesRes.error ?? portfolioRes.error ?? videosRes.error ?? questionsRes.error ?? audioRes.error ??
         catsRes.error ?? itemsRes.error
       if (firstError) {
         setError(firstError.message)
         return
       }
 
-      const profiles = (profilesRes.data as Profile[]).filter(isListed)
+      const videos = videosRes.data as VideoResponse[]
+      // Featured status needs every standard Video Q&A (lib/membership).
+      const profiles = withVideoQnaStatus(
+        (profilesRes.data as Profile[]).filter(isListed),
+        videos,
+        questionsRes.data as Pick<InterviewQuestion, 'id'>[],
+      )
       const profileIds = new Set(profiles.map((p) => p.id))
 
       const portfolioByProfile = new Map<string, PortfolioItem[]>()
@@ -68,8 +77,8 @@ export function useDirectoryData() {
       }
 
       const introByProfile = new Map<string, VideoResponse>()
-      for (const v of videosRes.data as VideoResponse[]) {
-        if (profileIds.has(v.profile_id)) introByProfile.set(v.profile_id, v)
+      for (const v of videos) {
+        if (v.kind === 'intro' && profileIds.has(v.profile_id)) introByProfile.set(v.profile_id, v)
       }
 
       const audioCountByProfile = new Map<string, number>()

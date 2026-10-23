@@ -187,7 +187,7 @@ export function AboutResultModal({
               scored; they add no points.
             </li>
             <li>Ties go to the higher Fit, then the more recently updated availability, then a fixed order.</li>
-            <li>Premium membership never affects ranked order.</li>
+            <li>Membership level (Member or Featured Member) never affects ranked order.</li>
             <li>
               This build uses a clearly labeled <b className="font-medium text-ink">placeholder</b> scorer; the real
               engine replaces it behind the same interface.

@@ -20,7 +20,7 @@ export interface VisibilityRules {
   availability: Visibility
   /** Contracting & Work Eligibility (PRD 7.18). */
   contractingEligibility: Visibility
-  /** The 5 Premium standard-question videos + portfolio-attached videos. */
+  /** The 5 Featured Member standard-question videos + portfolio-attached videos. */
   premiumVideos: Visibility
   /** Audio testimonials — tab AND portfolio-attached embeds. */
   audioTestimonials: Visibility

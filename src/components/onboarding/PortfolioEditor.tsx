@@ -1,5 +1,6 @@
 import { Plus, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { MEMBERSHIP_LIMITS } from '../../lib/config'
 import { supabase } from '../../lib/supabase'
 import { PORTFOLIO_LINK_CAP } from '../../lib/validation'
 import type { PortfolioItem } from '../../types/db'
@@ -9,7 +10,7 @@ import { YearFields } from './HistoryEditors'
 
 // Portfolio editor (PRD 7.2/7.3): portfolio_items is its own table, so this
 // section does direct row CRUD (not part of the profiles-row save). Tier cap:
-// 3 Standard / 10 Premium. Each item: name, organization, year span, role,
+// 3 Member / 10 Featured Member. Each item: name, organization, year span, role,
 // description, results, cover image, captioned carousel images, up to 3 links.
 
 type Draft = Omit<PortfolioItem, 'id'> & { id?: string }
@@ -222,7 +223,9 @@ export function PortfolioEditor({ profileId, cap }: { profileId: string; cap: nu
       </div>
       {items.length >= cap && (
         <p className="text-xs text-ink-faint">
-          Portfolio limit reached for your tier ({cap}). Premium raises it to 10.
+          Portfolio limit reached ({cap}).
+          {cap < MEMBERSHIP_LIMITS.featured.portfolio.max &&
+            ` Featured Members can show up to ${MEMBERSHIP_LIMITS.featured.portfolio.max}.`}
         </p>
       )}
     </div>

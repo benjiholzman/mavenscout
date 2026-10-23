@@ -256,6 +256,13 @@ export function FilterBar({
           label="Verified only"
         />
 
+        {/* Featured Members' interview videos; a filter only, never scored. */}
+        <Switch
+          checked={filters.hasVideoQnas}
+          onChange={(v) => set('hasVideoQnas', v)}
+          label="Has video Q&As"
+        />
+
         {gridOnlyMustHaves.length > 0 && (
           <button
             onClick={() => onOpenRequirement?.(gridOnlyMustHaves[0].id)}
@@ -280,6 +287,7 @@ export function FilterBar({
                     languages: [],
                     availability: null,
                     verifiedOnly: false,
+                    hasVideoQnas: false,
                     searchTerm: '',
                   })
             }

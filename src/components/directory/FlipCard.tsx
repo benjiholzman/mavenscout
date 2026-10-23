@@ -23,6 +23,7 @@ import type { MatchResult } from '../../lib/matching/types'
 import { OutcomeIcon, ScoreEquation } from '../match/outcome'
 import { RankStrip } from '../match/RankStrip'
 import { EXPERTISE_TIER_LIMITS } from '../../lib/config'
+import { isFeatured } from '../../lib/membership'
 import { expertiseTags, TIER_LABELS } from '../../lib/expertise'
 import type { ExpertiseTag, PortfolioItem, Profile, VideoResponse } from '../../types/db'
 import { AvailabilityChip } from '../ui/AvailabilityChip'
@@ -100,7 +101,7 @@ export function FlipCard({
   return (
     <div
       className={`flex flex-col rounded-card border bg-white shadow-card transition-shadow duration-200 hover:shadow-card-hover ${
-        profile.is_premium ? 'border-gold-500 ring-[0.5px] ring-gold-500' : 'border-line'
+        isFeatured(profile) ? 'border-gold-500 ring-[0.5px] ring-gold-500' : 'border-line'
       }`}
     >
       {ranked && (
@@ -310,7 +311,7 @@ function FrontFace({
         className={`relative h-[120px] shrink-0 bg-brand-100 bg-cover bg-center ${squareTop ? '' : 'rounded-t-[13px]'}`}
         style={profile.cover_image_url ? { backgroundImage: `url(${profile.cover_image_url})` } : undefined}
       >
-        {profile.is_premium && <FeaturedRibbon />}
+        {isFeatured(profile) && <FeaturedRibbon />}
       </div>
       <div className="flex min-h-0 flex-1 flex-col px-4 pb-3.5">
         <div className="relative -mt-[34px] mb-2 flex items-end justify-between gap-2">

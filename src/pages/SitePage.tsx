@@ -6,9 +6,10 @@ import { useProfile } from '../hooks/useProfile'
 
 /** /site/:handle — the same profile rendered as a standalone personal
  *  professional website (PRD 7.2a). No platform chrome; availability,
- *  contracting eligibility, Premium Q&A videos, audio testimonials, and
- *  save actions are stripped entirely. This is the URL a consultant shares
- *  externally and the future custom-domain target. */
+ *  contracting eligibility, Video Q&As, audio testimonials, and save actions
+ *  are stripped entirely. This is the URL a consultant shares externally and
+ *  the custom-domain target (Featured Members). Every site, custom domain
+ *  included, carries the small "Listed on MavenScout" footer (spec §2.1). */
 export default function SitePage() {
   const { handle } = useParams()
   const { data, notFound, error } = useProfile(handle)
@@ -34,11 +35,11 @@ export default function SitePage() {
       </div>
       <footer className="border-t border-line py-5">
         <Link
-          to="/"
+          to={`/profile/${data.profile.handle}`}
           className="mx-auto flex w-fit items-center gap-2 text-xs text-ink-faint hover:text-ink"
         >
           <img src={mark} alt="" className="h-4 w-4" />
-          Powered by MavenScout
+          Listed on MavenScout
         </Link>
       </footer>
     </div>

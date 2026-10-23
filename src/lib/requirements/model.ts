@@ -31,7 +31,8 @@ import {
 // arrangement) may have TWO rows: one Required row (what the filter bar shows)
 // and one preference row (Nice to have / Important) — e.g. Required: French
 // plus Nice to have: English. Other single-instance kinds (availability,
-// verified, org history) have at most one row.
+// verified, video Q&As, org history) have at most one row. "Has video Q&As"
+// is Required only (isRequiredOnly): Featured membership never scores.
 //
 // Semantics carried over from the filter bar:
 // - Several Required expertise rows follow the unified list's rule
@@ -85,15 +86,16 @@ export function defaultValue<K extends RequirementKind>(kind: K): RequirementVal
     availability: () => ({ engagement: 'either', fromMonth: null, untilMonth: null }),
     career_level: () => ({ values: [] }),
     verified: () => ({}),
+    video_qna: () => ({}),
     work_arrangement: () => ({ values: [] }),
   }
   return defaults[kind]()
 }
 
-/** A new row. Availability / verified / org history (one row at most) get
- *  their kind as id; expertise and multi-value rows (which can have a
- *  Required and a preference row) get a fresh id. Rows added in the grid
- *  start at Nice to have. */
+/** A new row. Availability / verified / video Q&A / org history (one row at
+ *  most) get their kind as id; expertise and multi-value rows (which can have
+ *  a Required and a preference row) get a fresh id. Rows added in the grid
+ *  start at Nice to have, except Required-only kinds. */
 export function makeRow<K extends RequirementKind>(
   kind: K,
   value: RequirementValueByKind[K] = defaultValue(kind),
@@ -102,10 +104,16 @@ export function makeRow<K extends RequirementKind>(
   return {
     id: isTagKind(kind) || isValuesKind(kind) ? newRequirementId(kind) : kind,
     kind,
-    level: opts.level ?? 'slight',
+    level: isRequiredOnly(kind) ? 'must' : (opts.level ?? 'slight'),
     source: opts.source ?? 'manual',
     value,
   } as Requirement
+}
+
+/** Kinds that only filter and are never scored: "Has video Q&As" is Featured
+ *  membership, and payment must never add points (profiles-membership §2.2). */
+export function isRequiredOnly(kind: RequirementKind): boolean {
+  return kind === 'video_qna'
 }
 
 /** No rows: no preferences, nothing required (spec §3). */
@@ -122,6 +130,8 @@ export function normalizeRequirements(reqs: Requirement[]): Requirement[] {
   const tags = reqs.filter((r) => isTagKind(r.kind))
   const singles = ALWAYS_PRESENT_KINDS.flatMap((k) => {
     const ofKind = reqs.filter((r) => r.kind === k)
+    // A Required-only row is Required whatever was stored or set.
+    if (isRequiredOnly(k)) return ofKind.slice(0, 1).map((r) => ({ ...r, level: 'must' }) as Requirement)
     if (!isValuesKind(k)) return ofKind.slice(0, 1)
     return [ofKind.find(isMust), ofKind.find((r) => !isMust(r))].filter((r): r is Requirement => !!r)
   })
@@ -194,7 +204,7 @@ const unionValues = (a: string[], b: string[]) => [...a, ...b.filter((v) => !a.i
  */
 export function setRowLevel(reqs: Requirement[], id: string, level: Level): Requirement[] {
   const row = reqs.find((r) => r.id === id)
-  if (!row || row.level === level) return reqs
+  if (!row || row.level === level || isRequiredOnly(row.kind)) return reqs
   if (isValuesKind(row.kind) && isMust(row) !== (level === 'must')) {
     const other = level === 'must' ? requiredRowOf(reqs, row.kind) : preferenceRowOf(reqs, row.kind)
     if (other && other.id !== row.id && 'values' in other.value && 'values' in row.value) {
@@ -266,6 +276,9 @@ export function mustHavesToFilterState(reqs: Requirement[], search: SearchState)
       case 'verified':
         f.verifiedOnly = true
         break
+      case 'video_qna':
+        f.hasVideoQnas = true
+        break
       case 'org_history':
         break
     }
@@ -300,6 +313,7 @@ export function rowHasValue(r: Requirement): boolean {
       return r.value.values.length > 0
     case 'availability':
     case 'verified':
+    case 'video_qna':
       return true
   }
 }
@@ -354,6 +368,7 @@ export function applyFilterStateToRequirements(
   }
   setSingle('availability', next.availability ? { ...next.availability } : null)
   setSingle('verified', next.verifiedOnly ? {} : null)
+  setSingle('video_qna', next.hasVideoQnas ? {} : null)
 
   const wanted = next.expertise
   const withWorking = (name: string) => (next.expertiseIncludeWorking ? { name, includeWorking: true } : { name })

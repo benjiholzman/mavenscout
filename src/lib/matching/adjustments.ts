@@ -52,6 +52,8 @@ export function requirementLabel(r: Requirement): string {
       )
     case 'verified':
       return 'Verified'
+    case 'video_qna':
+      return 'Has video Q&As'
     case 'work_arrangement':
       return `Works ${or(r.value.values)}`
   }
@@ -147,6 +149,9 @@ function judge(c: CandidateInput, r: Requirement, index: ExpertiseIndex, orgs: O
     }
     case 'verified':
       return p.verification_status === 'verified' ? met('Passed evidence-based vetting') : notMet('Not verified')
+    case 'video_qna':
+      // Required only (normalizeRequirements): membership never adds points.
+      return { outcome: 'not_applicable', credit: 0, detail: 'A filter only; never scored' }
     case 'work_arrangement': {
       const hit = r.value.values.filter((w) => p.work_types.includes(w))
       return hit.length ? met(`Works ${hit.join(', ')}`) : notMet(`Works ${p.work_types.join(', ') || '—'}`)

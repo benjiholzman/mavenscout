@@ -31,7 +31,7 @@ interface Scored extends Omit<MatchResult, 'rank'> {
   fitFloat: number
 }
 
-/** Total order for ranked results (§5.5). Premium never enters into it. */
+/** Total order for ranked results (§5.5). Membership level never enters into it. */
 export function compareResults(
   a: { total_score: number; fit: number; profile: Pick<Profile, 'id' | 'availability_updated_at'> },
   b: { total_score: number; fit: number; profile: Pick<Profile, 'id' | 'availability_updated_at'> },

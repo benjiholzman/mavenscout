@@ -7,7 +7,7 @@ import { RecorderControl } from '../media/Recorder'
 import { VideoPlayer } from '../media/VideoPlayer'
 
 // Video Q&As editor (PRD 7.5): general intro (both tiers, public teaser),
-// 5 standard-question videos + portfolio-attached videos (Premium, gated on
+// 5 standard-question videos + portfolio-attached videos (Featured Member, gated on
 // display). Every video: upload to Storage OR paste a URL, hard 2-minute cap
 // on uploads (client-side duration check), optional transcript.
 // Native in-browser recording is the P1 fast-follow — not built here.
@@ -104,7 +104,7 @@ export function VideoQnASection({
 
       <div>
         <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-ink-faint">
-          Standard questions — Premium
+          Standard questions — Featured Member
         </h3>
         <p className="mb-2.5 text-xs text-ink-faint">
           Everyone answers the same prompts so hiring managers can compare like with like.
@@ -112,7 +112,7 @@ export function VideoQnASection({
         </p>
         {!profile.is_premium ? (
           <p className="rounded-lg bg-paper px-3.5 py-3 text-sm text-ink-faint">
-            Available on Premium profiles — apply in the Tier section below.
+            A Featured Member benefit — see the Tier section below.
           </p>
         ) : (
           <div className="space-y-4">
@@ -140,14 +140,14 @@ export function VideoQnASection({
 
       <div>
         <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-ink-faint">
-          Portfolio videos — Premium
+          Portfolio videos — Featured Member
         </h3>
         <p className="mb-2.5 text-xs text-ink-faint">
           One video per portfolio item, embedded on that project (gated like the Q&As).
         </p>
         {!profile.is_premium ? (
           <p className="rounded-lg bg-paper px-3.5 py-3 text-sm text-ink-faint">
-            Available on Premium profiles.
+            A Featured Member benefit.
           </p>
         ) : portfolio.length === 0 ? (
           <p className="text-sm text-ink-faint">Add portfolio items first.</p>

@@ -1,10 +1,13 @@
+import { isFeatured } from './membership'
 import type { Profile } from '../types/db'
 
 // Default directory sort (PRD 7.1): randomized with a per-session seed —
 // stable while the visitor filters/paginates within a visit, reshuffled next
-// visit — with Premium always floating to the top regardless of sort.
-// Ranked results don't go through here: in ranking mode the order is always
-// rank order and the Premium float is suspended (match rework spec §2.2, §5.5).
+// visit — with Featured Members always first regardless of sort, each group
+// sorted (or shuffled) on its own so the same Featured profiles don't always
+// lead (profiles-membership §2.2). Ranked results don't go through here: in
+// ranking mode the order is always rank order and Featured placement is
+// suspended (match rework spec §2.2, §5.5).
 
 export type SortMode = 'shuffle' | 'newly_added' | 'location' | 'career_level'
 
@@ -61,9 +64,10 @@ function sortWithin(profiles: Profile[], mode: SortMode): Profile[] {
   }
 }
 
-/** Premium first (a paid benefit, PRD 7.8), the chosen sort within each tier. */
+/** Featured Members first (a paid benefit, spec §2.2), the chosen sort within
+ *  each group. */
 export function sortProfiles(profiles: Profile[], mode: SortMode): Profile[] {
-  const premium = profiles.filter((p) => p.is_premium)
-  const standard = profiles.filter((p) => !p.is_premium)
-  return [...sortWithin(premium, mode), ...sortWithin(standard, mode)]
+  const featured = profiles.filter(isFeatured)
+  const members = profiles.filter((p) => !isFeatured(p))
+  return [...sortWithin(featured, mode), ...sortWithin(members, mode)]
 }

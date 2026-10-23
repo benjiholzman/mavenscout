@@ -35,9 +35,9 @@ export function FirmTypeBadge({ type }: { type: 'Small Firm' | 'Large Firm' }) {
   )
 }
 
-/** "Featured" pill for Premium profiles (PRD 7.8), pinned top-right of a
- *  relative-positioned cover — pairs with the gold card border applied by the
- *  flip card itself. */
+/** "Featured" pill for Featured Members (profiles-membership §2.2), pinned
+ *  top-right of a relative-positioned cover — pairs with the gold card border
+ *  applied by the flip card itself. */
 export function FeaturedRibbon() {
   return (
     <span className="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full border border-gold-500 bg-white/95 px-[7px] py-0.5 text-[11px] font-semibold uppercase tracking-[.05em] text-gold-800 shadow-sm">

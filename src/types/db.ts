@@ -121,6 +121,10 @@ export interface Profile {
   is_demo: boolean // synthetic/demo data; purge with supabase/purge_demo.sql
   created_at: string
   updated_at: string
+  /** App-derived, NOT a column: every active standard question has a video
+   *  answer. Set by the loaders (lib/membership withVideoQnaStatus); Featured
+   *  status needs it (spec §2.2). Never write it back to `profiles`. */
+  video_qnas_complete?: boolean
 }
 
 export type OrgType =
