@@ -89,7 +89,8 @@ export interface RequirementValueByKind {
   language: LanguageValue
   type: ValuesValue
   /** Same shape as the filter bar's availability filter, so the two stay one
-   *  state. "Available by [month]" in the grid edits untilMonth. */
+   *  state. Rows saved in the old window shape are converted on read
+   *  (lib/filters normalizeAvailability). */
   availability: AvailabilityFilter
   career_level: ValuesValue
   /** "Video Q&As only": Required only (profiles-membership §2.2) — membership

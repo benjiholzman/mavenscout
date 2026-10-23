@@ -115,7 +115,7 @@ Rows added by the manager start at **Nice to have**.
 | **Location** | Select from the existing dynamic location options (multi-select) | Yes | Uses the filter's location matching (a country matches every city in it; a city matches itself). |
 | **Language** | Select from the existing dynamic language options (multi-select; "speaks any of") | Yes | Candidate lists the language. |
 | **Type** | Individual / Small Firm / Large Firm (multi-select, same as filter) | Yes | `consultant_type` in selection. |
-| **Availability** | Engagement type (Part-time / Full-time / Either) + "available by [month]" | Yes | Reuse the existing availability-filter logic. Available within one month after the target → **partial**. |
+| **Availability** | The filter modal's controls: Part-time / Full-time chips + timing preset (Any time, Available now, Within 1 / 3 months, By a month, Specific dates) | Yes | Reuse the existing availability-filter logic. Available within one month after the target → **partial**. |
 | **Career level** | Early / Mid / Senior (multi-select) | Yes | Individuals only. **Firms are "not applicable"** — never excluded by this row, never adjusted. |
 | **Verified** | (no value) | Yes | `verification_status = 'verified'`. |
 | **Work arrangement** | Remote / On-site / Hybrid (multi-select) | Yes | Any overlap with `work_types`. |

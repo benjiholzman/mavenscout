@@ -7,6 +7,8 @@ import {
   type FilterCountKey,
   type FilterState,
   type SearchMode,
+  availabilitySummary,
+  toggleAvailableNow,
 } from '../../lib/filters'
 import type { TaxonomyCategory, TaxonomyItem } from '../../types/db'
 import { FIRMS_ENABLED } from '../../lib/config'
@@ -17,7 +19,7 @@ import { MultiSelect, type OptionGroup, type TreeNode } from '../ui/MultiSelect'
 import { FilterChip } from '../ui/FilterChip'
 import { Segmented } from '../ui/Segmented'
 import { Switch } from '../ui/Switch'
-import { AvailabilityModal, availabilitySummary } from './AvailabilityModal'
+import { AvailabilityModal } from './AvailabilityModal'
 
 const TYPE_OPTIONS = ['Individual', 'Small Firm', 'Large Firm']
 const CAREER_LEVEL_OPTIONS = ['Early Career (0–5 yrs)', 'Mid-Career (5–15 yrs)', 'Senior (15+ yrs)']
@@ -165,6 +167,14 @@ export function FilterBar({
           checked={filters.hasVideoQnas}
           onChange={(v) => set('hasVideoQnas', v)}
           label="Video Q&As only"
+        />
+        {/* Shares state with the Availability filter and its requirement
+            row: on = available now on either chosen track (fresh within
+            AVAILABILITY_FRESH_DAYS); off drops the timing, keeping the tracks. */}
+        <Switch
+          checked={filters.availability?.when === 'now'}
+          onChange={(on) => set('availability', toggleAvailableNow(filters.availability, on))}
+          label="Available now"
         />
         {/* Off by default; a filter only, never scored (testimonials never
             feed ranking). */}
@@ -346,12 +356,14 @@ export function FilterBar({
         )}
       </div>
 
-      <AvailabilityModal
-        open={availabilityOpen}
-        onClose={() => setAvailabilityOpen(false)}
-        value={filters.availability}
-        onApply={(v) => set('availability', v)}
-      />
+      {availabilityOpen && (
+        <AvailabilityModal
+          open
+          onClose={() => setAvailabilityOpen(false)}
+          value={filters.availability}
+          onApply={(v) => set('availability', v)}
+        />
+      )}
     </div>
   )
 }

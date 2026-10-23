@@ -1,5 +1,12 @@
 import { FIRMS_ENABLED } from '../config'
-import { EMPTY_FILTERS, type FilterState, type SearchMode } from '../filters'
+import {
+  DEFAULT_AVAILABILITY,
+  EMPTY_FILTERS,
+  isDefaultAvailability,
+  normalizeAvailability,
+  type FilterState,
+  type SearchMode,
+} from '../filters'
 import { orgTargets } from './match'
 import {
   ALWAYS_PRESENT_KINDS,
@@ -85,7 +92,7 @@ export function defaultValue<K extends RequirementKind>(kind: K): RequirementVal
     location: () => ({ values: [] }),
     language: () => ({ values: [] }),
     type: () => ({ values: [] }),
-    availability: () => ({ engagement: 'either', fromMonth: null, untilMonth: null }),
+    availability: () => ({ ...DEFAULT_AVAILABILITY }),
     career_level: () => ({ values: [] }),
     video_qna: () => ({}),
     audio_testimonial: () => ({}),
@@ -130,7 +137,11 @@ export function defaultRequirements(): Requirement[] {
  *  kind, its Required row before its preference row. Extra rows beyond the
  *  limits are dropped, and a value lives in only one of a kind's two rows
  *  (see withoutRequiredValues). */
-export function normalizeRequirements(reqs: Requirement[]): Requirement[] {
+export function normalizeRequirements(input: Requirement[]): Requirement[] {
+  // Availability rows saved in the old window shape are read in the new one.
+  const reqs = input.map((r) =>
+    r.kind === 'availability' ? ({ ...r, value: normalizeAvailability(r.value) } as Requirement) : r,
+  )
   const tags = reqs.filter((r) => isTagKind(r.kind))
   const singles = ALWAYS_PRESENT_KINDS.flatMap((k) => {
     const ofKind = reqs.filter((r) => r.kind === k)
@@ -278,7 +289,7 @@ export function mustHavesToFilterState(reqs: Requirement[], search: SearchState)
         f[VALUES_FIELDS[r.kind]] = [...r.value.values]
         break
       case 'availability':
-        f.availability = { ...r.value }
+        f.availability = isDefaultAvailability(r.value) ? null : { ...r.value }
         break
       case 'video_qna':
         f.hasVideoQnas = true
@@ -331,6 +342,7 @@ export function rowHasValue(r: Requirement): boolean {
     case 'work_arrangement':
       return r.value.values.length > 0
     case 'availability':
+      return !isDefaultAvailability(r.value)
     case 'video_qna':
     case 'audio_testimonial':
       return true
@@ -385,7 +397,10 @@ export function applyFilterStateToRequirements(
       rows = rows.filter((r) => r !== required)
     }
   }
-  setSingle('availability', next.availability ? { ...next.availability } : null)
+  setSingle(
+    'availability',
+    next.availability && !isDefaultAvailability(next.availability) ? { ...next.availability } : null,
+  )
   setSingle('video_qna', next.hasVideoQnas ? {} : null)
   setSingle('audio_testimonial', next.hasAudioTestimonial ? {} : null)
   rows = withPreviousEmployers(rows, next.previousEmployers)

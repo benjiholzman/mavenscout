@@ -2,6 +2,7 @@ import { expertiseTags, matchesExpertiseSelection, type ExpertiseIndex } from '.
 import { speaks, spokenLanguages } from './languages'
 import { buildLocationTree, placeMatches, placeOf, type Place } from './locations'
 import { isFeatured } from './membership'
+import { AVAILABILITY_FRESH_DAYS } from './config'
 import type { TreeNode } from './tree'
 import type { AvailabilityTrack, PortfolioItem, Proficiency, Profile } from '../types/db'
 
@@ -10,13 +11,69 @@ import type { AvailabilityTrack, PortfolioItem, Proficiency, Profile } from '../
 // OR within a kind (sector / theme / method), AND across kinds, counting Core
 // and Strong tags unless Working knowledge is included (lib/expertise).
 
-export type EngagementType = 'part_time' | 'full_time' | 'either'
+/** When the expert must be available (PRD 7.16). 'any' = no timing
+ *  constraint; 'by_month' reads `byMonth`; 'between' reads `fromMonth` and
+ *  `untilMonth` (available from the start through the end). */
+export type AvailabilityWhen = 'any' | 'now' | 'within_1m' | 'within_3m' | 'by_month' | 'between'
 
 export interface AvailabilityFilter {
-  engagement: EngagementType
-  /** Month window as 'YYYY-MM' strings; null = "any time, just available". */
+  /** Tracks that count (either = both). At least one is always on. */
+  partTime: boolean
+  fullTime: boolean
+  when: AvailabilityWhen
+  /** 'YYYY-MM' when `when` is 'by_month', else null. */
+  byMonth: string | null
+  /** 'YYYY-MM' start and end months when `when` is 'between', else null. */
   fromMonth: string | null
   untilMonth: string | null
+}
+
+/** Both tracks, any time: no constraint, so the filter is off. */
+export const DEFAULT_AVAILABILITY: AvailabilityFilter = { partTime: true, fullTime: true, when: 'any', byMonth: null, fromMonth: null, untilMonth: null }
+
+export function isDefaultAvailability(f: AvailabilityFilter): boolean {
+  return f.partTime && f.fullTime && f.when === 'any'
+}
+
+/** The "Available now" toggle: on keeps the chosen tracks and sets the
+ *  timing to now; off drops the timing (the filter clears if nothing else
+ *  is left). */
+export function toggleAvailableNow(current: AvailabilityFilter | null, on: boolean): AvailabilityFilter | null {
+  const base = current ?? DEFAULT_AVAILABILITY
+  const next: AvailabilityFilter = on
+    ? { ...base, when: 'now', byMonth: null, fromMonth: null, untilMonth: null }
+    : { ...base, when: 'any', byMonth: null, fromMonth: null, untilMonth: null }
+  return isDefaultAvailability(next) ? null : next
+}
+
+/** Reads a stored availability value, converting the old shape
+ *  ({ engagement, fromMonth, untilMonth }) a saved ranking may hold: the
+ *  engagement becomes the track chips; a from–to window stays a start–end
+ *  window, and a single month becomes "By <month>". */
+export function normalizeAvailability(raw: unknown): AvailabilityFilter {
+  const v = (raw ?? {}) as Partial<AvailabilityFilter> & {
+    engagement?: 'part_time' | 'full_time' | 'either'
+    fromMonth?: string | null
+    untilMonth?: string | null
+  }
+  const none = { byMonth: null, fromMonth: null, untilMonth: null }
+  if (v.when) {
+    const partTime = v.partTime !== false
+    const fullTime = v.fullTime !== false
+    const tracks = { partTime: partTime || !fullTime, fullTime }
+    if (v.when === 'by_month')
+      return v.byMonth ? { ...tracks, when: 'by_month', ...none, byMonth: v.byMonth } : { ...tracks, when: 'any', ...none }
+    if (v.when === 'between')
+      return v.fromMonth && v.untilMonth
+        ? { ...tracks, when: 'between', ...none, fromMonth: v.fromMonth, untilMonth: v.untilMonth }
+        : { ...tracks, when: 'any', ...none }
+    return { ...tracks, when: v.when, ...none }
+  }
+  const tracks = { partTime: v.engagement !== 'full_time', fullTime: v.engagement !== 'part_time' }
+  if (v.fromMonth && v.untilMonth && v.fromMonth !== v.untilMonth)
+    return { ...tracks, when: 'between', ...none, fromMonth: v.fromMonth, untilMonth: v.untilMonth }
+  const month = v.untilMonth || v.fromMonth || null
+  return month ? { ...tracks, when: 'by_month', ...none, byMonth: month } : { ...tracks, when: 'any', ...none }
 }
 
 export type SearchMode = 'names' | 'full'
@@ -88,44 +145,123 @@ export function firmsOnlySelected(types: string[]): boolean {
 }
 
 // ---- availability (PRD 7.16) ----------------------------------------------
+// Timed choices (Available now, Within 1/3 months, By a month) count a track
+// only if the expert updated their availability within
+// AVAILABILITY_FRESH_DAYS, the same rule as the Recommended sort; staler
+// availability is unknown. "Any time" just needs the track to be open.
 
-function monthStart(ym: string): Date {
-  return new Date(`${ym}-01T00:00:00`)
-}
-function monthEnd(ym: string): Date {
-  const d = monthStart(ym)
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59)
+const DAY_MS = 24 * 60 * 60 * 1000
+
+export function availabilityFresh(p: Profile, now = Date.now()): boolean {
+  if (!p.availability_updated_at) return false
+  return now - new Date(p.availability_updated_at).getTime() <= AVAILABILITY_FRESH_DAYS * DAY_MS
 }
 
-function trackMatches(track: AvailabilityTrack, filter: AvailabilityFilter): boolean {
+function addMonthsTo(d: Date, n: number): Date {
+  const out = new Date(d)
+  out.setMonth(out.getMonth() + n)
+  return out
+}
+
+/** The latest moment a track may open for this filter, `graceMonths` later
+ *  (ranking's partial credit); null = no timing constraint. */
+export function availabilityDeadline(f: AvailabilityFilter, graceMonths = 0, now = new Date()): Date | null {
+  switch (f.when) {
+    case 'any':
+      return null
+    case 'now':
+      return graceMonths ? addMonthsTo(now, graceMonths) : now
+    case 'within_1m':
+      return addMonthsTo(now, 1 + graceMonths)
+    case 'within_3m':
+      return addMonthsTo(now, 3 + graceMonths)
+    case 'by_month':
+      return f.byMonth ? monthEndPlus(f.byMonth, graceMonths) : null
+    case 'between':
+      // Open by the end of the start month.
+      return f.fromMonth ? monthEndPlus(f.fromMonth, graceMonths) : null
+  }
+}
+
+function monthEndPlus(ym: string, months: number): Date {
+  const [y, m] = ym.split('-').map(Number)
+  return new Date(y, m + months, 0, 23, 59, 59) // end of that month
+}
+
+/** For a start–end window, the track must not end before the end month. */
+function windowEndStart(f: AvailabilityFilter): Date | null {
+  if (f.when !== 'between' || !f.untilMonth) return null
+  return new Date(`${f.untilMonth}-01T00:00:00`)
+}
+
+function trackMatches(track: AvailabilityTrack, deadline: Date | null, mustLastTo: Date | null, now: Date): boolean {
   if (!track || track.status === 'unavailable') return false
-  const availableFrom =
-    track.status === 'available_now' ? new Date() : track.from ? new Date(track.from) : null
-  if (!availableFrom) return false
-
-  if (!filter.fromMonth && !filter.untilMonth) return true // any time
-
-  const windowFrom = filter.fromMonth ? monthStart(filter.fromMonth) : new Date()
-  const windowTo = filter.untilMonth
-    ? monthEnd(filter.untilMonth)
-    : filter.fromMonth
-      ? monthEnd(filter.fromMonth)
-      : null
-
-  // Candidate must become available by the end of the window (already-available
-  // candidates match a future window — PRD 7.1 acceptance criterion)...
-  if (windowTo && availableFrom > windowTo) return false
-  // ...and their availability must not have ended before the window starts.
-  if (track.until && new Date(track.until) < windowFrom) return false
-  return true
+  // An availability that has already ended is closed; for a start–end window
+  // it must still be open in the end month.
+  if (track.until && new Date(track.until) < (mustLastTo ?? now)) return false
+  const opens = track.status === 'available_now' ? now : track.from ? new Date(track.from) : null
+  if (!opens) return false
+  // Already-available experts match any later deadline (PRD 7.1).
+  return !deadline || opens <= deadline
 }
 
-export function matchesAvailability(p: Profile, filter: AvailabilityFilter): boolean {
-  const pt = () => trackMatches(p.part_time_availability, filter)
-  const ft = () => trackMatches(p.full_time_availability, filter)
-  if (filter.engagement === 'part_time') return pt()
-  if (filter.engagement === 'full_time') return ft()
-  return pt() || ft()
+export function matchesAvailability(p: Profile, f: AvailabilityFilter, graceMonths = 0): boolean {
+  const now = new Date()
+  const deadline = availabilityDeadline(f, graceMonths, now)
+  if (deadline && !availabilityFresh(p, now.getTime())) return false
+  const lastTo = windowEndStart(f)
+  return (
+    (f.partTime && trackMatches(p.part_time_availability, deadline, lastTo, now)) ||
+    (f.fullTime && trackMatches(p.full_time_availability, deadline, lastTo, now))
+  )
+}
+
+const monthLabel = (ym: string) =>
+  new Date(`${ym}-01T00:00:00`).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+
+/** "Mar – Jun 2027", "Dec 2026 – Mar 2027", "Mar 2027". */
+export function monthRangeLabel(from: string, until: string): string {
+  if (from === until) return monthLabel(from)
+  const short = (ym: string) => new Date(`${ym}-01T00:00:00`).toLocaleDateString('en-US', { month: 'short' })
+  return from.slice(0, 4) === until.slice(0, 4)
+    ? `${short(from)} – ${monthLabel(until)}`
+    : `${monthLabel(from)} – ${monthLabel(until)}`
+}
+
+function trackLabel(f: AvailabilityFilter): string | null {
+  return f.partTime && f.fullTime ? null : f.partTime ? 'Part-time' : 'Full-time'
+}
+
+/** Short form for the filter chip: "Available now", "By Mar 2027",
+ *  "Part-time, within 3 months", "Full-time". */
+export function availabilitySummary(f: AvailabilityFilter): string {
+  const when = {
+    any: null,
+    now: 'Available now',
+    within_1m: 'Within 1 month',
+    within_3m: 'Within 3 months',
+    by_month: f.byMonth ? `By ${monthLabel(f.byMonth)}` : null,
+    between: f.fromMonth && f.untilMonth ? monthRangeLabel(f.fromMonth, f.untilMonth) : null,
+  }[f.when]
+  const track = trackLabel(f)
+  if (track && when)
+    return `${track}, ${f.when === 'between' ? when : `${when.charAt(0).toLowerCase()}${when.slice(1)}`}`
+  return track ?? when ?? 'Availability'
+}
+
+/** Sentence form for requirement labels: "Available now", "Available
+ *  part-time by Mar 2027". */
+export function availabilityLabel(f: AvailabilityFilter): string {
+  const track = trackLabel(f)
+  const when = {
+    any: '',
+    now: ' now',
+    within_1m: ' within 1 month',
+    within_3m: ' within 3 months',
+    by_month: f.byMonth ? ` by ${monthLabel(f.byMonth)}` : '',
+    between: f.fromMonth && f.untilMonth ? ` ${monthRangeLabel(f.fromMonth, f.untilMonth)}` : '',
+  }[f.when]
+  return `Available${track ? ` ${track.toLowerCase()}` : ''}${when}`
 }
 
 // ---- search (PRD 7.1 two modes) --------------------------------------------

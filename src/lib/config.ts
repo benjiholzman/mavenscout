@@ -12,7 +12,8 @@ import type { ExpertiseTier } from '../types/db'
  *  firm listings can return. Direct /profile and /site links still open. */
 export const FIRMS_ENABLED = false
 
-/** Directory "Recommended" sort and "Available soonest": availability counts
+/** Directory "Recommended" sort, "Available soonest", and the Availability
+ *  filter's timed choices (Available now, Within…, By a month): availability counts
  *  only if the expert updated it within this many days; older availability
  *  is treated as unknown. TUNABLE. */
 export const AVAILABILITY_FRESH_DAYS = 90

@@ -1,5 +1,5 @@
 import { isFeatured } from './membership'
-import { AVAILABILITY_FRESH_DAYS } from './config'
+import { availabilityFresh } from './filters'
 import type { AvailabilityTrack, Profile } from '../types/db'
 
 // Directory sort (PRD 7.1). Ranked results don't go through here: in ranking
@@ -13,7 +13,7 @@ import type { AvailabilityTrack, Profile } from '../types/db'
 // - Available soonest, Newly added, Recently updated: Featured Members first
 //   (a paid benefit, profiles-membership §2.2), the chosen order within each.
 // "Available" means either track, and only if the availability was updated
-// within AVAILABILITY_FRESH_DAYS; staler availability counts as unknown.
+// within AVAILABILITY_FRESH_DAYS (lib/filters availabilityFresh); staler availability counts as unknown.
 
 export type SortMode = 'recommended' | 'available_soonest' | 'newly_added' | 'recently_updated'
 
@@ -47,13 +47,6 @@ function seededShuffle<T>(items: T[], seed: number): T[] {
     ;[out[i], out[j]] = [out[j], out[i]]
   }
   return out
-}
-
-const DAY_MS = 24 * 60 * 60 * 1000
-
-function availabilityFresh(p: Profile, now: number): boolean {
-  if (!p.availability_updated_at) return false
-  return now - new Date(p.availability_updated_at).getTime() <= AVAILABILITY_FRESH_DAYS * DAY_MS
 }
 
 /** When the expert is next available on either track (ms), or null if

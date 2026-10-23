@@ -1,3 +1,4 @@
+import { normalizeAvailability } from './filters'
 import type { ExtractedRequirements, ExtractedTag, Level, Requirement } from './matching/types'
 import type { ExpertiseKind, ExpertiseTag, ExpertiseTier, Profile, TaxonomyCategory, TaxonomyItem } from '../types/db'
 
@@ -160,13 +161,21 @@ export function upgradeLegacyRequirements(
   rows: readonly unknown[],
   index: ExpertiseIndex,
 ): { requirements: Requirement[]; dropped: string[] } {
-  if (index.items.length === 0) return { requirements: rows as Requirement[], dropped: [] }
+  if (index.items.length === 0)
+    return {
+      requirements: (rows as Requirement[]).map((r) =>
+        r.kind === 'availability' ? { ...r, value: normalizeAvailability(r.value) } : r,
+      ),
+      dropped: [],
+    }
   const out: Requirement[] = []
   const dropped: string[] = []
   for (const raw of rows) {
     const r = raw as LegacyTagRow
     if (r.kind !== 'expertise' && r.kind !== 'skill') {
-      out.push(raw as Requirement)
+      // Old availability windows are converted here too (lib/filters).
+      const row = raw as Requirement
+      out.push(row.kind === 'availability' ? { ...row, value: normalizeAvailability(row.value) } : row)
       continue
     }
     const old = r.value?.name ?? ''

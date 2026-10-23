@@ -1,5 +1,5 @@
 import { countedTiers, expertiseTags, type ExpertiseIndex } from '../expertise'
-import { matchesAvailability, matchesLocation, locationLabel, type AvailabilityFilter } from '../filters'
+import { availabilityLabel, matchesAvailability, matchesLocation, locationLabel } from '../filters'
 import { speaks } from '../languages'
 import type { OrgIndex } from '../organizations'
 import { orgHistoryOutcome, orgNames } from '../requirements/match'
@@ -22,9 +22,6 @@ import type { ExpertiseTier } from '../../types/db'
 const or = (xs: string[]) =>
   xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} or ${xs[xs.length - 1]}`
 
-const monthLabel = (ym: string) =>
-  new Date(`${ym}-01T00:00:00`).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-
 /** Plain-language label for a row ("Based in Kenya", "Speaks French"). */
 export function requirementLabel(r: Requirement): string {
   switch (r.kind) {
@@ -40,12 +37,8 @@ export function requirementLabel(r: Requirement): string {
       return `Speaks ${or(r.value.values)}${r.value.min === 'fluent' ? ' fluently' : ''}`
     case 'type':
       return or(r.value.values)
-    case 'availability': {
-      const eng = { either: 'Available', part_time: 'Part-time', full_time: 'Full-time' }[r.value.engagement]
-      if (r.value.untilMonth) return `${eng} by ${monthLabel(r.value.untilMonth)}`
-      if (r.value.fromMonth) return `${eng} from ${monthLabel(r.value.fromMonth)}`
-      return eng === 'Available' ? 'Available' : `Available ${eng.toLowerCase()}`
-    }
+    case 'availability':
+      return availabilityLabel(r.value)
     case 'career_level':
       return or(
         r.value.values.map((v) => ({ early_career: 'Early career', mid_career: 'Mid-career', senior: 'Senior' })[v] ?? v),
@@ -57,19 +50,6 @@ export function requirementLabel(r: Requirement): string {
     case 'work_arrangement':
       return `Works ${or(r.value.values)}`
   }
-}
-
-function addMonths(ym: string, n: number): string {
-  const d = new Date(`${ym}-01T00:00:00`)
-  d.setMonth(d.getMonth() + n)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
-/** Availability "within one month after the target" → partial (spec §3.1). */
-function graceWindow(v: AvailabilityFilter): AvailabilityFilter | null {
-  if (v.untilMonth) return { ...v, untilMonth: addMonths(v.untilMonth, AVAILABILITY_GRACE_MONTHS) }
-  if (v.fromMonth) return { ...v, untilMonth: addMonths(v.fromMonth, AVAILABILITY_GRACE_MONTHS) }
-  return null // "any time" has no target to miss by a month
 }
 
 interface Judged {
@@ -135,8 +115,9 @@ function judge(c: CandidateInput, r: Requirement, index: ExpertiseIndex, orgs: O
       return r.value.values.includes(p.consultant_type) ? met(p.consultant_type) : notMet(p.consultant_type)
     case 'availability': {
       if (matchesAvailability(p, r.value)) return met('Available in the requested window')
-      const grace = graceWindow(r.value)
-      if (grace && matchesAvailability(p, grace))
+      // Within one month after the target → partial (spec §3.1); "Any time"
+      // has no target to miss.
+      if (r.value.when !== 'any' && matchesAvailability(p, r.value, AVAILABILITY_GRACE_MONTHS))
         return { outcome: 'partial', credit: CREDIT.otherPartial, detail: 'Available within a month after the target' }
       return notMet('Not available in the requested window')
     }

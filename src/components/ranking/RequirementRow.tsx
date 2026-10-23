@@ -1,9 +1,9 @@
 import { AlertTriangle, Info, Plus, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { availabilitySummary } from '../directory/AvailabilityModal'
+import { AvailabilityControls } from '../directory/AvailabilityControls'
 import { EXPERTISE_TIER_LIMITS } from '../../lib/config'
 import { EXPERTISE_KIND_LABELS, type ExpertiseIndex } from '../../lib/expertise'
-import { locationLabel, type EngagementType } from '../../lib/filters'
+import { locationLabel } from '../../lib/filters'
 import type { Level, Requirement, RequirementValueByKind } from '../../lib/matching/types'
 import { CAREER_LEVEL_SHORT, KIND_LABELS, ORG_SCOPE_LABELS } from '../../lib/requirements/labels'
 import { isRequiredOnly, rowHasValue } from '../../lib/requirements/model'
@@ -291,12 +291,6 @@ function ListPicker({
   )
 }
 
-const ENGAGEMENTS: { value: EngagementType; label: string }[] = [
-  { value: 'either', label: 'Either' },
-  { value: 'part_time', label: 'Part-time' },
-  { value: 'full_time', label: 'Full-time' },
-]
-
 function AvailabilityPicker({
   value,
   onValue,
@@ -304,35 +298,10 @@ function AvailabilityPicker({
   value: RequirementValueByKind['availability']
   onValue: (v: RequirementValueByKind['availability']) => void
 }) {
+  // The filter modal's chips and presets (one control for both surfaces).
   return (
-    <div className="mt-2 space-y-2">
-      <div className="flex flex-wrap gap-1.5">
-        {ENGAGEMENTS.map((e) => (
-          <button
-            key={e.value}
-            type="button"
-            aria-pressed={value.engagement === e.value}
-            onClick={() => onValue({ ...value, engagement: e.value })}
-            className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
-              value.engagement === e.value
-                ? 'border-brand-500 bg-brand-50 text-brand-700'
-                : 'border-line text-ink-soft hover:border-ink-faint'
-            }`}
-          >
-            {e.label}
-          </button>
-        ))}
-      </div>
-      <label className="flex flex-wrap items-center gap-2 text-xs text-ink-soft">
-        Available by
-        <input
-          type="month"
-          value={value.untilMonth ?? ''}
-          onChange={(e) => onValue({ ...value, untilMonth: e.target.value || null })}
-          className="rounded-lg border border-line px-2 py-1 text-xs outline-none focus:border-brand-400"
-        />
-        <span className="text-ink-faint">{availabilitySummary(value)}</span>
-      </label>
+    <div className="mt-2">
+      <AvailabilityControls value={value} onChange={onValue} compact />
     </div>
   )
 }
