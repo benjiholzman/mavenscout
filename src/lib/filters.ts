@@ -138,10 +138,11 @@ function matchesSearch(
 ): boolean {
   const q = term.trim().toLowerCase()
   if (!q) return true
-  const inNames = p.name.toLowerCase().includes(q) || p.headline.toLowerCase().includes(q)
-  if (mode === 'names') return inNames
-  if (inNames) return true
+  const inName = p.name.toLowerCase().includes(q)
+  if (mode === 'names') return inName
+  if (inName) return true
   const haystack = [
+    p.headline,
     p.detailed_bio ?? '',
     ...expertiseTags(p).map((t) => t.name),
     ...portfolio.flatMap((i) => [i.project_name, i.role, i.description, i.results ?? '']),

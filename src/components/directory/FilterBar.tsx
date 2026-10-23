@@ -154,7 +154,7 @@ export function FilterBar({
               type="search"
               value={filters.searchTerm}
               onChange={(e) => set('searchTerm', e.target.value)}
-              placeholder={filters.searchMode === 'names' ? 'Search names & headlines' : 'Search full profiles'}
+              placeholder={filters.searchMode === 'names' ? 'Search names' : 'Search full profiles'}
               className="h-full w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-ink-faint"
             />
           </label>
