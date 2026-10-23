@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { FilterBar } from '../components/directory/FilterBar'
 import { FlipCard } from '../components/directory/FlipCard'
+import { JumpToTop } from '../components/directory/JumpToTop'
 import { SortDropdown } from '../components/directory/SortDropdown'
 import { AboutResultModal } from '../components/match/AboutResultModal'
 import { SaveRankingModal } from '../components/match/SaveRankingModal'
@@ -646,6 +647,8 @@ export default function Directory() {
         result={about?.result ?? null}
         rank={about?.position ?? 0}
       />
+
+      <JumpToTop />
 
       <SignupPrompt open={gatedFeature !== null} onClose={() => setGatedFeature(null)} feature={gatedFeature ?? ''} />
       {saveUi}

@@ -12,8 +12,8 @@ export const KIND_LABELS: Record<RequirementKind, string> = {
   type: 'Type',
   availability: 'Availability',
   career_level: 'Career level',
-  video_qna: 'Has video Q&As',
-  audio_testimonial: 'Has audio testimonial',
+  video_qna: 'Video Q&As only',
+  audio_testimonial: 'Audio testimonials only',
   work_arrangement: 'Work arrangement',
 }
 

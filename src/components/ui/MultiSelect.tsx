@@ -1,5 +1,6 @@
-import { Check, ChevronDown, Info } from 'lucide-react'
+import { Check, Info } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { CountBadge, FilterChip } from './FilterChip'
 
 export interface OptionGroup {
   /** Group/category label; selectable itself when `selectableGroup`. */
@@ -29,6 +30,7 @@ export function MultiSelect({
   searchTerms,
   open,
   onToggle,
+  onClear,
 }: {
   label: string
   options?: string[]
@@ -56,6 +58,9 @@ export function MultiSelect({
   searchTerms?: (value: string) => string[]
   open: boolean
   onToggle: (open: boolean) => void
+  /** Filter-bar chips: an × clears the selection without opening the panel,
+   *  and a single selection shows its own name instead of the label. */
+  onClear?: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [query, setQuery] = useState('')
@@ -127,27 +132,26 @@ export function MultiSelect({
 
   return (
     <div ref={ref} className="relative">
-      <button
-        type="button"
+      <FilterChip
+        active={selected.length > 0}
+        open={open}
+        onClick={() => onToggle(!open)}
+        onClear={onClear}
+        clearLabel={`Clear ${label}`}
         disabled={disabled}
         title={disabled ? disabledNote : undefined}
-        onClick={() => onToggle(!open)}
-        className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
-          disabled
-            ? 'cursor-not-allowed border-line text-ink-faint/60'
-            : selected.length > 0
-              ? 'border-brand-500 bg-brand-50 text-brand-700'
-              : 'border-line bg-white text-ink-soft hover:border-ink-faint'
-        }`}
       >
-        {label}
-        {selected.length > 0 && (
-          <span className="rounded-full bg-brand-500 px-1.5 text-xs font-semibold text-white">
-            {selected.length}
+        {onClear && selected.length === 1 ? (
+          <span className="max-w-[12rem] truncate sm:max-w-[16rem]" title={formatValue(selected[0])}>
+            {formatValue(selected[0])}
           </span>
+        ) : (
+          <>
+            {label}
+            {selected.length > 0 && <CountBadge n={selected.length} />}
+          </>
         )}
-        <ChevronDown size={14} className={open ? 'rotate-180 transition' : 'transition'} />
-      </button>
+      </FilterChip>
 
       {open && (
         <div

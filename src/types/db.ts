@@ -144,7 +144,7 @@ export interface Profile {
   video_qnas_complete?: boolean
   /** App-derived, NOT a column: the profile shows at least one published
    *  audio testimonial. Set by the directory loader (lib/testimonials/display
-   *  testimonialTeasers); the "Has audio testimonial" filter reads it. Never
+   *  testimonialTeasers); the "Audio testimonials only" filter reads it. Never
    *  write it back to `profiles`. */
   has_audio_testimonial?: boolean
 }

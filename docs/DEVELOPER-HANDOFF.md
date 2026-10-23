@@ -28,7 +28,7 @@ Member**; `is_premium` means "chose Featured". Featured *status* (`isFeatured`) 
 needs every active standard Video Q&A answered. Until then the profile shows, is
 capped and is placed as a Member. The loaders set a derived
 `Profile.video_qnas_complete`; it is not a column and must never be written back.
-Membership never affects AI rank, and "Has video Q&As" (requirement kind `video_qna`)
+Membership never affects AI rank, and "Video Q&As only" (requirement kind `video_qna`)
 is Required-only by construction (`isRequiredOnly` in `lib/requirements/model.ts`).
 
 **Audio testimonials (profiles-membership §4; `src/lib/testimonials/`).** The
@@ -395,7 +395,7 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   testimonial on an employer entry (Featured: several, some on portfolio items) from
   a fictional referee at a real organization's domain; the other 30 Members (about
   40%, `WITHOUT_TESTIMONIAL` in `scripts/demo-seed/build.ts`, never a baseline
-  test-case profile or Amara) have none, so "Has audio testimonial" has something
+  test-case profile or Amara) have none, so "Audio testimonials only" has something
   to filter. Their authored testimonial stays in the profile source, dropped at
   build time. Every profile has gender-matched randomuser.me photos (never
   repeated) and verification checks so labels show. Demo states for admin: four certifications

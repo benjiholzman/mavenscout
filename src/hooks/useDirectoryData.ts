@@ -83,7 +83,7 @@ export function useDirectoryData() {
       const testimonialOrgsByProfile = new Map<string, string[]>()
       for (const p of profiles) {
         const shown = testimonialTeasers(p, published.get(p.id) ?? [])
-        // App-derived, for the "Has audio testimonial" filter (never saved).
+        // App-derived, for the "Audio testimonials only" filter (never saved).
         p.has_audio_testimonial = shown.length > 0
         if (shown.length) testimonialOrgsByProfile.set(p.id, testimonialOrgNames(shown, orgs))
       }

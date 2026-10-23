@@ -7,7 +7,7 @@ import type { InterviewQuestion, Profile, VideoResponse } from '../types/db'
 // Featured status itself starts only once all standard Video Q&As are in;
 // until then the profile is shown, capped and placed as a Member. Everything
 // Featured — the gold card, browse placement, the Video Q&A tab, the
-// "Has video Q&As" filter, custom domain and the higher caps — reads
+// "Video Q&As only" filter, custom domain and the higher caps — reads
 // isFeatured(). Membership never affects AI rank.
 
 export type MembershipLevel = 'member' | 'featured'

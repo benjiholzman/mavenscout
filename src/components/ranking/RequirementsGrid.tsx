@@ -54,8 +54,8 @@ const ADD_LABELS: Record<SingleKind, string> = {
   type: 'Type',
   career_level: 'Career level',
   work_arrangement: 'Work arrangement',
-  video_qna: 'Has video Q&As',
-  audio_testimonial: 'Has audio testimonial',
+  video_qna: 'Video Q&As only',
+  audio_testimonial: 'Audio testimonials only',
 }
 
 function AddChip({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {

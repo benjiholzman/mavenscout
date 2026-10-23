@@ -51,9 +51,9 @@ export function requirementLabel(r: Requirement): string {
         r.value.values.map((v) => ({ early_career: 'Early career', mid_career: 'Mid-career', senior: 'Senior' })[v] ?? v),
       )
     case 'video_qna':
-      return 'Has video Q&As'
+      return 'Video Q&As only'
     case 'audio_testimonial':
-      return 'Has audio testimonial'
+      return 'Audio testimonials only'
     case 'work_arrangement':
       return `Works ${or(r.value.values)}`
   }

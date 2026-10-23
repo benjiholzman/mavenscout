@@ -30,7 +30,7 @@ import {
 // arrangement) may have TWO rows: one Required row (what the filter bar shows)
 // and one preference row (Nice to have / Important) — e.g. Required: French
 // plus Nice to have: English. Other single-instance kinds (availability,
-// video Q&As, org history) have at most one row. "Has video Q&As"
+// video Q&As, org history) have at most one row. "Video Q&As only"
 // is Required only (isRequiredOnly): Featured membership never scores.
 //
 // Semantics carried over from the filter bar:
@@ -109,9 +109,9 @@ export function makeRow<K extends RequirementKind>(
   } as Requirement
 }
 
-/** Kinds that only filter and are never scored: "Has video Q&As" is Featured
+/** Kinds that only filter and are never scored: "Video Q&As only" is Featured
  *  membership, and payment must never add points (profiles-membership §2.2);
- *  "Has audio testimonial" likewise stays out of the score (§4.1: testimonials
+ *  "Audio testimonials only" likewise stays out of the score (§4.1: testimonials
  *  never feed ranking). */
 export function isRequiredOnly(kind: RequirementKind): boolean {
   return kind === 'video_qna' || kind === 'audio_testimonial'

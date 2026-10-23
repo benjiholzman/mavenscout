@@ -212,7 +212,7 @@ for (const p of [...profiles].sort((a, b) => a.id.localeCompare(b.id))) {
 // ---- testimonials, Video Q&As, verification ---------------------------------------
 
 // Members without an audio testimonial (it's optional for Members, required
-// for Featured; config TESTIMONIAL_REQUIRED), so "Has audio testimonial" has
+// for Featured; config TESTIMONIAL_REQUIRED), so "Audio testimonials only" has
 // something to filter: about 40% of Members. Never Featured, never a profile
 // in the ranking baseline (named in docs/samples/expectations.json or in a
 // t*-*.mjs test-case file), never the demo consultant (Amara). Their authored

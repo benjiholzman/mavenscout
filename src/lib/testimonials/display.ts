@@ -71,7 +71,7 @@ export function testimonialOrgNames(
 }
 
 /** What the directory loads per published testimonial: enough for the flip
- *  card's "Testimonial from …" and the "Has audio testimonial" filter, without
+ *  card's "Testimonial from …" and the "Audio testimonials only" filter, without
  *  referee emails or transcripts. */
 export type TestimonialTeaser = Pick<
   AudioTestimonial,

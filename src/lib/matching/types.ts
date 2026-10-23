@@ -83,10 +83,10 @@ export interface RequirementValueByKind {
    *  state. "Available by [month]" in the grid edits untilMonth. */
   availability: AvailabilityFilter
   career_level: ValuesValue
-  /** "Has video Q&As": Required only (profiles-membership §2.2) — membership
+  /** "Video Q&As only": Required only (profiles-membership §2.2) — membership
    *  must never add points, so this row is never Nice to have / Important. */
   video_qna: Record<string, never>
-  /** "Has audio testimonial": Required only, like video_qna — a filter that
+  /** "Audio testimonials only": Required only, like video_qna — a filter that
    *  never adds points. */
   audio_testimonial: Record<string, never>
   work_arrangement: ValuesValue

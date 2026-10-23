@@ -13,6 +13,7 @@ import { FIRMS_ENABLED } from '../../lib/config'
 import { describeExpertiseSelection, type ExpertiseIndex } from '../../lib/expertise'
 import { MIN_PROFICIENCY_LABELS } from '../../lib/languages'
 import { MultiSelect, type OptionGroup } from '../ui/MultiSelect'
+import { FilterChip } from '../ui/FilterChip'
 import { Segmented } from '../ui/Segmented'
 import { Switch } from '../ui/Switch'
 import { AvailabilityModal, availabilitySummary } from './AvailabilityModal'
@@ -103,39 +104,63 @@ export function FilterBar({
 
   return (
     <div className="space-y-3">
-      {/* Search — two modes (PRD 7.1): switching modes re-runs the same term. */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative flex-1 sm:max-w-md">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
-          <input
-            type="search"
-            value={filters.searchTerm}
-            onChange={(e) => set('searchTerm', e.target.value)}
-            placeholder={
-              filters.searchMode === 'names' ? 'Search names & headlines…' : 'Search full profiles…'
-            }
-            className="w-full rounded-full border border-line bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
-          />
+      {/* Search — two modes (PRD 7.1), picked inside the field; switching
+          modes re-runs the same term. The two toggles share its line. */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
+        <div className="flex h-10 w-full min-w-0 items-center rounded-xl border border-line bg-white transition focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100 sm:w-auto sm:flex-1 lg:max-w-xl">
+          <div role="radiogroup" aria-label="Search mode" className="flex shrink-0 items-center gap-0.5 p-1">
+            {(
+              [
+                ['names', 'Names', ' only'],
+                ['full', 'Full profiles', ''],
+              ] as [SearchMode, string, string][]
+            ).map(([mode, label, wide]) => {
+              const active = filters.searchMode === mode
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => set('searchMode', mode)}
+                  className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                    active ? 'bg-brand-50 text-brand-700' : 'text-ink-soft hover:text-ink'
+                  }`}
+                >
+                  {label}
+                  {/* Phones drop " only" to leave the input room. */}
+                  {wide && <span className="hidden sm:inline">{wide}</span>}
+                </button>
+              )
+            })}
+          </div>
+          <span className="h-full w-px shrink-0 bg-line" aria-hidden />
+          <label className="flex h-full min-w-0 flex-1 items-center gap-2 pl-3 pr-2">
+            <Search size={16} className="shrink-0 text-ink-faint" aria-hidden />
+            <span className="sr-only">Search</span>
+            <input
+              type="search"
+              value={filters.searchTerm}
+              onChange={(e) => set('searchTerm', e.target.value)}
+              placeholder={filters.searchMode === 'names' ? 'Search names & headlines' : 'Search full profiles'}
+              className="h-full w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-ink-faint"
+            />
+          </label>
         </div>
-        <div className="flex items-center gap-3 text-sm" role="radiogroup" aria-label="Search mode">
-          {(
-            [
-              ['names', 'Names only'],
-              ['full', 'Full profiles'],
-            ] as [SearchMode, string][]
-          ).map(([mode, label]) => (
-            <label key={mode} className="flex cursor-pointer items-center gap-1.5 text-ink-soft">
-              <input
-                type="radio"
-                name="search-mode"
-                checked={filters.searchMode === mode}
-                onChange={() => set('searchMode', mode)}
-                className="accent-brand-500"
-              />
-              {label}
-            </label>
-          ))}
-        </div>
+
+        {/* Featured Members' interview videos; a filter only, never scored. */}
+        <Switch
+          checked={filters.hasVideoQnas}
+          onChange={(v) => set('hasVideoQnas', v)}
+          label="Video Q&As only"
+        />
+        {/* Off by default; a filter only, never scored (testimonials never
+            feed ranking). */}
+        <Switch
+          checked={filters.hasAudioTestimonial}
+          onChange={(v) => set('hasAudioTestimonial', v)}
+          label="Audio testimonials only"
+        />
       </div>
 
       {/* Filter row */}
@@ -147,6 +172,7 @@ export function FilterBar({
             options={TYPE_OPTIONS}
             selected={filters.types}
             onChange={(v) => set('types', v)}
+          onClear={() => set('types', [])}
             counts={openKey === 'type' ? openCounts : undefined}
             open={openKey === 'type'}
             onToggle={toggleFor('type')}
@@ -162,6 +188,7 @@ export function FilterBar({
           }}
           selected={filters.expertise}
           onChange={(v) => set('expertise', v)}
+          onClear={() => set('expertise', [])}
           counts={openKey === 'expertise' ? openCounts : undefined}
           open={openKey === 'expertise'}
           onToggle={toggleFor('expertise')}
@@ -186,6 +213,7 @@ export function FilterBar({
           options={CAREER_LEVEL_OPTIONS}
           selected={filters.careerLevels.map((v) => CAREER_LEVEL_LABELS_BY_VALUE[v] ?? v)}
           onChange={(labels) => set('careerLevels', labels.map((l) => CAREER_LEVEL_VALUES[l] ?? l))}
+          onClear={() => set('careerLevels', [])}
           disabled={firmsOnly}
           disabledNote="Career level applies to individuals — it doesn't apply when filtering firms only"
           note={FIRMS_ENABLED ? "Firms aren't filtered by career level — they always show." : undefined}
@@ -198,6 +226,7 @@ export function FilterBar({
           options={workArrangements}
           selected={filters.workArrangements}
           onChange={(v) => set('workArrangements', v)}
+          onClear={() => set('workArrangements', [])}
           counts={openKey === 'arrangement' ? openCounts : undefined}
           open={openKey === 'arrangement'}
           onToggle={toggleFor('arrangement')}
@@ -209,6 +238,7 @@ export function FilterBar({
           formatValue={locationLabel}
           selected={filters.locations}
           onChange={(v) => set('locations', v)}
+          onClear={() => set('locations', [])}
           counts={openKey === 'location' ? openCounts : undefined}
           open={openKey === 'location'}
           onToggle={toggleFor('location')}
@@ -218,6 +248,7 @@ export function FilterBar({
           options={languages}
           selected={filters.languages}
           onChange={(v) => set('languages', v)}
+          onClear={() => set('languages', [])}
           header={
             <div className="space-y-1.5">
               <span className="block text-xs font-medium text-ink-soft">Spoken at</span>
@@ -238,31 +269,17 @@ export function FilterBar({
         />
 
         {/* Availability — compound query gets its own small modal (PRD 7.1). */}
-        <button
+        <FilterChip
+          active={!!filters.availability}
           onClick={() => setAvailabilityOpen(true)}
-          className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
-            filters.availability
-              ? 'border-brand-500 bg-brand-50 text-brand-700'
-              : 'border-line bg-white text-ink-soft hover:border-ink-faint'
-          }`}
+          onClear={() => set('availability', null)}
+          clearLabel="Clear Availability"
+          icon={<CalendarClock size={14} className="shrink-0" aria-hidden />}
         >
-          <CalendarClock size={14} />
-          {filters.availability ? availabilitySummary(filters.availability) : 'Availability'}
-        </button>
-
-        {/* Featured Members' interview videos; a filter only, never scored. */}
-        <Switch
-          checked={filters.hasVideoQnas}
-          onChange={(v) => set('hasVideoQnas', v)}
-          label="Has video Q&As"
-        />
-        {/* Off by default; a filter only, never scored (testimonials never
-            feed ranking). */}
-        <Switch
-          checked={filters.hasAudioTestimonial}
-          onChange={(v) => set('hasAudioTestimonial', v)}
-          label="Has audio testimonial"
-        />
+          <span className="truncate">
+            {filters.availability ? availabilitySummary(filters.availability) : 'Availability'}
+          </span>
+        </FilterChip>
 
         {gridOnlyMustHaves.length > 0 && (
           <button
