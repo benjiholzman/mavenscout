@@ -1,6 +1,6 @@
 import { BadgeCheck, SearchX, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { FilterBar } from '../components/directory/FilterBar'
 import { FlipCard } from '../components/directory/FlipCard'
 import { JumpToTop } from '../components/directory/JumpToTop'
@@ -52,7 +52,7 @@ import { useRequirements } from '../lib/requirements/store'
 import { employerGroups, orgAliases } from '../lib/organizations'
 import { FIRMS_ENABLED } from '../lib/config'
 import { DEMO_HIRING_MANAGER_ID, useSession } from '../lib/session'
-import { VERIFIED_STATEMENT } from '../lib/testimonials/copy'
+import { VERIFIED_IDENTITY_STATEMENT } from '../lib/testimonials/copy'
 import { sortProfiles, type SortMode } from '../lib/sort'
 import { supabase } from '../lib/supabase'
 
@@ -546,14 +546,9 @@ export default function Directory() {
             A curated pool of vetted {FIRMS_ENABLED ? 'consultants and firms' : 'experts'} in international development.
           </p>
           {/* The verification statement (profiles-membership §3.2). */}
-          <p className="mt-1.5 flex max-w-2xl items-start gap-1.5 text-xs leading-relaxed text-ink-faint">
+          <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-ink-faint">
             <BadgeCheck size={14} className="mt-px shrink-0 text-emerald-700" />
-            <span>
-              {VERIFIED_STATEMENT}{' '}
-              <Link to="/about#verification" className="font-medium text-brand-600 hover:text-brand-700">
-                What verification means
-              </Link>
-            </span>
+            <span>{VERIFIED_IDENTITY_STATEMENT}</span>
           </p>
         </div>
         {/* Ranking — deliberately separate from the filter bar (PRD 7.1). */}
@@ -605,6 +600,8 @@ export default function Directory() {
           rerunBlocker={runBlocker}
         />
       )}
+
+      <hr className="mt-6 border-line" />
 
       <div className="mt-6 flex items-center justify-between gap-4">
         <p className="text-sm text-ink-soft" aria-live="polite">

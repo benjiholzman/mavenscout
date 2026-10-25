@@ -10,7 +10,7 @@ import {
   availabilitySummary,
   toggleAvailableNow,
 } from '../../lib/filters'
-import type { TaxonomyCategory, TaxonomyItem } from '../../types/db'
+import type { Proficiency, TaxonomyCategory, TaxonomyItem } from '../../types/db'
 import { FIRMS_ENABLED } from '../../lib/config'
 import { describeExpertiseSelection, type ExpertiseIndex } from '../../lib/expertise'
 import { MIN_PROFICIENCY_LABELS } from '../../lib/languages'
@@ -19,6 +19,7 @@ import { MultiSelect, type OptionGroup, type TreeNode } from '../ui/MultiSelect'
 import { FilterChip } from '../ui/FilterChip'
 import { Segmented } from '../ui/Segmented'
 import { Switch } from '../ui/Switch'
+import { InfoTip } from '../ui/InfoTip'
 import { AvailabilityModal } from './AvailabilityModal'
 
 const TYPE_OPTIONS = ['Individual', 'Small Firm', 'Large Firm']
@@ -78,6 +79,10 @@ export function FilterBar({
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null)
   const [availabilityOpen, setAvailabilityOpen] = useState(false)
+  // The level only lives on the Required language row, which exists once a
+  // language is picked; until then it's held here and applied with the pick.
+  const [pendingLanguageLevel, setPendingLanguageLevel] = useState<Proficiency>('working')
+  const languageLevel = filters.languages.length > 0 ? filters.languageLevel : pendingLanguageLevel
 
   const set = <K extends keyof FilterState>(key: K, value: FilterState[K]) =>
     onChange({ ...filters, [key]: value })
@@ -166,8 +171,9 @@ export function FilterBar({
         <Switch
           checked={filters.hasVideoQnas}
           onChange={(v) => set('hasVideoQnas', v)}
-          label="Video Q&As only"
+          label="Featured only"
         />
+        <InfoTip text="Featured members can list up to 10 portfolio items, and have 5 pre-recorded video responses to common interview questions. Learn more on the About page." />
         {/* Shares state with the Availability filter and its requirement
             row: on = available now on either chosen track (fresh within
             AVAILABILITY_FRESH_DAYS); off drops the timing, keeping the tracks. */}
@@ -183,6 +189,7 @@ export function FilterBar({
           onChange={(v) => set('hasAudioTestimonial', v)}
           label="Audio testimonials only"
         />
+        <InfoTip text="Audio testimonials are recorded by someone the expert has previously worked with to serve as a reference." />
       </div>
 
       {/* Filter row */}
@@ -202,6 +209,7 @@ export function FilterBar({
         )}
         <MultiSelect
           label="Expertise"
+          wide
           groups={expertise.groups}
           searchable
           searchTerms={(v) => {
@@ -230,6 +238,63 @@ export function FilterBar({
               : 'Matches Core and Strong expertise unless Working knowledge is included. Two sectors match either; a sector and a method need both.'
           }
         />
+
+        <MultiSelect
+          label="Location"
+          wide
+          tree={locations}
+          formatValue={locationLabel}
+          selected={filters.locations}
+          onChange={(v) => set('locations', v)}
+          onClear={() => set('locations', [])}
+          counts={openKey === 'location' ? openCounts : undefined}
+          open={openKey === 'location'}
+          onToggle={toggleFor('location')}
+        />
+        {/* The Required Org History row at "Ever at" (shared state). */}
+        {employers.length > 0 && (
+          <MultiSelect
+            label="Employers"
+            wide
+            groups={employers}
+            searchTerms={employerSearchTerms}
+            selected={filters.previousEmployers}
+            onChange={(v) => set('previousEmployers', v)}
+            onClear={() => set('previousEmployers', [])}
+            disabled={!!employersLockedNote}
+            disabledNote={employersLockedNote}
+            note="Experts who have worked at any of the organizations you pick, including their country offices."
+            counts={openKey === 'employers' ? openCounts : undefined}
+            open={openKey === 'employers'}
+            onToggle={toggleFor('employers')}
+          />
+        )}
+        <MultiSelect
+          label="Language"
+          options={languages}
+          selected={filters.languages}
+          onChange={(v) => onChange({ ...filters, languages: v, languageLevel })}
+          onClear={() => set('languages', [])}
+          header={
+            <div className="space-y-1.5">
+              <span className="block text-xs font-medium text-ink-soft">Spoken at</span>
+              <Segmented
+                label="Minimum language level"
+                value={languageLevel}
+                options={(['working', 'fluent'] as const).map((v) => ({ value: v, label: MIN_PROFICIENCY_LABELS[v] }))}
+                onChange={(v) => {
+                  setPendingLanguageLevel(v)
+                  if (filters.languages.length > 0) set('languageLevel', v)
+                }}
+                className="w-full"
+              />
+            </div>
+          }
+          note="Fluent counts as Working."
+          counts={openKey === 'language' ? openCounts : undefined}
+          open={openKey === 'language'}
+          onToggle={toggleFor('language')}
+        />
         <MultiSelect
           label="Career Level"
           options={CAREER_LEVEL_OPTIONS}
@@ -253,40 +318,6 @@ export function FilterBar({
           open={openKey === 'arrangement'}
           onToggle={toggleFor('arrangement')}
         />
-        <MultiSelect
-          label="Location"
-          tree={locations}
-          formatValue={locationLabel}
-          selected={filters.locations}
-          onChange={(v) => set('locations', v)}
-          onClear={() => set('locations', [])}
-          counts={openKey === 'location' ? openCounts : undefined}
-          open={openKey === 'location'}
-          onToggle={toggleFor('location')}
-        />
-        <MultiSelect
-          label="Language"
-          options={languages}
-          selected={filters.languages}
-          onChange={(v) => set('languages', v)}
-          onClear={() => set('languages', [])}
-          header={
-            <div className="space-y-1.5">
-              <span className="block text-xs font-medium text-ink-soft">Spoken at</span>
-              <Segmented
-                label="Minimum language level"
-                value={filters.languageLevel}
-                options={(['working', 'fluent'] as const).map((v) => ({ value: v, label: MIN_PROFICIENCY_LABELS[v] }))}
-                onChange={(v) => set('languageLevel', v)}
-                className="w-full"
-              />
-            </div>
-          }
-          note="Fluent counts as Working."
-          counts={openKey === 'language' ? openCounts : undefined}
-          open={openKey === 'language'}
-          onToggle={toggleFor('language')}
-        />
 
         {/* Availability — compound query gets its own small modal (PRD 7.1). */}
         <FilterChip
@@ -301,24 +332,6 @@ export function FilterBar({
           </span>
         </FilterChip>
 
-        {/* Less used: kept at the end of the row, after the main filters.
-            It's the Required Org History row at "Ever at" (shared state). */}
-        {employers.length > 0 && (
-          <MultiSelect
-            label="Previous employers"
-            groups={employers}
-            searchTerms={employerSearchTerms}
-            selected={filters.previousEmployers}
-            onChange={(v) => set('previousEmployers', v)}
-            onClear={() => set('previousEmployers', [])}
-            disabled={!!employersLockedNote}
-            disabledNote={employersLockedNote}
-            note="Experts who have worked at any of the organizations you pick, including their country offices."
-            counts={openKey === 'employers' ? openCounts : undefined}
-            open={openKey === 'employers'}
-            onToggle={toggleFor('employers')}
-          />
-        )}
 
         {gridOnlyMustHaves.length > 0 && (
           <button

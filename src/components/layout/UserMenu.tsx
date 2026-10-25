@@ -1,11 +1,11 @@
-import { ChevronDown, CreditCard, LayoutDashboard, ListChecks, LogOut, Settings, UserPen } from 'lucide-react'
+import { ChevronDown, CreditCard, LayoutDashboard, LogOut, Settings, UserPen } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useSession, type Role } from '../../lib/session'
 
 // Top-right user menu (PRD 7.9b) — role-appropriate items.
 // Consultant: My Profile / Account Settings / Billing / Log out.
-// Hiring manager: My Openings / Account Settings / Log out (free — no billing).
+// Hiring manager: Account Settings (My Openings is in the nav bar) / Log out (free — no billing).
 // Admin: Admin panel / Log out.
 
 const IDENTITY: Record<Exclude<Role, 'logged_out'>, { name: string; initials: string }> = {
@@ -50,7 +50,6 @@ export function UserMenu() {
         ]
       : role === 'hiring_manager'
         ? [
-            { to: '/openings', label: 'My Openings', icon: ListChecks },
             { to: '/account', label: 'Account Settings', icon: Settings },
           ]
         : [{ to: '/admin', label: 'Admin panel', icon: LayoutDashboard }]

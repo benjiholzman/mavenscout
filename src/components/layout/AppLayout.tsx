@@ -10,6 +10,7 @@ import { UserMenu } from './UserMenu'
 // Login when logged out, role-appropriate user menu when logged in (7.9b).
 
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
+  const { role } = useSession()
   const linkCls = ({ isActive }: { isActive: boolean }) =>
     `font-medium ${isActive ? 'text-ink' : 'text-ink-soft hover:text-ink'}`
   return (
@@ -20,6 +21,11 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
       <NavLink to="/about" className={linkCls} onClick={onNavigate}>
         About
       </NavLink>
+      {role === 'hiring_manager' && (
+        <NavLink to="/openings" className={linkCls} onClick={onNavigate}>
+          My Openings
+        </NavLink>
+      )}
     </>
   )
 }
@@ -80,10 +86,7 @@ export function AppLayout() {
                       ['/billing', 'Billing'],
                     ]
                   : role === 'hiring_manager'
-                    ? [
-                        ['/openings', 'My Openings'],
-                        ['/account', 'Account Settings'],
-                      ]
+                    ? [['/account', 'Account Settings']]
                     : [['/admin', 'Admin panel']]
                 ).map(([to, label]) => (
                   <Link

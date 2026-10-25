@@ -46,6 +46,10 @@ export const TESTIMONIAL_COVERAGE_LINE: string | null = EVERY_EXPERT_VOUCHED_FOR
 /** What every listed expert has been through (§3.2): the one statement for
  *  the directory header, the About page, the verification explainer, the
  *  manager sign-up and the referee's "about MavenScout" page. */
+/** The identity-check sentence alone (the Browse page header). */
+export const VERIFIED_IDENTITY_STATEMENT =
+  'Every expert on MavenScout has had their identity, most recent employer, most recent degree and certifications checked.'
+
 export const VERIFIED_STATEMENT = EVERY_EXPERT_VOUCHED_FOR
   ? 'Every expert on MavenScout has had their identity, most recent employer, most recent degree and certifications checked, and has been vouched for on record by someone they worked with.'
   : EVERY_FEATURED_VOUCHED_FOR

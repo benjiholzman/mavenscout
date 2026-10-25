@@ -43,6 +43,7 @@ export function MultiSelect({
   disabledNote,
   note,
   header,
+  wide,
   searchable = false,
   searchTerms,
   open,
@@ -72,6 +73,8 @@ export function MultiSelect({
   note?: string
   /** Extra control pinned above the options (e.g. a language's minimum level). */
   header?: ReactNode
+  /** A wider panel on desktop, for long option names. */
+  wide?: boolean
   /** A search box over the options. Multi-level lists always have one. */
   searchable?: boolean
   /** Extra words a value is found by (e.g. aliases), besides its label. */
@@ -340,7 +343,7 @@ export function MultiSelect({
 
       {open && (
         <div
-          className={inline ? 'rounded-xl border border-line bg-white p-2' : `fixed inset-x-0 bottom-0 z-40 max-h-[70vh] overflow-y-auto rounded-t-2xl border border-line bg-white p-2 shadow-xl sm:absolute sm:inset-x-auto sm:bottom-auto ${alignRight ? 'sm:right-0' : 'sm:left-0'} sm:top-full sm:mt-2 sm:max-h-96 sm:w-72 sm:rounded-xl`}
+          className={inline ? 'rounded-xl border border-line bg-white p-2' : `fixed inset-x-0 bottom-0 z-40 max-h-[70vh] overflow-y-auto rounded-t-2xl border border-line bg-white p-2 shadow-xl sm:absolute sm:inset-x-auto sm:bottom-auto ${alignRight ? 'sm:right-0' : 'sm:left-0'} sm:top-full sm:mt-2 sm:max-h-96 ${wide ? 'sm:w-96' : 'sm:w-72'} sm:rounded-xl`}
         >
           <div className={`mb-1 flex items-center justify-between px-2 pt-1 sm:hidden ${inline ? 'hidden' : ''}`}>
             <span className="text-sm font-semibold">{label}</span>
