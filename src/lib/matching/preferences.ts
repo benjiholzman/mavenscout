@@ -20,8 +20,8 @@ import type { PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../
 // Membership level never enters into it.
 // ============================================================================
 
-/** The mode a draft or run saved before the drawer's tabs implies: any JD
- *  text meant a JD run. Today the drawer's tab decides. */
+/** The mode a draft or run saved before modes were stored implies: any JD
+ *  text meant a JD run. Today the modal's step decides. */
 export function rankingModeFor(jdText: string): RankingMode {
   return jdText.trim() ? 'jd' : 'preferences'
 }
@@ -33,7 +33,7 @@ export function hasPreferenceRows(requirements: Requirement[]): boolean {
 
 /** Why Run (or Re-run) is disabled, or null when it can run. */
 export function runBlockerFor(args: {
-  /** The drawer's tab. */
+  /** Priorities (step 1) or job description (step 2). */
   mode: RankingMode
   jdText: string
   /** Whether the current JD has been read. */
@@ -42,7 +42,7 @@ export function runBlockerFor(args: {
   poolCount: number
 }): string | null {
   if (args.mode === 'jd') {
-    if (!args.jdText.trim()) return 'Paste a job description, or switch to Rank by priorities.'
+    if (!args.jdText.trim()) return 'Paste a job description, or go back and rank by your priorities.'
     if (!args.read) return 'Read the job description first.'
   } else if (!hasPreferenceRows(args.requirements))
     return 'Set at least one priority to Nice to have or Important to rank.'
@@ -109,7 +109,7 @@ export function scorePreferences(args: {
       fit_score: null,
       adjustments,
       scoring,
-      must_haves_passed: mustHavesPassed(c, requirements),
+      must_haves_passed: mustHavesPassed(c, requirements, orgs),
       narrative: preferenceSummary(adjustments),
     }
   })

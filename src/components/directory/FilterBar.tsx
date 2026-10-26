@@ -166,7 +166,7 @@ export function FilterBar({
           </label>
         </div>
 
-        {/* Featured Members' interview videos; a filter only, never scored. */}
+        {/* Featured Members' interview videos: the Must have Video Q&As row. */}
         <span className="flex items-center gap-1.5">
           <Switch
             checked={filters.hasVideoQnas}
@@ -175,8 +175,7 @@ export function FilterBar({
           />
           <InfoTip text="Featured members can list up to 10 portfolio items, and have 5 pre-recorded video responses to common interview questions. Learn more on the About page." />
         </span>
-        {/* Off by default; a filter only, never scored (testimonials never
-            feed ranking). */}
+        {/* Off by default: the Must have audio testimonial row. */}
         <span className="flex items-center gap-1.5">
           <Switch
             checked={filters.hasAudioTestimonial}

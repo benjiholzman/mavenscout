@@ -28,8 +28,10 @@ Member**; `is_premium` means "chose Featured". Featured *status* (`isFeatured`) 
 needs every active standard Video Q&A answered. Until then the profile shows, is
 capped and is placed as a Member. The loaders set a derived
 `Profile.video_qnas_complete`; it is not a column and must never be written back.
-Membership never affects AI rank, and "Video Q&As only" (requirement kind `video_qna`)
-is Required-only by construction (`isRequiredOnly` in `lib/requirements/model.ts`).
+Membership level never affects AI rank. Video Q&As (requirement kind `video_qna`)
+and audio testimonials (`audio_testimonial`) are ordinary priorities in the ranking
+modal — Nice to have, Important or Must have — by the owner's decision, overriding
+profiles-membership §2.2's filter-only rule.
 
 **Audio testimonials (profiles-membership §4; `src/lib/testimonials/`).** The
 consultant requests one per employer entry (Featured Members: per portfolio item
@@ -298,8 +300,8 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
     the JD **once** and returns *suggestions* (items from the unified expertise
     list with mention counts and a slight/strong lean, locations, languages,
     optional hiring org).
-    The ranking drawer pre-fills the locations and languages into "Your
-    priorities" at Nice to have ("from JD", with "Clear suggestions"); expertise
+    Step 2 of the priorities modal pre-fills the locations and languages into
+    the priorities at Nice to have (with "Clear suggestions"); expertise
     items only inform Fit; nothing is ever suggested as Must have. Output is stored on
     `job_descriptions.extracted`.
   - `rankPool(jobDescriptionId, requirements, pool) → MatchResult[]` (`score.ts`) —
@@ -309,8 +311,8 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
     Important row (`met | partial | not_met | not_applicable`, points earned),
     `scoring` (`{weight, earned, possible}`), `must_haves_passed`, `band`, `rank`,
     `narrative`.
-- **The engine is never called without a JD** (spec §11). A run from the
-  drawer's "Rank by priorities" tab is a *preferences-only* run (`job_descriptions.mode = 'preferences'`,
+- **The engine is never called without a JD** (spec §11). "See my matches" on
+  step 1 of the priorities modal is a *preferences-only* run (`job_descriptions.mode = 'preferences'`,
   `019_ranking_mode.sql`): it is scored app-side in `preferences.ts` as the share
   of preference points met (`round(100 × earned ÷ possible)`, ties → availability
   freshness → id), with no Fit, band or engine narrative. `extractRequirements`
@@ -318,12 +320,16 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   (`adjustments.ts`, `CREDIT` / `PREFERENCE_POINTS`) stays app-side for this mode
   even when the engine takes over JD runs; if the engine changes how preference
   rows are judged, decide whether preferences-only runs should follow.
-- **Scoring rule the UI explains to managers** (spec §5.3): preferences carry
-  weight equal to their points, up to 20% of the score —
-  `w = min(possible, 20) / 100`, `total = (1 − w) × Fit + 100 × w × earned ÷ possible`,
-  and `total = Fit` with no applicable preference rows. A Nice to have row is worth
-  3 points, Important 8, partials × credit; not-applicable rows count toward
-  neither earned nor possible. The pure formula is `total.ts`, shared by the scorer
+- **Scoring rule the UI explains to managers** (spec §5.3, rescaled): a Nice to
+  have row is worth 1 point, Important 3 (the modal says "counts 1× / 3×"),
+  partials × credit; not-applicable rows count toward neither earned nor possible.
+  In a JD run preferences weigh 2.5% of the score per point, up to 20% —
+  `w = min(possible × 2.5, 20) / 100`, `total = (1 − w) × Fit + 100 × w × earned ÷ possible`,
+  and `total = Fit` with no applicable preference rows. Partial credits (`CREDIT`):
+  same expertise group 0.3, career level one step away 0.4, peer organization 0.6
+  (and a Must have employer counting peers admits it), location in the parent
+  area 0.5 / same continent 0.2. Runs saved before the 1 / 3 points keep their
+  stored scores; the build-up shows their rows on the old 3 / 8 scale. The pure formula is `total.ts`, shared by the scorer
   and the display. Every tunable number is in `config.ts`. Ties: Fit → more
   recent `availability_updated_at` → id. Membership level never affects rank.
 - **What stays app-side** (don't move it into the engine):
@@ -431,9 +437,10 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   `005_match_rework.sql` and `008_score_normalization.sql` each delete rankings
   scored under an older formula. To re-create it (or on a
   fresh project): log in as the hiring manager (dev switcher) → My openings →
-  *Senior M&E Consultant — Sahel Resilience Program* → **Rank candidates** → paste
-  `docs/samples/sahel-me-tor.txt` → **Read job description** → **Add all** → set
-  *Monitoring & Evaluation* and *Impact Evaluation* to **Important** → **Run ranking**.
+  *Senior M&E Consultant — Sahel Resilience Program* → **Rank candidates** → in the
+  Expertise tab tick *Monitoring & Evaluation* and *Impact Evaluation* (they start at
+  **Important**) → **Match to a Job Description** → paste
+  `docs/samples/sahel-me-tor.txt` → **Read job description** → **See your matches**.
   The run saves to the opening automatically.
 - **Ad-hoc rankings** (run from the directory without an opening) are
   `job_descriptions` rows with `opening_id` null. Starting a new ad-hoc run deletes

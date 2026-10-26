@@ -1,5 +1,5 @@
 import { Check, ChevronDown } from 'lucide-react'
-import { BAND_LABELS, PREFERENCE_CAP_POINTS, PREFERENCE_POINTS } from '../../lib/matching/config'
+import { BAND_LABELS, PREFERENCE_CAP_POINTS, PREFERENCE_PERCENT_PER_POINT, PREFERENCE_POINTS } from '../../lib/matching/config'
 import {
   breakdownRows,
   formatMultiplier,
@@ -106,11 +106,12 @@ export function AboutResultModal({
               and audio transcripts are never used. You can't adjust it.
             </li>
             <li>
-              Preferences carry weight equal to their points, up to {PREFERENCE_CAP_POINTS}% of the score. A{' '}
-              <b className="font-medium text-ink">Nice to have</b> row is worth {PREFERENCE_POINTS.slight} points and an{' '}
+              Preferences weigh {PREFERENCE_PERCENT_PER_POINT}% of the score per point, up to {PREFERENCE_CAP_POINTS}%. A{' '}
+              <b className="font-medium text-ink">Nice to have</b> row is worth {PREFERENCE_POINTS.slight} point and an{' '}
               <b className="font-medium text-ink">Important</b> row {PREFERENCE_POINTS.strong}; partial matches earn part
-              of a row's points. One Important row alone makes preferences {PREFERENCE_POINTS.strong}% of the score, so Fit
-              counts × {formatMultiplier(1 - PREFERENCE_POINTS.strong / 100)}.
+              of a row's points. One Important row alone makes preferences{' '}
+              {PREFERENCE_POINTS.strong * PREFERENCE_PERCENT_PER_POINT}% of the score, so Fit counts ×{' '}
+              {formatMultiplier(1 - (PREFERENCE_POINTS.strong * PREFERENCE_PERCENT_PER_POINT) / 100)}.
             </li>
             <li>
               A candidate's preference score is the points they earned out of the points possible. Rows that don't
@@ -230,7 +231,7 @@ function RowCells({ r }: { r: BreakdownRow }) {
 /** Preferences-only build-up (spec §11): the rows' own points, their sum, and
  *  the total as the share of points met. No Fit. */
 function PreferenceBuildUp({ result }: { result: PreferenceMatchResult }) {
-  const rows = breakdownRows(result.adjustments)
+  const rows = breakdownRows(result.adjustments, result.scoring)
   const { earned, possible } = result.scoring
   return (
     <section>
@@ -265,7 +266,7 @@ function PreferenceScoringNotes() {
         no AI engine involved.
       </li>
       <li>
-        A <b className="font-medium text-ink">Nice to have</b> row is worth {PREFERENCE_POINTS.slight} points and an{' '}
+        A <b className="font-medium text-ink">Nice to have</b> row is worth {PREFERENCE_POINTS.slight} point and an{' '}
         <b className="font-medium text-ink">Important</b> row {PREFERENCE_POINTS.strong}; partial matches earn part of
         a row's points. The score is the points earned out of the points possible.
       </li>

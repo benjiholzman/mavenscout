@@ -34,7 +34,10 @@ export type RequirementKind =
  *  manager adding it in the grid. Shown as the row's source tag. */
 export type RequirementSource = 'jd' | 'filter' | 'manual'
 
-export type OrgScope = 'current' | 'ever' | 'ever_or_peer'
+/** Now / Before / Either in the priorities modal. 'ever_or_peer' is the old
+ *  "Ever at, or at a peer org" scope a saved run may hold: read as 'ever'
+ *  with peers counted. */
+export type OrgScope = 'current' | 'past' | 'ever' | 'ever_or_peer'
 
 export interface OrgRef {
   org: string
@@ -51,8 +54,13 @@ export interface OrgHistoryValue {
    *  employers filter's multiple picks). Optional: single-org rows omit it. */
   also?: OrgRef[]
   scope: OrgScope
-  /** Peer organizations, used only with scope 'ever_or_peer'. Empty in the
-   *  placeholder unless the manager adds names; the real engine suggests them. */
+  /** "Also count other UN agencies" (etc.): peers of the same organization
+   *  type on the canonical list earn partial credit. Optional so older rows
+   *  still load. */
+  includePeers?: boolean
+  /** Extra named peer organizations (older 'ever_or_peer' rows). The
+   *  placeholder derives peers from the organization type instead; the real
+   *  engine may suggest better ones. */
   peers: string[]
 }
 
@@ -93,11 +101,11 @@ export interface RequirementValueByKind {
    *  (lib/filters normalizeAvailability). */
   availability: AvailabilityFilter
   career_level: ValuesValue
-  /** "Video Q&As only": Required only (profiles-membership §2.2) — membership
-   *  must never add points, so this row is never Nice to have / Important. */
+  /** Has Video Q&As. Nice to have / Important / Must have like any other
+   *  priority — the owner overrode profiles-membership §2.2's filter-only rule
+   *  for the priorities modal. */
   video_qna: Record<string, never>
-  /** "Audio testimonials only": Required only, like video_qna — a filter that
-   *  never adds points. */
+  /** Has an audio testimonial; any strength, like video_qna. */
   audio_testimonial: Record<string, never>
   work_arrangement: ValuesValue
 }
@@ -117,9 +125,10 @@ export type Requirement = {
 
 export type RequirementOf<K extends RequirementKind> = Extract<Requirement, { kind: K }>
 
-/** Single-instance rows ("Other requirements"), in display order (spec §3.1).
- *  None exist until the manager adds one (or sets its filter); there's at most
- *  one of each. */
+/** The non-expertise kinds, in display order (spec §3.1). None exist until
+ *  the manager adds one (or sets its filter). Languages and organizations
+ *  have one row per item; the multi-value kinds a Must have row and a
+ *  preference row; the rest at most one row. */
 export const ALWAYS_PRESENT_KINDS = [
   'org_history',
   'location',
@@ -187,7 +196,8 @@ export interface Adjustment {
 /** How preferences were weighed for one result (spec §5.3). Stored with the
  *  result so a saved run displays the same build-up if config changes. */
 export interface Scoring {
-  /** w = min(possible, PREFERENCE_CAP_POINTS) / 100; 0 when no applicable rows. */
+  /** w = min(possible × PREFERENCE_PERCENT_PER_POINT, PREFERENCE_CAP_POINTS) / 100;
+   *  0 when no applicable rows. */
   weight: number
   /** Σ points earned by applicable Nice to have / Important rows. */
   earned: number

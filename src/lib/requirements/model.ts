@@ -7,6 +7,7 @@ import {
   type FilterState,
   type SearchMode,
 } from '../filters'
+import type { Proficiency } from '../../types/db'
 import { orgTargets } from './match'
 import {
   ALWAYS_PRESENT_KINDS,
@@ -35,22 +36,25 @@ import {
 // a row means "no preference". Outside ranking mode only Required rows ever
 // exist, so the directory filters exactly as before.
 //
-// Multi-value kinds (location, language, type, career level, work
-// arrangement) may have TWO rows: one Required row (what the filter bar shows)
-// and one preference row (Nice to have / Important) — e.g. Required: French
-// plus Nice to have: English. Other single-instance kinds (availability,
-// video Q&As, org history) have at most one row. "Video Q&As only"
-// is Required only (isRequiredOnly): Featured membership never scores.
+// Item kinds (expertise, language, org history) have one row per item, each
+// with its own level — e.g. Must have: Arabic, Nice to have: French (fluent).
+// Multi-value kinds (location, type, career level, work arrangement) may have
+// TWO rows: one Required row (what the filter bar shows) and one preference
+// row (Nice to have / Important). Availability, video Q&As and audio
+// testimonials have at most one row, at any level.
 //
 // Semantics carried over from the filter bar:
 // - Several Required expertise rows follow the unified list's rule
 //   (profiles-membership §6): OR within a kind (sector / theme / method), AND
 //   across kinds, counting Core and Strong tags unless the manager includes
 //   Working knowledge. Different requirement kinds combine with AND.
-// - Org History's Required row at "Ever at" is the Previous employers filter
-//   (several organizations = any of them). At another scope it has no
-//   filter-bar control and shows as a chip at the end of the filter bar.
-//   Either way it's evaluated in mustHaves.ts, with the organizations list.
+// - Several Required language rows are "speaks any of", each at its own
+//   minimum level, as the Languages filter always was.
+// - Several Required org history rows are "any of", as the Previous employers
+//   filter always was. Rows at "Ever at" without peers are that filter; the
+//   others have no filter-bar control and show as chips at the end of the
+//   filter bar. Either way they're evaluated in mustHaves.ts, with the
+//   organizations list.
 // ============================================================================
 
 export interface SearchState {
@@ -62,10 +66,10 @@ export const EMPTY_SEARCH: SearchState = { term: '', mode: 'names' }
 
 export type SingleKind = (typeof ALWAYS_PRESENT_KINDS)[number]
 
-/** Multi-select kinds and the FilterState field each one is shown in. */
+/** Multi-select kinds (a Required row and a preference row) and the
+ *  FilterState field each one is shown in. */
 const VALUES_FIELDS = {
   location: 'locations',
-  language: 'languages',
   type: 'types',
   career_level: 'careerLevels',
   work_arrangement: 'workArrangements',
@@ -74,13 +78,25 @@ const VALUES_FIELDS = {
 export type ValuesKind = keyof typeof VALUES_FIELDS
 export const isValuesKind = (kind: RequirementKind): kind is ValuesKind => kind in VALUES_FIELDS
 
-const isTagKind = (kind: RequirementKind): kind is 'expertise' => kind === 'expertise'
+export type ItemKind = 'expertise' | 'language' | 'org_history'
+/** Kinds with one row per item, each at its own level. */
+export const isItemKind = (kind: RequirementKind): kind is ItemKind =>
+  kind === 'expertise' || kind === 'language' || kind === 'org_history'
+
+/** The items a row of an item kind names (one, except in rows saved before
+ *  items had a row each: "French, Arabic", or an org row with `also`). */
+export function rowItems(r: Requirement): string[] {
+  if (r.kind === 'expertise') return r.value.name ? [r.value.name] : []
+  if (r.kind === 'language') return r.value.values
+  if (r.kind === 'org_history') return orgTargets(r.value).map((o) => o.org)
+  return []
+}
 
 // ---- construction ---------------------------------------------------------
 
 let idCounter = 0
-/** Ids for expertise rows. Single-instance rows use their kind as their
- *  id, since there's at most one of each. */
+/** Ids for item and multi-value rows. Single-instance rows use their kind as
+ *  their id, since there's at most one of each. */
 export function newRequirementId(kind: RequirementKind): string {
   idCounter += 1
   return `${kind}-${Date.now().toString(36)}-${idCounter.toString(36)}`
@@ -102,30 +118,21 @@ export function defaultValue<K extends RequirementKind>(kind: K): RequirementVal
   return defaults[kind]()
 }
 
-/** A new row. Availability / video Q&A / org history (one row at
- *  most) get their kind as id; expertise and multi-value rows (which can have
- *  a Required and a preference row) get a fresh id. Rows added in the grid
- *  start at Nice to have, except Required-only kinds. */
+/** A new row. Availability / video Q&As / audio testimonials (one row at
+ *  most) get their kind as id; item and multi-value rows get a fresh id.
+ *  Rows start at Nice to have unless a level is given. */
 export function makeRow<K extends RequirementKind>(
   kind: K,
   value: RequirementValueByKind[K] = defaultValue(kind),
   opts: { level?: Level; source?: RequirementSource } = {},
 ): Requirement {
   return {
-    id: isTagKind(kind) || isValuesKind(kind) ? newRequirementId(kind) : kind,
+    id: isItemKind(kind) || isValuesKind(kind) ? newRequirementId(kind) : kind,
     kind,
-    level: isRequiredOnly(kind) ? 'must' : (opts.level ?? 'slight'),
+    level: opts.level ?? 'slight',
     source: opts.source ?? 'manual',
     value,
   } as Requirement
-}
-
-/** Kinds that only filter and are never scored: "Video Q&As only" is Featured
- *  membership, and payment must never add points (profiles-membership §2.2);
- *  "Audio testimonials only" likewise stays out of the score (§4.1: testimonials
- *  never feed ranking). */
-export function isRequiredOnly(kind: RequirementKind): boolean {
-  return kind === 'video_qna' || kind === 'audio_testimonial'
 }
 
 /** No rows: no preferences, nothing required (spec §3). */
@@ -136,22 +143,54 @@ export function defaultRequirements(): Requirement[] {
 /** Enforces the row limits and puts rows in display order: expertise
  *  rows first, then the other kinds in canonical order — for a multi-value
  *  kind, its Required row before its preference row. Extra rows beyond the
- *  limits are dropped, and a value lives in only one of a kind's two rows
- *  (see withoutRequiredValues). */
+ *  limits are dropped, a value lives in only one of a kind's two rows (see
+ *  withoutRequiredValues), and an item in only one row of its kind (Must have
+ *  first, then the earlier row). */
 export function normalizeRequirements(input: Requirement[]): Requirement[] {
   // Availability rows saved in the old window shape are read in the new one.
   const reqs = input.map((r) =>
     r.kind === 'availability' ? ({ ...r, value: normalizeAvailability(r.value) } as Requirement) : r,
   )
-  const tags = reqs.filter((r) => isTagKind(r.kind))
+  const tags = withoutDuplicateItems(reqs.filter((r) => r.kind === 'expertise'))
   const singles = ALWAYS_PRESENT_KINDS.flatMap((k) => {
     const ofKind = reqs.filter((r) => r.kind === k)
-    // A Required-only row is Required whatever was stored or set.
-    if (isRequiredOnly(k)) return ofKind.slice(0, 1).map((r) => ({ ...r, level: 'must' }) as Requirement)
+    if (isItemKind(k)) return withoutDuplicateItems(ofKind)
     if (!isValuesKind(k)) return ofKind.slice(0, 1)
     return [ofKind.find(isMust), ofKind.find((r) => !isMust(r))].filter((r): r is Requirement => !!r)
   })
   return withoutRequiredValues([...tags, ...singles])
+}
+
+/** Rows of one item kind, each item kept in one row only: a Must have row
+ *  wins, then the earlier row. A row left with no items is dropped, unless it
+ *  had none to begin with (one still being filled in). */
+function withoutDuplicateItems(rows: Requirement[]): Requirement[] {
+  const ordered = [...rows.filter(isMust), ...rows.filter((r) => !isMust(r))]
+  const seen = new Set<string>()
+  const kept = new Map<Requirement, Requirement | null>()
+  for (const r of ordered) {
+    const items = rowItems(r)
+    const fresh = items.filter((i) => !seen.has(i.toLowerCase()))
+    fresh.forEach((i) => seen.add(i.toLowerCase()))
+    if (fresh.length === items.length) kept.set(r, r)
+    else if (fresh.length === 0) kept.set(r, null)
+    else kept.set(r, withItems(r, fresh))
+  }
+  return rows.map((r) => kept.get(r)).filter((r): r is Requirement => !!r)
+}
+
+/** A row of an item kind narrowed to some of its items. */
+function withItems(r: Requirement, items: string[]): Requirement {
+  if (r.kind === 'language') return { ...r, value: { ...r.value, values: items } }
+  if (r.kind === 'org_history') {
+    const refs = orgTargets(r.value).filter((o) => items.includes(o.org))
+    const { also: _also, ...rest } = r.value
+    return {
+      ...r,
+      value: { ...rest, org: refs[0].org, org_id: refs[0].org_id, ...(refs.length > 1 ? { also: refs.slice(1) } : {}) },
+    }
+  }
+  return r
 }
 
 /**
@@ -187,18 +226,12 @@ export function preferenceRowOf(reqs: Requirement[], kind: RequirementKind): Req
   return reqs.find((r) => r.kind === kind && !isMust(r))
 }
 
-/** Whether the grid's add chip for a kind should show: multi-value kinds can
- *  still get a preference row while only a Required row exists. */
-export function canAddKind(reqs: Requirement[], kind: SingleKind): boolean {
-  return isValuesKind(kind) ? !preferenceRowOf(reqs, kind) : !reqs.some((r) => r.kind === kind)
-}
-
 /** Adds a row unless it would break the limits (a second row of a
  *  single-instance kind, or a second Required / preference row of a
  *  multi-value kind). */
 export function addRowChecked(reqs: Requirement[], row: Requirement): Requirement[] {
   if (reqs.some((r) => r.id === row.id)) return reqs
-  if (!isTagKind(row.kind)) {
+  if (!isItemKind(row.kind)) {
     const clash = isValuesKind(row.kind)
       ? reqs.some((r) => r.kind === row.kind && isMust(r) === isMust(row))
       : reqs.some((r) => r.kind === row.kind)
@@ -220,7 +253,7 @@ const unionValues = (a: string[], b: string[]) => [...a, ...b.filter((v) => !a.i
  */
 export function setRowLevel(reqs: Requirement[], id: string, level: Level): Requirement[] {
   const row = reqs.find((r) => r.id === id)
-  if (!row || row.level === level || isRequiredOnly(row.kind)) return reqs
+  if (!row || row.level === level) return reqs
   if (isValuesKind(row.kind) && isMust(row) !== (level === 'must')) {
     const other = level === 'must' ? requiredRowOf(reqs, row.kind) : preferenceRowOf(reqs, row.kind)
     if (other && other.id !== row.id && 'values' in other.value && 'values' in row.value) {
@@ -280,8 +313,9 @@ export function mustHavesToFilterState(reqs: Requirement[], search: SearchState)
         if (r.value.includeWorking) f.expertiseIncludeWorking = true
         break
       case 'language':
-        f.languages = [...r.value.values]
-        f.languageLevel = r.value.min ?? 'working'
+        // Each row keeps its own minimum (mustHaves.ts evaluates them); the
+        // filter bar shows one: Fluent only when every row asks for it.
+        f.languages = [...f.languages, ...r.value.values.filter((v) => !f.languages.includes(v))]
         break
       case 'location':
       case 'type':
@@ -299,11 +333,30 @@ export function mustHavesToFilterState(reqs: Requirement[], search: SearchState)
         f.hasAudioTestimonial = true
         break
       case 'org_history':
-        if (isEmployersRow(r)) f.previousEmployers = orgTargets(r.value).map((o) => o.org)
+        if (isEmployersRow(r))
+          f.previousEmployers = [
+            ...f.previousEmployers,
+            ...orgTargets(r.value)
+              .map((o) => o.org)
+              .filter((o) => !f.previousEmployers.includes(o)),
+          ]
         break
     }
   }
+  f.languageLevel = languageLevelOf(reqs)
   return f
+}
+
+/** The one minimum level the Languages filter shows for the Required
+ *  language rows: Fluent only when every one asks for Fluent. */
+function languageLevelOf(reqs: Requirement[]): Proficiency {
+  const rows = reqs.filter((r): r is RequirementOf<'language'> => r.kind === 'language' && isMust(r))
+  return rows.length > 0 && rows.every((r) => r.value.min === 'fluent') ? 'fluent' : 'working'
+}
+
+/** Required language rows: each language at its row's minimum. */
+export function languageMustHaves(reqs: Requirement[]): RequirementOf<'language'>[] {
+  return reqs.filter((r): r is RequirementOf<'language'> => r.kind === 'language' && isMust(r) && r.value.values.length > 0)
 }
 
 /** An Org History row only constrains anything once it names an organization. */
@@ -311,9 +364,10 @@ export function isActiveOrgRow(r: Requirement): r is RequirementOf<'org_history'
   return r.kind === 'org_history' && orgTargets(r.value).length > 0
 }
 
-/** The Required Org History row the Previous employers filter shows: "Ever at". */
+/** Required Org History rows the Previous employers filter shows: "Ever at",
+ *  without peers. */
 function isEmployersRow(r: Requirement): r is RequirementOf<'org_history'> {
-  return isMust(r) && isActiveOrgRow(r) && r.value.scope === 'ever'
+  return isMust(r) && isActiveOrgRow(r) && r.value.scope === 'ever' && !r.value.includePeers
 }
 
 /** Every Required Org History row that names an organization (mustHaves.ts). */
@@ -322,10 +376,10 @@ export function orgMustHaves(reqs: Requirement[]): RequirementOf<'org_history'>[
 }
 
 /** Required rows the filter bar can't show: Org History at a scope other than
- *  "Ever at" (Currently at, or a peer). Rendered as "+1 required: Org history"
- *  chips (spec §2.1); the Previous employers filter is locked meanwhile. */
+ *  "Ever at" (Now, Before, or counting peers). Rendered as chips at the end of
+ *  the filter bar (spec §2.1). */
 export function gridOnlyMustHaves(reqs: Requirement[]): RequirementOf<'org_history'>[] {
-  return orgMustHaves(reqs).filter((r) => r.value.scope !== 'ever')
+  return orgMustHaves(reqs).filter((r) => !isEmployersRow(r))
 }
 
 /** False for a row that can't constrain or score anything yet (e.g. Location
@@ -351,7 +405,7 @@ export function rowHasValue(r: Requirement): boolean {
 }
 
 export function tagRowCount(reqs: Requirement[]): number {
-  return reqs.filter((r) => isTagKind(r.kind)).length
+  return reqs.filter((r) => r.kind === 'expertise').length
 }
 
 // ---- writing from the filter bar -------------------------------------------
@@ -391,13 +445,14 @@ export function applyFilterStateToRequirements(
     const values = next[VALUES_FIELDS[kind]]
     const required = requiredRowOf(rows, kind)
     if (values.length > 0) {
-      const value = kind === 'language' ? { values: [...values], min: next.languageLevel } : { values: [...values] }
+      const value = { values: [...values] }
       if (required) rows = rows.map((r) => (r === required ? ({ ...r, value } as Requirement) : r))
       else rows.push(makeRow(kind, value, { level: 'must', source: 'filter' }))
     } else if (required) {
       rows = rows.filter((r) => r !== required)
     }
   }
+  rows = withLanguages(rows, next.languages, next.languageLevel)
   setSingle(
     'availability',
     next.availability && !isDefaultAvailability(next.availability) ? { ...next.availability } : null,
@@ -424,31 +479,69 @@ export function applyFilterStateToRequirements(
 }
 
 /**
- * The Previous employers filter → the Org History row. Picks write a Required
- * "Ever at" row (any of them; ids kept for names already in it), turning a
- * preference row Required as other single-instance filters do. Clearing the
- * picks deletes that Required row. A row at another scope, or one still
- * being typed in the grid (no name yet), isn't the filter's, so it's left
- * alone. Unchanged picks leave the row untouched.
+ * The Languages filter → Required language rows, one per language. A
+ * language newly picked that's already a preference row is raised to
+ * Required; one unpicked loses its Required row (a value from an older
+ * multi-language row is taken out of it). Rows keep their own minimum unless
+ * the filter's level was changed, which sets it on every Required row; new
+ * rows take the filter's level.
+ */
+function withLanguages(rows: Requirement[], names: string[], level: Proficiency): Requirement[] {
+  const levelChanged = level !== languageLevelOf(rows)
+  let out = rows.flatMap((r): Requirement[] => {
+    if (r.kind !== 'language' || !isMust(r)) return [r]
+    const kept = r.value.values.filter((v) => names.includes(v))
+    if (kept.length === 0 && r.value.values.length > 0) return []
+    return [{ ...r, value: { ...r.value, values: kept, min: levelChanged ? level : r.value.min } }]
+  })
+  const held = new Set(out.filter((r) => r.kind === 'language' && isMust(r)).flatMap(rowItems))
+  for (const name of names) {
+    if (held.has(name)) continue
+    const pref = out.find((r): r is RequirementOf<'language'> => r.kind === 'language' && !isMust(r) && r.value.values.includes(name))
+    if (pref && pref.value.values.length === 1) {
+      out = out.map((r) => (r === pref ? ({ ...pref, level: 'must', source: 'filter', value: { ...pref.value, min: level } } as Requirement) : r))
+      continue
+    }
+    out.push(makeRow('language', { values: [name], min: level }, { level: 'must', source: 'filter' }))
+  }
+  return out
+}
+
+/**
+ * The Previous employers filter → Required "Ever at" Org History rows, one
+ * per organization (ids kept for names already in a row). Picking an
+ * organization that's already a preference row raises it to Required at
+ * "Ever at". Unpicking one deletes its row (or takes it out of an older
+ * multi-organization row). Rows at another scope or counting peers aren't the
+ * filter's, so they're left alone, as are rows still being filled in.
  */
 function withPreviousEmployers(rows: Requirement[], names: string[]): Requirement[] {
-  const row = rows.find((r): r is RequirementOf<'org_history'> => r.kind === 'org_history')
-  const current = row && isEmployersRow(row) ? orgTargets(row.value) : []
-  if (names.length === current.length && names.every((n, i) => n === current[i].org)) return rows
-  if (names.length === 0) return row && isEmployersRow(row) ? rows.filter((r) => r !== row) : rows
-  if (row && isMust(row) && isActiveOrgRow(row) && row.value.scope !== 'ever') return rows
-  const known = row ? orgTargets(row.value) : []
-  const refs = names.map((org) => ({ org, org_id: known.find((k) => k.org === org)?.org_id ?? null }))
-  const value: RequirementValueByKind['org_history'] = {
-    org: refs[0].org,
-    org_id: refs[0].org_id,
-    ...(refs.length > 1 ? { also: refs.slice(1) } : {}),
-    scope: 'ever',
-    peers: [],
+  const current = rows.filter(isEmployersRow).flatMap(rowItems)
+  if (names.length === current.length && names.every((n, i) => n === current[i])) return rows
+  let out = rows.flatMap((r): Requirement[] => {
+    if (!isEmployersRow(r)) return [r]
+    const kept = rowItems(r).filter((o) => names.includes(o))
+    if (kept.length === 0) return []
+    return [withItems(r, kept)]
+  })
+  const held = new Set(out.filter(isEmployersRow).flatMap(rowItems))
+  for (const org of names) {
+    if (held.has(org)) continue
+    if (out.some((r) => r.kind === 'org_history' && isMust(r) && rowItems(r).includes(org))) continue
+    const pref = out.find(
+      (r): r is RequirementOf<'org_history'> => r.kind === 'org_history' && !isMust(r) && rowItems(r).length === 1 && rowItems(r)[0] === org,
+    )
+    const value: RequirementValueByKind['org_history'] = {
+      org,
+      org_id: pref?.value.org_id ?? null,
+      scope: 'ever',
+      peers: [],
+    }
+    out = pref
+      ? out.map((r) => (r === pref ? withMust(r, value) : r))
+      : [...out, makeRow('org_history', value, { level: 'must', source: 'filter' })]
   }
-  return row
-    ? rows.map((r) => (r === row ? withMust(r, value) : r))
-    : [...rows, makeRow('org_history', value, { level: 'must', source: 'filter' })]
+  return out
 }
 
 /** Sets a row to Required with a new value. A row that wasn't already
@@ -487,16 +580,25 @@ export function isSuggestionAdded(reqs: Requirement[], s: Suggestion): boolean {
 
 /**
  * Adds one "Found in your JD" suggestion, at Nice to have, tagged "from JD".
- * Expertise suggestions become their own row (respecting the combined
- * row cap). A location or language goes to that kind's PREFERENCE row —
- * joining it (which keeps its level) or creating it at Nice to have. A
- * Required row is never touched, so a suggestion can't widen a filter.
+ * Expertise suggestions and languages become their own row (respecting the
+ * row caps). A location goes to its PREFERENCE row — joining it (which keeps
+ * its level) or creating it at Nice to have. A Required row is never touched,
+ * so a suggestion can't widen a filter.
  */
-export function addSuggestion(reqs: Requirement[], s: Suggestion, maxTagRows: number): Requirement[] {
+export function addSuggestion(
+  reqs: Requirement[],
+  s: Suggestion,
+  maxTagRows: number,
+  maxLanguageRows = Infinity,
+): Requirement[] {
   if (isSuggestionAdded(reqs, s)) return reqs
   if ('tag' in s) {
     if (tagRowCount(reqs) >= maxTagRows) return reqs
     return [...reqs, makeRow('expertise', { name: s.tag.name }, { source: 'jd' })]
+  }
+  if (s.kind === 'language') {
+    if (reqs.filter((r) => r.kind === 'language').length >= maxLanguageRows) return reqs
+    return normalizeRequirements([...reqs, makeRow('language', { values: [s.item.value] }, { source: 'jd' })])
   }
   const pref = preferenceRowOf(reqs, s.kind) as RequirementOf<'location' | 'language'> | undefined
   if (pref)
@@ -532,10 +634,10 @@ export function jdSuggestedValues(
   if (!extracted) return []
   return jdPrefills(extracted).flatMap((s) => {
     if ('tag' in s) return []
-    const pref = preferenceRowOf(reqs, s.kind)
-    return pref && 'values' in pref.value && pref.value.values.includes(s.item.value)
-      ? [{ kind: s.kind, value: s.item.value }]
-      : []
+    const held = reqs.some(
+      (r) => r.kind === s.kind && !isMust(r) && 'values' in r.value && r.value.values.includes(s.item.value),
+    )
+    return held ? [{ kind: s.kind, value: s.item.value }] : []
   })
 }
 
@@ -550,26 +652,6 @@ export function clearJdSuggestions(reqs: Requirement[], extracted: ExtractedRequ
     if (kept.length === r.value.values.length) return [r]
     return kept.length === 0 ? [] : [{ ...r, value: { ...r.value, values: kept } } as Requirement]
   })
-}
-
-/**
- * Sets one of a kind's rows from the priority editors: its Must have row
- * (`must`) or its preference row. A null value, or no values, removes that
- * row (no row = no preference); otherwise the row is updated, or created at
- * `level` (Nice to have unless given).
- */
-export function setKindRow(
-  reqs: Requirement[],
-  kind: SingleKind,
-  must: boolean,
-  value: Requirement['value'] | null,
-  level: Level = must ? 'must' : 'slight',
-): Requirement[] {
-  const row = must ? requiredRowOf(reqs, kind) : isValuesKind(kind) ? preferenceRowOf(reqs, kind) : reqs.find((r) => r.kind === kind)
-  const empty = !value || ('values' in value && value.values.length === 0)
-  if (empty) return row ? reqs.filter((r) => r !== row) : reqs
-  if (row) return reqs.map((r) => (r === row ? ({ ...r, value } as Requirement) : r))
-  return normalizeRequirements([...reqs, makeRow(kind, value as never, { level })])
 }
 
 // ---- after a run (spec §2.2) ------------------------------------------------

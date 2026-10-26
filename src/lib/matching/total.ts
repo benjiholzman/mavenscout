@@ -1,14 +1,15 @@
-import { PREFERENCE_CAP_POINTS, PREFERENCE_POINTS } from './config'
+import { PREFERENCE_CAP_POINTS, PREFERENCE_PERCENT_PER_POINT, PREFERENCE_POINTS } from './config'
 import type { Adjustment, Scoring } from './types'
 
 // The total score (match rework spec §5.3) — pure, shared by the scorer and the
 // displayed build-up so they can't disagree.
 //
-//   w     = min(possible, PREFERENCE_CAP_POINTS) / 100
+//   w     = min(possible × PREFERENCE_PERCENT_PER_POINT, PREFERENCE_CAP_POINTS) / 100
 //   total = (1 − w) × Fit + 100 × w × (earned ÷ possible)
 //
-// Preferences carry weight equal to their points, up to 20% of the score: one
-// Nice to have row (3 points possible) is worth ~3%, one Important row 8%.
+// Preferences carry weight in proportion to their points, up to 20% of the
+// score: one Nice to have row (1 point) is worth 2.5%, one Important row
+// (3 points) 7.5%.
 // Not-applicable rows (career level for a firm) count toward neither earned nor
 // possible. No applicable rows → w = 0 → total = Fit. The total is always
 // within 0–100, so there is no clamp.
@@ -20,7 +21,11 @@ export function preferenceScoring(adjustments: Adjustment[]): Scoring {
   const applicable = adjustments.filter((a) => a.outcome !== 'not_applicable')
   const possible = applicable.reduce((s, a) => s + PREFERENCE_POINTS[a.level], 0)
   const earned = applicable.reduce((s, a) => s + Math.max(0, a.points), 0)
-  return { weight: possible > 0 ? Math.min(possible, PREFERENCE_CAP_POINTS) / 100 : 0, earned, possible }
+  return {
+    weight: possible > 0 ? Math.min(possible * PREFERENCE_PERCENT_PER_POINT, PREFERENCE_CAP_POINTS) / 100 : 0,
+    earned,
+    possible,
+  }
 }
 
 /** The preference term, 100 × w × earned ÷ possible (0 when w = 0). */

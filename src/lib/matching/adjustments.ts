@@ -1,8 +1,10 @@
 import { countedTiers, expertiseTags, type ExpertiseIndex } from '../expertise'
-import { availabilityLabel, matchesAvailability, matchesLocation, locationLabel } from '../filters'
+import { availabilityLabel, matchesAvailability, locationLabel } from '../filters'
+import { placeCredit, placeOf } from '../locations'
+import { isFeatured } from '../membership'
 import { speaks } from '../languages'
 import type { OrgIndex } from '../organizations'
-import { orgHistoryOutcome, orgNames } from '../requirements/match'
+import { countsPeers, orgHistoryOutcome, orgNames, passesOrgMustHave } from '../requirements/match'
 import { rowHasValue } from '../requirements/model'
 import { AVAILABILITY_GRACE_MONTHS, CREDIT, PREFERENCE_POINTS } from './config'
 import { evidenceText, type CandidateInput } from './fit'
@@ -28,8 +30,8 @@ export function requirementLabel(r: Requirement): string {
     case 'expertise':
       return r.value.name
     case 'org_history': {
-      const scope = { current: 'Currently at', ever: 'Ever at', ever_or_peer: 'At' }[r.value.scope]
-      return r.value.scope === 'ever_or_peer' ? `${scope} ${orgNames(r.value)} or a peer` : `${scope} ${orgNames(r.value)}`
+      const scope = { current: 'Currently at', past: 'Previously at', ever: 'At', ever_or_peer: 'At' }[r.value.scope]
+      return `${scope} ${orgNames(r.value)}${countsPeers(r.value) ? ' or a peer' : ''}`
     }
     case 'location':
       return `Based in ${or(r.value.values.map(locationLabel))}`
@@ -44,9 +46,9 @@ export function requirementLabel(r: Requirement): string {
         r.value.values.map((v) => ({ early_career: 'Early career', mid_career: 'Mid-career', senior: 'Senior' })[v] ?? v),
       )
     case 'video_qna':
-      return 'Video Q&As only'
+      return 'Has Video Q&As'
     case 'audio_testimonial':
-      return 'Audio testimonials only'
+      return 'Has an audio testimonial'
     case 'work_arrangement':
       return `Works ${or(r.value.values)}`
   }
@@ -68,7 +70,8 @@ const TIER_DETAIL: Record<ExpertiseTier, string> = {
  *  ×0.75, Working knowledge → partial ×0.4. Evidence beyond tags: the item (or
  *  an old name it absorbed) in bio / portfolio / accreditations → partial
  *  ×0.4. The row takes the better of tag credit and text credit, so an
- *  untagged mention never outscores a tag. */
+ *  untagged mention never outscores a tag. Failing both, a tag in the same
+ *  expertise group → partial ×0.3. */
 function judgeTag(c: CandidateInput, r: RequirementOf<'expertise'>, index: ExpertiseIndex, evidence: string): Judged {
   const tag = expertiseTags(c.profile).find((t) => t.name === r.value.name)
   const terms = [r.value.name, ...(index.byName.get(r.value.name)?.legacyNames ?? [])]
@@ -78,6 +81,10 @@ function judgeTag(c: CandidateInput, r: RequirementOf<'expertise'>, index: Exper
     return { outcome: tag.tier === 'working' ? 'partial' : 'met', credit: tagCredit, detail: TIER_DETAIL[tag.tier] }
   if (textCredit > 0)
     return { outcome: 'partial', credit: textCredit, detail: 'Not tagged, but mentioned in bio or portfolio' }
+  const group = index.byName.get(r.value.name)?.group
+  const related = group ? expertiseTags(c.profile).find((t) => index.byName.get(t.name)?.group === group) : undefined
+  if (related)
+    return { outcome: 'partial', credit: CREDIT.sameGroup, detail: `Related expertise: ${related.name}` }
   return { outcome: 'not_met', credit: 0, detail: 'Not tagged or mentioned' }
 }
 
@@ -90,12 +97,20 @@ function judge(c: CandidateInput, r: Requirement, index: ExpertiseIndex, orgs: O
       return judgeTag(c, r, index, evidence)
     case 'org_history': {
       const o = orgHistoryOutcome(p, r.value, orgs)
-      return { outcome: o.outcome, credit: o.outcome === 'met' ? 1 : o.outcome === 'partial' ? CREDIT.otherPartial : 0, detail: o.detail }
+      return { outcome: o.outcome, credit: o.outcome === 'met' ? 1 : o.outcome === 'partial' ? CREDIT.peerOrg : 0, detail: o.detail }
     }
-    case 'location':
-      return matchesLocation(p.location, r.value.values)
-        ? met(`Based in ${p.location}`)
-        : notMet(p.location ? `Based in ${p.location}` : 'No location listed')
+    case 'location': {
+      // Inside the place → met; nearby (its parent area, or the same
+      // continent) → partial.
+      const place = placeOf(p.location)
+      const credit = Math.max(
+        0,
+        ...r.value.values.map((v) => placeCredit(place, v, { parent: CREDIT.locationParent, continent: CREDIT.locationContinent })),
+      )
+      if (credit >= 1) return met(`Based in ${p.location}`)
+      if (credit > 0) return { outcome: 'partial', credit, detail: `Based nearby, in ${p.location}` }
+      return notMet(p.location ? `Based in ${p.location}` : 'No location listed')
+    }
     case 'language': {
       // Fluent satisfies Working. A row asking for Fluent gives partial credit
       // to someone who speaks the language at Working level.
@@ -126,13 +141,20 @@ function judge(c: CandidateInput, r: Requirement, index: ExpertiseIndex, orgs: O
         return { outcome: 'not_applicable', credit: 0, detail: 'Not applicable to firms' }
       const label = { early_career: 'Early career', mid_career: 'Mid-career', senior: 'Senior' }
       const own = p.career_level ? label[p.career_level] : 'No career level listed'
-      return p.career_level && r.value.values.includes(p.career_level) ? met(own) : notMet(own)
+      if (p.career_level && r.value.values.includes(p.career_level)) return met(own)
+      // One step away (Senior asked, Mid-career) → partial.
+      const order = ['early_career', 'mid_career', 'senior']
+      const at = p.career_level ? order.indexOf(p.career_level) : -1
+      if (at >= 0 && r.value.values.some((v) => Math.abs(order.indexOf(v) - at) === 1))
+        return { outcome: 'partial', credit: CREDIT.adjacentCareerLevel, detail: `${own}, one level away` }
+      return notMet(own)
     }
+    // Scored like any other priority: the owner overrode the filter-only rule
+    // (profiles-membership §2.2) for the priorities modal.
     case 'video_qna':
+      return isFeatured(p) ? met('Has Video Q&As') : notMet('No Video Q&As')
     case 'audio_testimonial':
-      // Required only (normalizeRequirements): membership and testimonials
-      // never add points.
-      return { outcome: 'not_applicable', credit: 0, detail: 'A filter only; never scored' }
+      return p.has_audio_testimonial ? met('Has an audio testimonial') : notMet('No audio testimonial')
     case 'work_arrangement': {
       const hit = r.value.values.filter((w) => p.work_types.includes(w))
       return hit.length ? met(`Works ${hit.join(', ')}`) : notMet(`Works ${p.work_types.join(', ') || '—'}`)
@@ -165,17 +187,24 @@ export function computeAdjustments(
 }
 
 /** Must-have rows the candidate meets. They passed the pre-filter, so that is
- *  all of them except expertise rows, which are "any of" within a kind: list
- *  only the items the candidate holds at a counted tier. */
-export function mustHavesPassed(c: CandidateInput, requirements: Requirement[]): { requirement_id: string; label: string }[] {
+ *  all of them except the "any of" kinds — expertise within a kind,
+ *  languages, organizations: list only the ones the candidate meets. */
+export function mustHavesPassed(
+  c: CandidateInput,
+  requirements: Requirement[],
+  orgs: OrgIndex,
+): { requirement_id: string; label: string }[] {
   const tags = expertiseTags(c.profile)
+  const meets = (r: Requirement) => {
+    if (r.kind === 'expertise')
+      return tags.some((t) => t.name === r.value.name && countedTiers(!!r.value.includeWorking).includes(t.tier))
+    if (r.kind === 'language') return speaks(c.profile, r.value.values, r.value.min ?? 'working').length > 0
+    if (r.kind === 'org_history') return passesOrgMustHave(c.profile, r.value, orgs)
+    return true
+  }
   return requirements
     .filter((r) => r.level === 'must' && rowHasValue(r))
-    .filter(
-      (r) =>
-        r.kind !== 'expertise' ||
-        tags.some((t) => t.name === r.value.name && countedTiers(!!r.value.includeWorking).includes(t.tier)),
-    )
+    .filter(meets)
     .map((r) => ({
       requirement_id: r.id,
       label: r.kind === 'expertise' ? `Expertise: ${requirementLabel(r)}` : requirementLabel(r),

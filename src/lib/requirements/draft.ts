@@ -15,7 +15,7 @@ export interface RankingDraft {
   requirements: Requirement[]
   jdText: string
   extracted: ExtractedRequirements | null
-  /** The drawer's tab. Drafts kept before the tabs have none: read from the
+  /** The run's mode (priorities or JD). Drafts kept before modes have none: read from the
    *  JD text, as the mode was then. */
   tab: RankingMode
 }

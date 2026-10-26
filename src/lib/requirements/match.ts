@@ -1,6 +1,6 @@
 import type { OrgHistoryValue, OrgRef } from '../matching/types'
 import { normalizeOrgName, resolveOrganization, type OrgIndex } from '../organizations'
-import type { Profile, WorkHistoryEntry } from '../../types/db'
+import type { OrgType, Profile, WorkHistoryEntry } from '../../types/db'
 
 // Organizational History matching (docs/MavenScout-match-rework.md §3.1).
 // Used by the Must-have pre-filter (mustHaves.ts) and by the placeholder
@@ -12,7 +12,8 @@ import type { Profile, WorkHistoryEntry } from '../../types/db'
 // count ("IBRD" = "World Bank Group"; "UNHCR Jordan" = "UNHCR"). Otherwise
 // it falls back to name matching: case-, accent- and punctuation-insensitive
 // whole-word containment in either direction ("UN" does not match "UNDP").
-// Peer suggestions remain the real engine's job.
+// Peers are, for now, listed organizations of the same type (UN agencies,
+// multilaterals …); better peer suggestions remain the real engine's job.
 
 function padded(name: string): string {
   return ` ${normalizeOrgName(name)} `
@@ -54,41 +55,83 @@ export interface OrgHistoryOutcome {
   detail: string
 }
 
+/** Whether a row counts peer organizations (the modal's "Also count …", or
+ *  an older 'ever_or_peer' row). */
+export function countsPeers(value: OrgHistoryValue): boolean {
+  return !!value.includePeers || value.scope === 'ever_or_peer'
+}
+
+/** "other UN agencies" — the peer group the modal's checkbox names, by the
+ *  organization type on the canonical list. */
+export const PEER_GROUP_LABELS: Record<OrgType, string> = {
+  multilateral: 'other multilaterals',
+  bilateral_donor: 'other bilateral donors',
+  un_agency: 'other UN agencies',
+  ngo: 'other NGOs',
+  government: 'other government agencies',
+  private_firm: 'other private firms',
+  academic: 'other academic & research institutions',
+  foundation: 'other foundations',
+}
+
+/** The organization type peers are drawn from: the first target on the
+ *  canonical list. Null when none is listed (no peers to offer). */
+export function peerTypeOf(value: OrgHistoryValue, orgs: OrgIndex): OrgType | null {
+  for (const t of orgTargets(value)) {
+    const org = resolveOrganization(orgs, t.org, t.org_id)
+    if (org) return org.type
+  }
+  return null
+}
+
+/** Does a work-history entry count as a peer of the row's organizations?
+ *  Peers are listed organizations of the same type (or the row's named
+ *  peers), never the organizations themselves. */
+function isPeerEntry(w: WorkHistoryEntry, value: OrgHistoryValue, orgs: OrgIndex): boolean {
+  if (value.peers.some((peer) => sameOrg(w, peer, orgs))) return true
+  if (!value.includePeers) return false
+  const type = peerTypeOf(value, orgs)
+  const org = resolveOrganization(orgs, w.organization, w.organization_id)
+  return !!type && !!org && org.type === type
+}
+
 /**
- * - Currently at: a work_history entry for the org with no end year → met.
- * - Ever at: any work_history entry for the org → met.
- * - Ever at, or at a peer org: same org → met; otherwise an entry at a listed
- *   peer → partial ("Peer org: ADB").
- * A row naming several organizations (`also`) is met by any of them.
+ * - Now ('current'): a work_history entry for the org with no end year → met.
+ * - Before ('past'): an entry for the org that has ended → met.
+ * - Either ('ever'): any entry for the org → met.
+ * Counting peers, an entry at a peer organization with the same relation →
+ * partial ("Peer org: ADB"). A row naming several organizations (`also`) is
+ * met by any of them.
  */
 export function orgHistoryOutcome(profile: Profile, value: OrgHistoryValue, orgs: OrgIndex): OrgHistoryOutcome {
   const org = orgNames(value)
   const targets = orgTargets(value)
+  const scope = value.scope === 'ever_or_peer' ? 'ever' : value.scope
+  const related = (w: WorkHistoryEntry) =>
+    scope === 'current' ? w.end_year === null : scope === 'past' ? w.end_year !== null : true
   const entries = profile.work_history
   const isOrg = (w: WorkHistoryEntry) => targets.some((t) => sameOrg(w, t.org, orgs, t.org_id))
-  if (value.scope === 'current') {
-    const current = entries.find((w) => w.end_year === null && isOrg(w))
-    if (current) return { outcome: 'met', detail: `Currently at ${current.organization}` }
-    const past = entries.some(isOrg)
+  const same = entries.find((w) => isOrg(w) && related(w))
+  if (same)
     return {
-      outcome: 'not_met',
-      detail: past ? `Previously at ${org}, not currently` : `No work history at ${org}`,
+      outcome: 'met',
+      detail: scope === 'current' ? `Currently at ${same.organization}` : scope === 'past' ? `Previously at ${same.organization}` : `Same org: ${same.organization}`,
     }
+  if (countsPeers(value)) {
+    const peer = entries.find((w) => !isOrg(w) && related(w) && isPeerEntry(w, value, orgs))
+    if (peer) return { outcome: 'partial', detail: `Peer org: ${peer.organization}` }
   }
-  const same = entries.find(isOrg)
-  if (same) return { outcome: 'met', detail: `Same org: ${same.organization}` }
-  if (value.scope === 'ever_or_peer') {
-    for (const peer of value.peers) {
-      const hit = entries.find((w) => sameOrg(w, peer, orgs))
-      if (hit) return { outcome: 'partial', detail: `Peer org: ${hit.organization}` }
-    }
-  }
+  const elsewhere = entries.some(isOrg)
+  if (scope === 'current')
+    return { outcome: 'not_met', detail: elsewhere ? `Previously at ${org}, not currently` : `No work history at ${org}` }
+  if (scope === 'past')
+    return { outcome: 'not_met', detail: elsewhere ? `Currently at ${org}, not before` : `No work history at ${org}` }
   return { outcome: 'not_met', detail: `No work history at ${org}` }
 }
 
-/** A Must-have Org History row admits met — and, for the peer scope, partial
- *  (a peer organization is what that scope asks for). */
+/** A Must-have Org History row admits met — and, when it counts peers,
+ *  partial (a peer organization is what it asks for). */
 export function passesOrgMustHave(profile: Profile, value: OrgHistoryValue, orgs: OrgIndex): boolean {
   const { outcome } = orgHistoryOutcome(profile, value, orgs)
-  return outcome === 'met' || (outcome === 'partial' && value.scope === 'ever_or_peer')
+  return outcome === 'met' || (outcome === 'partial' && countsPeers(value))
 }
