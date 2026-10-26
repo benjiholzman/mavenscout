@@ -9,7 +9,7 @@
 
 - **Hiring managers are free.** Consultants pay to be listed. Two membership levels: **Member** and **Featured Member**.
 - **Everyone listed is verified:** identity, most recent employer, most recent degree, every certification. There is no "Verified" badge, because everyone has it.
-- **Audio testimonials:** required for Featured Members, optional for Members (amended October 23, 2026; config `TESTIMONIAL_REQUIRED`). Every Featured Member, and many Members, has at least one from a referee whose identity is confirmed through their institutional email. Testimonials are MavenScout's strongest trust signal on top of verification, and the referee flow doubles as the main way hiring managers discover the site. "Has audio testimonial" is a filter / Required row, never a scored preference.
+- **Audio testimonials:** required for Featured Members, optional for Members (amended October 23, 2026; config `TESTIMONIAL_REQUIRED`). Every Featured Member, and many Members, has at least one from a referee whose identity is confirmed through their institutional email. Testimonials are MavenScout's strongest trust signal on top of verification, and the referee flow doubles as the main way hiring managers discover the site. "Has audio testimonial" is a filter, and in ranking a priority at any strength (Nice to have / Important / Must have; match rework §3).
 - **Individuals only.** Firm listings are hidden behind a setting; firms take part as hiring organizations.
 - **Reputation is left to hiring managers** (their own interviews and reference checks). MavenScout verifies claims; it does not judge quality.
 - **Featured Member** buys richer content and browse placement, never ranking position.
@@ -271,7 +271,7 @@ A progress checklist shows what's done and what's waiting (e.g. "Testimonial: wa
 - **Relevance, not volume:** Fit judges each candidate's most relevant evidence (e.g. their most relevant portfolio items) the same way for everyone, so more items help only by offering more chances of a close fit. Baseline test to add: the same profile with 3 vs 10 items (7 off-topic) must not rank higher.
 - **Expertise:** one list with tiers replaces primary/secondary; Required rows match Core + Strong; preference credits per §6.
 - **Firms hidden:** Type filter and Type requirement row hidden while `FIRMS_ENABLED = false`; Career Level no longer needs the firm exemption in practice.
-- **"Has video Q&As"** is filter/Required-only, never a scored preference.
+- **"Has video Q&As"** is a filter ("Featured only" in the filter bar), and in ranking a priority at any strength (Nice to have / Important / Must have; match rework §3).
 - Membership level never affects rank (unchanged).
 
 ---
