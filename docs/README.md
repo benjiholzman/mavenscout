@@ -7,6 +7,7 @@
 | [MavenScout-match-rework.md](MavenScout-match-rework.md) | The detailed ranking spec: the "Set your priorities" modal (eight areas at Nice to have / Important / Must have, optional JD), Must haves as the filter bar, scoring, the card rank header and score build-up, and the engine contract. |
 | [expertise-list-draft.md](expertise-list-draft.md) | The unified expertise list as approved (profiles-membership §6): 140 items in 15 browsing groups, each with its kind, the old items it absorbs, search aliases and scope notes. |
 | [MavenScout-design.md](MavenScout-design.md) | Brand constraints (accent color, logo assets) and design brief. |
+| [MavenScout — Ranking Engine Brief for Loop8.md](<MavenScout — Ranking Engine Brief for Loop8.md>) | The brief for Loop8: how ranking works today, what the engine owns, the contract, decision rights, the baseline to beat and open questions. |
 | [DEVELOPER-HANDOFF.md](DEVELOPER-HANDOFF.md) | Where the scaffolded seams are (real auth, Stripe, the security hardening checklist), how Loop8's engine replaces the placeholder matcher, and the demo data to replace. |
 | [samples/](samples/) | Sample terms of reference for ranking, the expected results they're checked against (`expectations.json`), and the ranking baseline report generated from them by `npm run baseline` (`ranking-baseline.md`). |
 

@@ -13,9 +13,9 @@ First baseline for Loop8. Five sample ToRs (`docs/samples/tor-0*.txt`) are score
 
 ## Summary
 
-**Fixed requirements:** 14/14 expected in top 10, 13/14 in top 5, checks 13/14. **End to end:** 14/14 in top 10, 13/14 in top 5, checks 10/14. **Extraction recall:** 53/62 (85%). **Org History scopes:** 2/2. **Profile variants (tiers, language level):** 3/3. **Ties at the top:** 0/5 ToRs (fixed), 0/5 (end to end). **One Nice to have row:** moves a total by at most 3 points. **What-ifs:** none.
+**Fixed requirements:** 14/14 expected in top 10, 14/14 in top 5, checks 13/14. **End to end:** 14/14 in top 10, 14/14 in top 5, checks 10/14. **Extraction recall:** 53/62 (85%). **Org History scopes:** 2/2. **Profile variants (tiers, language level):** 3/3. **Ties at the top:** 0/5 ToRs (fixed), 0/5 (end to end). **One Nice to have row:** moves a total by at most 2 points. **What-ifs:** none.
 
-Run 2026-10-23. Availability-based scores depend on the run date only through availability rows, which these requirements don't use.
+Run 2026-10-26. Availability-based scores depend on the run date only through availability rows, which these requirements don't use.
 
 ## Score distribution by role
 
@@ -23,28 +23,28 @@ Totals across all five ToRs, for calibrating the band thresholds (`BAND_THRESHOL
 
 | Run | Role | n | Min | P10 | Median | P90 | Max | Filtered | Bands now (strong/good/partial/weak) |
 |---|---|---|---|---|---|---|---|---|---|
-| Fixed | expected | 14 | 60 | 70 | 85 | 91 | 94 | 0 | 9/4/1/0 |
-| Fixed | related | 9 | 27 | 44 | 81 | 81 | 87 | 0 | 6/0/1/2 |
-| Fixed | decoy | 3 | 17 | 17 | 19 | 49 | 49 | 3 | 0/0/0/3 |
-| Fixed | rest | 231 | 0 | 5 | 13 | 33 | 85 | 230 | 1/6/3/221 |
-| End to end | expected | 14 | 57 | 67 | 82 | 89 | 91 | 0 | 9/4/1/0 |
-| End to end | related | 9 | 29 | 46 | 77 | 82 | 84 | 0 | 3/3/1/2 |
-| End to end | decoy | 6 | 14 | 15 | 46 | 68 | 68 | 0 | 0/1/1/4 |
-| End to end | rest | 461 | 0 | 5 | 13 | 36 | 83 | 0 | 1/6/17/437 |
+| Fixed | expected | 14 | 61 | 73 | 85 | 91 | 94 | 0 | 9/4/1/0 |
+| Fixed | related | 9 | 32 | 45 | 81 | 82 | 87 | 0 | 6/0/1/2 |
+| Fixed | decoy | 3 | 19 | 19 | 21 | 50 | 50 | 3 | 0/0/1/2 |
+| Fixed | rest | 231 | 0 | 6 | 16 | 35 | 86 | 230 | 1/7/3/220 |
+| End to end | expected | 14 | 58 | 70 | 83 | 89 | 89 | 0 | 9/4/1/0 |
+| End to end | related | 9 | 33 | 48 | 79 | 83 | 85 | 0 | 4/2/1/2 |
+| End to end | decoy | 6 | 17 | 18 | 47 | 69 | 69 | 0 | 0/1/1/4 |
+| End to end | rest | 461 | 0 | 7 | 14 | 37 | 82 | 0 | 1/7/16/437 |
 
 All totals, sorted (fixed requirements):
 
-- expected: 94, 91, 89, 88, 88, 86, 85, 84, 83, 78, 73, 71, 70, 60
-- related: 87, 81, 81, 81, 81, 80, 56, 44, 27
-- decoy: 49, 19, 17
-- rest, top 20: 85, 77, 75, 73, 70, 67, 66, 64, 57, 50, 48, 48, 46, 46, 45, 44, 43, 40, 39, 39
+- expected: 94, 91, 89, 89, 88, 87, 85, 84, 83, 79, 73, 73, 73, 61
+- related: 87, 82, 82, 81, 81, 81, 57, 45, 32
+- decoy: 50, 21, 19
+- rest, top 20: 86, 77, 76, 75, 71, 69, 67, 66, 59, 52, 51, 49, 47, 47, 47, 46, 45, 42, 41, 40
 
 All totals, sorted (end to end):
 
-- expected: 91, 89, 86, 85, 84, 83, 82, 82, 81, 75, 70, 68, 67, 57
-- related: 84, 82, 82, 78, 77, 77, 53, 46, 29
-- decoy: 68, 51, 46, 22, 15, 14
-- rest, top 20: 83, 78, 74, 71, 70, 69, 68, 64, 63, 61, 61, 60, 60, 58, 55, 54, 54, 53, 53, 53
+- expected: 89, 89, 87, 85, 84, 83, 83, 83, 80, 77, 72, 70, 70, 58
+- related: 85, 83, 83, 80, 79, 79, 54, 48, 33
+- decoy: 69, 52, 47, 25, 18, 17
+- rest, top 20: 82, 76, 74, 72, 70, 69, 68, 67, 64, 63, 61, 61, 60, 58, 55, 55, 54, 54, 54, 54
 
 ## tor-01: Endline evaluation lead, maternal & child nutrition (Ethiopia)
 
@@ -56,67 +56,67 @@ Rows: expertise Nutrition (Important); expertise Health Systems (Nice); expertis
 
 Pool after Required rows: **97** of 98.
 
-Ties: none at the top (94); 2 tied adjacent pairs in the top 10. Bands (whole pool): 3 strong, 5 good, 2 partial, 87 weak.
+Ties: none at the top (94); 0 tied adjacent pairs in the top 10. Bands (whole pool): 3 strong, 5 good, 3 partial, 86 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
 | Hanna Tesfaye (`demo-hanna-tesfaye`) | 1 | 94 | 93 | ✓ | ✓ |
-| Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | 6 | 70 | 74 | ✗ | ✓ |
-| Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | 2 | 85 | 89 | ✓ | ✓ |
+| Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | 5 | 73 | 74 | ✓ | ✓ |
+| Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | 3 | 85 | 89 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| wrong location strong fit | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | top10 | #2 (85/89) | ✓ |
-| right location wrong fit | Dawit Kebede Abate (`demo-dawit-kebede-abate`) | not top10 | #49 (17/12) | ✓ |
+| wrong location strong fit | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | top10 | #3 (85/89) | ✓ |
+| right location wrong fit | Dawit Kebede Abate (`demo-dawit-kebede-abate`) | not top10 | #48 (19/12) | ✓ |
 
 <details><summary>Top 10</summary>
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
 | 1 | Hanna Tesfaye (`demo-hanna-tesfaye`) | Individual | Addis Ababa, Ethiopia | 94 | 93 | strong |
-| 2 | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | Individual | Dhaka, Bangladesh | 85 | 89 | strong |
-| 3 | Yonas Alemu (`demo-yonas-alemu`) | Individual | Addis Ababa, Ethiopia | 85 | 85 | strong |
+| 2 | Yonas Alemu (`demo-yonas-alemu`) | Individual | Addis Ababa, Ethiopia | 86 | 85 | strong |
+| 3 | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | Individual | Dhaka, Bangladesh | 85 | 89 | strong |
 | 4 | Dr. Sunita Patel (`dr-sunita-patel`) | Individual | Manila, Philippines | 77 | 82 | good |
-| 5 | Beatriz Nogueira Lima (`demo-beatriz-nogueira-lima`) | Individual | Brasília, Brazil | 70 | 75 | good |
-| 6 | Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | Individual | Hargeisa, Somalia | 70 | 74 | good |
-| 7 | Selamawit Girma (`demo-selamawit-girma`) | Individual | Addis Ababa, Ethiopia | 67 | 66 | good |
+| 5 | Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | Individual | Hargeisa, Somalia | 73 | 74 | good |
+| 6 | Beatriz Nogueira Lima (`demo-beatriz-nogueira-lima`) | Individual | Brasília, Brazil | 71 | 75 | good |
+| 7 | Selamawit Girma (`demo-selamawit-girma`) | Individual | Addis Ababa, Ethiopia | 69 | 66 | good |
 | 8 | Pablo Vargas (`pablo-vargas`) | Individual | Lima, Peru | 66 | 73 | good |
-| 9 | Dr. Priya Nair (`dr-priya-nair`) | Individual | Geneva, Switzerland | 57 | 64 | partial |
-| 10 | Mariam Traoré (`demo-mariam-traore`) | Individual | Bamako, Mali | 50 | 58 | partial |
+| 9 | Dr. Priya Nair (`dr-priya-nair`) | Individual | Geneva, Switzerland | 59 | 64 | partial |
+| 10 | Mariam Traoré (`demo-mariam-traore`) | Individual | Bamako, Mali | 52 | 58 | partial |
 
 </details>
 
 ### End to end (extraction → Add all)
 
-Rows added by Add all (9): expertise Nutrition (Nice); expertise Health Systems (Nice); expertise Impact Evaluation (Nice); expertise Survey Design (Nice); expertise Statistical Analysis (Nice); expertise Social Protection (Nice); expertise Translation (Nice); location Ethiopia (Nice); language Somali/Amharic/English (Nice).
+Rows added by Add all (11): expertise Nutrition (Nice); expertise Health Systems (Nice); expertise Impact Evaluation (Nice); expertise Survey Design (Nice); expertise Statistical Analysis (Nice); expertise Social Protection (Nice); expertise Translation (Nice); location Ethiopia (Nice); language Somali (Nice); language Amharic (Nice); language English (Nice).
 
 Pool after Required rows: **98** of 98.
 
-Ties: none at the top (91); 0 tied adjacent pairs in the top 10. Bands (whole pool): 3 strong, 4 good, 4 partial, 87 weak.
+Ties: none at the top (89); 0 tied adjacent pairs in the top 10. Bands (whole pool): 3 strong, 4 good, 4 partial, 87 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
-| Hanna Tesfaye (`demo-hanna-tesfaye`) | 1 | 91 | 93 | ✓ | ✓ |
-| Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | 7 | 68 | 74 | ✗ | ✓ |
-| Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | 2 | 85 | 89 | ✓ | ✓ |
+| Hanna Tesfaye (`demo-hanna-tesfaye`) | 1 | 89 | 93 | ✓ | ✓ |
+| Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | 5 | 70 | 74 | ✓ | ✓ |
+| Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | 2 | 83 | 89 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| wrong location strong fit | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | top10 | #2 (85/89) | ✓ |
-| right location wrong fit | Dawit Kebede Abate (`demo-dawit-kebede-abate`) | not top10 | #62 (14/12) | ✓ |
+| wrong location strong fit | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | top10 | #2 (83/89) | ✓ |
+| right location wrong fit | Dawit Kebede Abate (`demo-dawit-kebede-abate`) | not top10 | #57 (17/12) | ✓ |
 
 <details><summary>Top 10</summary>
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
-| 1 | Hanna Tesfaye (`demo-hanna-tesfaye`) | Individual | Addis Ababa, Ethiopia | 91 | 93 | strong |
-| 2 | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | Individual | Dhaka, Bangladesh | 85 | 89 | strong |
-| 3 | Yonas Alemu (`demo-yonas-alemu`) | Individual | Addis Ababa, Ethiopia | 83 | 85 | strong |
-| 4 | Dr. Sunita Patel (`dr-sunita-patel`) | Individual | Manila, Philippines | 78 | 82 | good |
-| 5 | Beatriz Nogueira Lima (`demo-beatriz-nogueira-lima`) | Individual | Brasília, Brazil | 70 | 75 | good |
-| 6 | Pablo Vargas (`pablo-vargas`) | Individual | Lima, Peru | 69 | 73 | good |
-| 7 | Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | Individual | Hargeisa, Somalia | 68 | 74 | good |
-| 8 | Selamawit Girma (`demo-selamawit-girma`) | Individual | Addis Ababa, Ethiopia | 63 | 66 | partial |
+| 1 | Hanna Tesfaye (`demo-hanna-tesfaye`) | Individual | Addis Ababa, Ethiopia | 89 | 93 | strong |
+| 2 | Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`) | Individual | Dhaka, Bangladesh | 83 | 89 | strong |
+| 3 | Yonas Alemu (`demo-yonas-alemu`) | Individual | Addis Ababa, Ethiopia | 82 | 85 | strong |
+| 4 | Dr. Sunita Patel (`dr-sunita-patel`) | Individual | Manila, Philippines | 76 | 82 | good |
+| 5 | Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | Individual | Hargeisa, Somalia | 70 | 74 | good |
+| 6 | Beatriz Nogueira Lima (`demo-beatriz-nogueira-lima`) | Individual | Brasília, Brazil | 69 | 75 | good |
+| 7 | Pablo Vargas (`pablo-vargas`) | Individual | Lima, Peru | 67 | 73 | good |
+| 8 | Selamawit Girma (`demo-selamawit-girma`) | Individual | Addis Ababa, Ethiopia | 64 | 66 | partial |
 | 9 | Dr. Priya Nair (`dr-priya-nair`) | Individual | Geneva, Switzerland | 60 | 64 | partial |
 | 10 | Mariam Traoré (`demo-mariam-traore`) | Individual | Bamako, Mali | 52 | 58 | partial |
 
@@ -126,15 +126,15 @@ Ties: none at the top (91); 0 tied adjacent pairs in the top 10. Bands (whole po
 
 | Tier | Total | Fit | Row |
 |---|---|---|---|
-| core | 94 | 93 | met, 8 pts (Tagged as Core expertise) |
-| strong | 93 | 93 | met, 6 pts (Tagged as Strong) |
-| working | 91 | 93 | partial, 3.2 pts (Tagged as Working knowledge) |
+| core | 94 | 93 | met, 3 pts (Tagged as Core expertise) |
+| strong | 93 | 93 | met, 2.25 pts (Tagged as Strong) |
+| working | 91 | 93 | partial, 1.2000000000000002 pts (Tagged as Working knowledge) |
 
 ✓ Same profile with Nutrition (an Important row) as Core, Strong and Working knowledge: the higher tier must score higher.
 
 ### One Nice to have row
 
-Largest change to any candidate's total from a single Nice to have row: **3** points (language Amharic/Somali (Nice), Nusrat Jahan Chowdhury (`demo-nusrat-jahan-chowdhury`)). ✓ expected at most about 3.
+Largest change to any candidate's total from a single Nice to have row: **2** points (expertise Health Systems (Nice), Pablo Vargas (`pablo-vargas`)). ✓ expected at most about 3.
 
 ### Extraction
 
@@ -154,16 +154,16 @@ Rows: expertise Anti-Corruption (Important); expertise Public Procurement (Impor
 
 Pool after Required rows: **17** of 98.
 
-Ties: none at the top (89); 2 tied adjacent pairs in the top 10. Bands (whole pool): 1 strong, 1 good, 0 partial, 15 weak.
+Ties: none at the top (89); 1 tied adjacent pair in the top 10. Bands (whole pool): 1 strong, 1 good, 0 partial, 15 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
 | Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`) | 1 | 89 | 89 | ✓ | ✓ |
-| Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | 2 | 71 | 71 | ✓ | ✓ |
+| Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | 2 | 73 | 71 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| untagged text evidence | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | top10 | #3 (44/48) | ✓ |
+| untagged text evidence | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | top10 | #3 (45/48) | ✓ |
 | decoy | Saad Ahmed Malik (`demo-saad-ahmed-malik`) | not top10 | filtered | ✓ |
 
 <details><summary>Top 10</summary>
@@ -171,49 +171,49 @@ Ties: none at the top (89); 2 tied adjacent pairs in the top 10. Bands (whole po
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
 | 1 | Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`) | Individual | Guatemala City, Guatemala | 89 | 89 | strong |
-| 2 | Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | Individual | Tegucigalpa, Honduras | 71 | 71 | good |
-| 3 | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | Individual | San José, Costa Rica | 44 | 48 | weak |
-| 4 | Rebecca Thornton Hale (`demo-rebecca-thornton-hale`) | Individual | Washington DC, United States | 31 | 34 | weak |
-| 5 | Sofia Reyes (`sofia-reyes`) | Individual | Bogotá, Colombia | 30 | 35 | weak |
-| 6 | Mariana Ospina Restrepo (`demo-mariana-ospina-restrepo`) | Individual | Medellín, Colombia | 28 | 31 | weak |
-| 7 | Beatriz Nogueira Lima (`demo-beatriz-nogueira-lima`) | Individual | Brasília, Brazil | 25 | 29 | weak |
-| 8 | Rosa Quispe Mamani (`demo-rosa-quispe-mamani`) | Individual | Cusco, Peru | 18 | 23 | weak |
-| 9 | Gabriela Andrade Paredes (`demo-gabriela-andrade-paredes`) | Individual | Quito, Ecuador | 18 | 23 | weak |
+| 2 | Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | Individual | Tegucigalpa, Honduras | 73 | 71 | good |
+| 3 | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | Individual | San José, Costa Rica | 45 | 48 | weak |
+| 4 | Rebecca Thornton Hale (`demo-rebecca-thornton-hale`) | Individual | Washington DC, United States | 35 | 34 | weak |
+| 5 | Sofia Reyes (`sofia-reyes`) | Individual | Bogotá, Colombia | 34 | 35 | weak |
+| 6 | Mariana Ospina Restrepo (`demo-mariana-ospina-restrepo`) | Individual | Medellín, Colombia | 32 | 31 | weak |
+| 7 | Beatriz Nogueira Lima (`demo-beatriz-nogueira-lima`) | Individual | Brasília, Brazil | 26 | 29 | weak |
+| 8 | Rosa Quispe Mamani (`demo-rosa-quispe-mamani`) | Individual | Cusco, Peru | 24 | 23 | weak |
+| 9 | Gabriela Andrade Paredes (`demo-gabriela-andrade-paredes`) | Individual | Quito, Ecuador | 24 | 23 | weak |
 | 10 | Jonas Weber-Lindqvist (`demo-jonas-weber-lindqvist`) | Individual | Bonn, Germany | 18 | 22 | weak |
 
 </details>
 
 ### End to end (extraction → Add all)
 
-Rows added by Add all (9): expertise Public Procurement (Nice); expertise Anti-Corruption (Nice); expertise Citizen Engagement (Nice); expertise Public Financial Management (Nice); expertise Qualitative Research (Nice); expertise Policy Analysis (Nice); expertise Policy Briefs (Nice); location Guatemala/Honduras/Guatemala City, Guatemala/Tegucigalpa, Honduras (Nice); language English/Spanish (Nice).
+Rows added by Add all (10): expertise Public Procurement (Nice); expertise Anti-Corruption (Nice); expertise Citizen Engagement (Nice); expertise Public Financial Management (Nice); expertise Qualitative Research (Nice); expertise Policy Analysis (Nice); expertise Policy Briefs (Nice); location Guatemala/Honduras/Guatemala City, Guatemala/Tegucigalpa, Honduras (Nice); language English (Nice); language Spanish (Nice).
 
 Pool after Required rows: **98** of 98.
 
-Ties: none at the top (86); 1 tied adjacent pair in the top 10. Bands (whole pool): 1 strong, 2 good, 3 partial, 92 weak.
+Ties: none at the top (87); 0 tied adjacent pairs in the top 10. Bands (whole pool): 1 strong, 2 good, 3 partial, 92 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
-| Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`) | 1 | 86 | 89 | ✓ | ✓ |
-| Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | 3 | 67 | 71 | ✓ | ✓ |
+| Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`) | 1 | 87 | 89 | ✓ | ✓ |
+| Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | 2 | 70 | 71 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| untagged text evidence | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | top10 | #8 (46/48) | ✓ |
-| decoy | Saad Ahmed Malik (`demo-saad-ahmed-malik`) | not top10 | #2 (68/73) | ✗ |
+| untagged text evidence | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | top10 | #7 (48/48) | ✓ |
+| decoy | Saad Ahmed Malik (`demo-saad-ahmed-malik`) | not top10 | #3 (69/73) | ✗ |
 
 <details><summary>Top 10</summary>
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
-| 1 | Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`) | Individual | Guatemala City, Guatemala | 86 | 89 | strong |
-| 2 | Saad Ahmed Malik (`demo-saad-ahmed-malik`) | Individual | Islamabad, Pakistan | 68 | 73 | good |
-| 3 | Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | Individual | Tegucigalpa, Honduras | 67 | 71 | good |
-| 4 | Claire Mbarga Lefèvre (`demo-claire-mbarga-lefevre`) | Individual | Montréal, Canada | 61 | 65 | partial |
-| 5 | Lena Hoffmann (`lena-hoffmann`) | Individual | Berlin, Germany | 60 | 65 | partial |
+| 1 | Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`) | Individual | Guatemala City, Guatemala | 87 | 89 | strong |
+| 2 | Andrés Castillo Zelaya (`demo-andres-castillo-zelaya`) | Individual | Tegucigalpa, Honduras | 70 | 71 | good |
+| 3 | Saad Ahmed Malik (`demo-saad-ahmed-malik`) | Individual | Islamabad, Pakistan | 69 | 73 | good |
+| 4 | Claire Mbarga Lefèvre (`demo-claire-mbarga-lefevre`) | Individual | Montréal, Canada | 63 | 65 | partial |
+| 5 | Lena Hoffmann (`lena-hoffmann`) | Individual | Berlin, Germany | 61 | 65 | partial |
 | 6 | Aminata Koné-Traoré (`demo-aminata-kone-traore`) | Individual | Abidjan, Côte d'Ivoire | 55 | 60 | partial |
-| 7 | Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | Individual | Dakar, Senegal | 46 | 50 | weak |
-| 8 | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | Individual | San José, Costa Rica | 46 | 48 | weak |
-| 9 | Salma El Idrissi (`demo-salma-el-idrissi`) | Individual | Rabat, Morocco | 40 | 42 | weak |
+| 7 | Carolina Rojas Villalobos (`demo-carolina-rojas-villalobos`) | Individual | San José, Costa Rica | 48 | 48 | weak |
+| 8 | Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | Individual | Dakar, Senegal | 47 | 50 | weak |
+| 9 | Salma El Idrissi (`demo-salma-el-idrissi`) | Individual | Rabat, Morocco | 42 | 42 | weak |
 | 10 | Dr. Priya Nair (`dr-priya-nair`) | Individual | Geneva, Switzerland | 39 | 41 | weak |
 
 </details>
@@ -229,7 +229,7 @@ Ties: none at the top (86); 1 tied adjacent pair in the top 10. Bands (whole poo
 
 ### One Nice to have row
 
-Largest change to any candidate's total from a single Nice to have row: **3** points (expertise Data Science (Nice), Lucía Barrios Cifuentes (`demo-lucia-barrios-cifuentes`)). ✓ expected at most about 3.
+Largest change to any candidate's total from a single Nice to have row: **2** points (expertise Policy Analysis (Nice), Beatriz Nogueira Lima (`demo-beatriz-nogueira-lima`)). ✓ expected at most about 3.
 
 ### Extraction
 
@@ -254,8 +254,8 @@ Ties: none at the top (87); 0 tied adjacent pairs in the top 10. Bands (whole po
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
 | Rania Haddad (`demo-rania-haddad`) | 3 | 73 | 73 | ✓ | ✓ |
-| Omar Khalil Mansour (`demo-omar-khalil-mansour`) | 2 | 78 | 77 | ✓ | ✓ |
-| Fatima Al-Rashid (`fatima-al-rashid`) | 4 | 60 | 57 | ✓ | ✓ |
+| Omar Khalil Mansour (`demo-omar-khalil-mansour`) | 2 | 79 | 77 | ✓ | ✓ |
+| Fatima Al-Rashid (`fatima-al-rashid`) | 4 | 61 | 57 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
@@ -268,52 +268,52 @@ Ties: none at the top (87); 0 tied adjacent pairs in the top 10. Bands (whole po
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
 | 1 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | Individual | Amman, Jordan | 87 | 86 | strong |
-| 2 | Omar Khalil Mansour (`demo-omar-khalil-mansour`) | Individual | Amman, Jordan | 78 | 77 | good |
+| 2 | Omar Khalil Mansour (`demo-omar-khalil-mansour`) | Individual | Amman, Jordan | 79 | 77 | good |
 | 3 | Rania Haddad (`demo-rania-haddad`) | Individual | Beirut, Lebanon | 73 | 73 | good |
-| 4 | Fatima Al-Rashid (`fatima-al-rashid`) | Individual | Amman, Jordan | 60 | 57 | partial |
-| 5 | Mai Abdel-Aziz Fawzy (`demo-mai-abdel-aziz-fawzy`) | Individual | Cairo, Egypt | 39 | 45 | weak |
-| 6 | Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | Individual | Hargeisa, Somalia | 28 | 32 | weak |
-| 7 | Achta Mahamat Saleh (`demo-achta-mahamat-saleh`) | Individual | N'Djamena, Chad | 27 | 26 | weak |
-| 8 | Hiba Osman Elfaki (`demo-hiba-osman-elfaki`) | Individual | Port Sudan, Sudan | 25 | 25 | weak |
-| 9 | Shilan Kareem Mahmoud (`demo-shilan-kareem-mahmoud`) | Individual | Erbil, Iraq | 18 | 18 | weak |
-| 10 | Youssef Ben Amor (`demo-youssef-ben-amor`) | Individual | Tunis, Tunisia | 15 | 17 | weak |
+| 4 | Fatima Al-Rashid (`fatima-al-rashid`) | Individual | Amman, Jordan | 61 | 57 | partial |
+| 5 | Mai Abdel-Aziz Fawzy (`demo-mai-abdel-aziz-fawzy`) | Individual | Cairo, Egypt | 40 | 45 | weak |
+| 6 | Abdiwali Hersi Warsame (`demo-abdiwali-hersi-warsame`) | Individual | Hargeisa, Somalia | 31 | 32 | weak |
+| 7 | Achta Mahamat Saleh (`demo-achta-mahamat-saleh`) | Individual | N'Djamena, Chad | 30 | 26 | weak |
+| 8 | Hiba Osman Elfaki (`demo-hiba-osman-elfaki`) | Individual | Port Sudan, Sudan | 28 | 25 | weak |
+| 9 | Shilan Kareem Mahmoud (`demo-shilan-kareem-mahmoud`) | Individual | Erbil, Iraq | 20 | 18 | weak |
+| 10 | Youssef Ben Amor (`demo-youssef-ben-amor`) | Individual | Tunis, Tunisia | 16 | 17 | weak |
 
 </details>
 
 ### End to end (extraction → Add all)
 
-Rows added by Add all (8): expertise Social Cohesion (Nice); expertise Qualitative Research (Nice); expertise Market Research (Nice); expertise Agribusiness & Value Chains (Nice); expertise SME Development (Nice); expertise Survey Design (Nice); location Jordan/Lebanon (Nice); language Arabic/English (Nice).
+Rows added by Add all (9): expertise Social Cohesion (Nice); expertise Qualitative Research (Nice); expertise Market Research (Nice); expertise Agribusiness & Value Chains (Nice); expertise SME Development (Nice); expertise Survey Design (Nice); location Jordan/Lebanon (Nice); language Arabic (Nice); language English (Nice).
 
 Pool after Required rows: **98** of 98.
 
-Ties: none at the top (84); 2 tied adjacent pairs in the top 10. Bands (whole pool): 1 strong, 2 good, 9 partial, 86 weak.
+Ties: none at the top (85); 3 tied adjacent pairs in the top 10. Bands (whole pool): 1 strong, 2 good, 9 partial, 86 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
-| Rania Haddad (`demo-rania-haddad`) | 3 | 70 | 73 | ✓ | ✓ |
-| Omar Khalil Mansour (`demo-omar-khalil-mansour`) | 2 | 75 | 77 | ✓ | ✓ |
-| Fatima Al-Rashid (`fatima-al-rashid`) | 5 | 57 | 57 | ✓ | ✓ |
+| Rania Haddad (`demo-rania-haddad`) | 3 | 72 | 73 | ✓ | ✓ |
+| Omar Khalil Mansour (`demo-omar-khalil-mansour`) | 2 | 77 | 77 | ✓ | ✓ |
+| Fatima Al-Rashid (`fatima-al-rashid`) | 5 | 58 | 57 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| top10 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | top10 | #1 (84/86) | ✓ |
-| decoy | Dilini Wickramasinghe (`demo-dilini-wickramasinghe`) | not top10 | #10 (51/54) | ✗ |
-| decoy | Joseph Ssemakula (`demo-joseph-ssemakula`) | not top10 | #38 (15/16) | ✓ |
+| top10 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | top10 | #1 (85/86) | ✓ |
+| decoy | Dilini Wickramasinghe (`demo-dilini-wickramasinghe`) | not top10 | #10 (52/54) | ✗ |
+| decoy | Joseph Ssemakula (`demo-joseph-ssemakula`) | not top10 | #38 (18/16) | ✓ |
 
 <details><summary>Top 10</summary>
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
-| 1 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | Individual | Amman, Jordan | 84 | 86 | strong |
-| 2 | Omar Khalil Mansour (`demo-omar-khalil-mansour`) | Individual | Amman, Jordan | 75 | 77 | good |
-| 3 | Rania Haddad (`demo-rania-haddad`) | Individual | Beirut, Lebanon | 70 | 73 | good |
+| 1 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | Individual | Amman, Jordan | 85 | 86 | strong |
+| 2 | Omar Khalil Mansour (`demo-omar-khalil-mansour`) | Individual | Amman, Jordan | 77 | 77 | good |
+| 3 | Rania Haddad (`demo-rania-haddad`) | Individual | Beirut, Lebanon | 72 | 73 | good |
 | 4 | Gabriela Andrade Paredes (`demo-gabriela-andrade-paredes`) | Individual | Quito, Ecuador | 58 | 62 | partial |
-| 5 | Fatima Al-Rashid (`fatima-al-rashid`) | Individual | Amman, Jordan | 57 | 57 | partial |
-| 6 | Siti Rahmawati Nugroho (`demo-siti-rahmawati-nugroho`) | Individual | Jakarta, Indonesia | 54 | 56 | partial |
-| 7 | Sana Rizvi Hussain (`demo-sana-rizvi-hussain`) | Individual | Karachi, Pakistan | 54 | 56 | partial |
-| 8 | Thiri Aung Khin (`demo-thiri-aung-khin`) | Individual | Yangon, Myanmar | 53 | 57 | partial |
-| 9 | Rowena Bautista Lacson (`demo-rowena-bautista-lacson`) | Individual | Davao City, Philippines | 53 | 55 | partial |
-| 10 | Dilini Wickramasinghe (`demo-dilini-wickramasinghe`) | Individual | Colombo, Sri Lanka | 51 | 54 | partial |
+| 5 | Fatima Al-Rashid (`fatima-al-rashid`) | Individual | Amman, Jordan | 58 | 57 | partial |
+| 6 | Siti Rahmawati Nugroho (`demo-siti-rahmawati-nugroho`) | Individual | Jakarta, Indonesia | 55 | 56 | partial |
+| 7 | Thiri Aung Khin (`demo-thiri-aung-khin`) | Individual | Yangon, Myanmar | 54 | 57 | partial |
+| 8 | Sana Rizvi Hussain (`demo-sana-rizvi-hussain`) | Individual | Karachi, Pakistan | 54 | 56 | partial |
+| 9 | Rowena Bautista Lacson (`demo-rowena-bautista-lacson`) | Individual | Davao City, Philippines | 54 | 55 | partial |
+| 10 | Dilini Wickramasinghe (`demo-dilini-wickramasinghe`) | Individual | Colombo, Sri Lanka | 52 | 54 | partial |
 
 </details>
 
@@ -328,7 +328,7 @@ Ties: none at the top (84); 2 tied adjacent pairs in the top 10. Bands (whole po
 
 ### One Nice to have row
 
-Largest change to any candidate's total from a single Nice to have row: **3** points (location Jordan/Lebanon (Nice), Tariq Hassan (`tariq-hassan`)). ✓ expected at most about 3.
+Largest change to any candidate's total from a single Nice to have row: **2** points (expertise Refugees & Forced Displacement (Nice), Achta Mahamat Saleh (`demo-achta-mahamat-saleh`)). ✓ expected at most about 3.
 
 ### Extraction
 
@@ -348,7 +348,7 @@ Rows: expertise Financial Inclusion (Important); expertise Agribusiness & Value 
 
 Pool after Required rows: **98** of 98.
 
-Ties: none at the top (91); 2 tied adjacent pairs in the top 10. Bands (whole pool): 5 strong, 1 good, 1 partial, 91 weak.
+Ties: none at the top (91); 2 tied adjacent pairs in the top 10. Bands (whole pool): 5 strong, 1 good, 2 partial, 90 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
@@ -358,9 +358,9 @@ Ties: none at the top (91); 2 tied adjacent pairs in the top 10. Bands (whole po
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| tie pair | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) vs Dimas Arya Saputra (`demo-dimas-arya-saputra`) | adjacent fresher first | #4 (81/83) vs #5 (81/83), tied on total and Fit | ✓ |
-| untagged text evidence | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | top10 | #7 (56/59) | ✓ |
-| decoy | Neema Mwakyusa (`demo-neema-mwakyusa`) | not top10 | #8 (49/53) | ✗ |
+| tie pair | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) vs Dimas Arya Saputra (`demo-dimas-arya-saputra`) | adjacent fresher first | #4 (82/83) vs #5 (82/83), tied on total and Fit | ✓ |
+| untagged text evidence | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | top10 | #7 (57/59) | ✓ |
+| decoy | Neema Mwakyusa (`demo-neema-mwakyusa`) | not top10 | #8 (50/53) | ✗ |
 
 <details><summary>Top 10</summary>
 
@@ -369,19 +369,19 @@ Ties: none at the top (91); 2 tied adjacent pairs in the top 10. Bands (whole po
 | 1 | Rowena Bautista Lacson (`demo-rowena-bautista-lacson`) | Individual | Davao City, Philippines | 91 | 93 | strong |
 | 2 | Siti Rahmawati Nugroho (`demo-siti-rahmawati-nugroho`) | Individual | Jakarta, Indonesia | 88 | 87 | strong |
 | 3 | Joaquin Reyes Manalo (`demo-joaquin-reyes-manalo`) | Individual | Manila, Philippines | 83 | 84 | strong |
-| 4 | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) | Individual | Jakarta, Indonesia | 81 | 83 | strong |
-| 5 | Dimas Arya Saputra (`demo-dimas-arya-saputra`) | Individual | Jakarta, Indonesia | 81 | 83 | strong |
-| 6 | Sana Rizvi Hussain (`demo-sana-rizvi-hussain`) | Individual | Karachi, Pakistan | 75 | 82 | good |
-| 7 | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | Individual | Hanoi, Vietnam | 56 | 59 | partial |
-| 8 | Neema Mwakyusa (`demo-neema-mwakyusa`) | Individual | Dar es Salaam, Tanzania | 49 | 53 | weak |
-| 9 | Mai Abdel-Aziz Fawzy (`demo-mai-abdel-aziz-fawzy`) | Individual | Cairo, Egypt | 46 | 51 | weak |
-| 10 | Chidi Okonkwo-Nwosu (`demo-chidi-okonkwo-nwosu`) | Individual | Lagos, Nigeria | 46 | 49 | weak |
+| 4 | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) | Individual | Jakarta, Indonesia | 82 | 83 | strong |
+| 5 | Dimas Arya Saputra (`demo-dimas-arya-saputra`) | Individual | Jakarta, Indonesia | 82 | 83 | strong |
+| 6 | Sana Rizvi Hussain (`demo-sana-rizvi-hussain`) | Individual | Karachi, Pakistan | 76 | 82 | good |
+| 7 | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | Individual | Hanoi, Vietnam | 57 | 59 | partial |
+| 8 | Neema Mwakyusa (`demo-neema-mwakyusa`) | Individual | Dar es Salaam, Tanzania | 50 | 53 | partial |
+| 9 | Mai Abdel-Aziz Fawzy (`demo-mai-abdel-aziz-fawzy`) | Individual | Cairo, Egypt | 47 | 51 | weak |
+| 10 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | Individual | Amman, Jordan | 47 | 50 | weak |
 
 </details>
 
 ### End to end (extraction → Add all)
 
-Rows added by Add all (10): expertise Market Research (Nice); expertise Agribusiness & Value Chains (Nice); expertise Financial Inclusion (Nice); expertise Financial Modeling (Nice); expertise Rural Development (Nice); expertise Investment Climate (Nice); expertise Gender Mainstreaming (Nice); expertise Survey Design (Nice); location Indonesia/Philippines (Nice); language Filipino/Indonesian (Nice).
+Rows added by Add all (11): expertise Market Research (Nice); expertise Agribusiness & Value Chains (Nice); expertise Financial Inclusion (Nice); expertise Financial Modeling (Nice); expertise Rural Development (Nice); expertise Investment Climate (Nice); expertise Gender Mainstreaming (Nice); expertise Survey Design (Nice); location Indonesia/Philippines (Nice); language Filipino (Nice); language Indonesian (Nice).
 
 Pool after Required rows: **98** of 98.
 
@@ -390,14 +390,14 @@ Ties: none at the top (89); 2 tied adjacent pairs in the top 10. Bands (whole po
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
 | Rowena Bautista Lacson (`demo-rowena-bautista-lacson`) | 1 | 89 | 93 | ✓ | ✓ |
-| Joaquin Reyes Manalo (`demo-joaquin-reyes-manalo`) | 3 | 81 | 84 | ✓ | ✓ |
+| Joaquin Reyes Manalo (`demo-joaquin-reyes-manalo`) | 3 | 80 | 84 | ✓ | ✓ |
 | Siti Rahmawati Nugroho (`demo-siti-rahmawati-nugroho`) | 2 | 83 | 87 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| tie pair | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) vs Dimas Arya Saputra (`demo-dimas-arya-saputra`) | adjacent fresher first | #4 (77/83) vs #5 (77/83), tied on total and Fit | ✓ |
-| untagged text evidence | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | top10 | #7 (53/59) | ✓ |
-| decoy | Neema Mwakyusa (`demo-neema-mwakyusa`) | not top10 | #8 (46/53) | ✗ |
+| tie pair | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) vs Dimas Arya Saputra (`demo-dimas-arya-saputra`) | adjacent fresher first | #4 (79/83) vs #5 (79/83), tied on total and Fit | ✓ |
+| untagged text evidence | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | top10 | #7 (54/59) | ✓ |
+| decoy | Neema Mwakyusa (`demo-neema-mwakyusa`) | not top10 | #8 (47/53) | ✗ |
 
 <details><summary>Top 10</summary>
 
@@ -405,14 +405,14 @@ Ties: none at the top (89); 2 tied adjacent pairs in the top 10. Bands (whole po
 |---|---|---|---|---|---|---|
 | 1 | Rowena Bautista Lacson (`demo-rowena-bautista-lacson`) | Individual | Davao City, Philippines | 89 | 93 | strong |
 | 2 | Siti Rahmawati Nugroho (`demo-siti-rahmawati-nugroho`) | Individual | Jakarta, Indonesia | 83 | 87 | strong |
-| 3 | Joaquin Reyes Manalo (`demo-joaquin-reyes-manalo`) | Individual | Manila, Philippines | 81 | 84 | strong |
-| 4 | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) | Individual | Jakarta, Indonesia | 77 | 83 | good |
-| 5 | Dimas Arya Saputra (`demo-dimas-arya-saputra`) | Individual | Jakarta, Indonesia | 77 | 83 | good |
+| 3 | Joaquin Reyes Manalo (`demo-joaquin-reyes-manalo`) | Individual | Manila, Philippines | 80 | 84 | strong |
+| 4 | Rizky Pratama Wibowo (`demo-rizky-pratama-wibowo`) | Individual | Jakarta, Indonesia | 79 | 83 | good |
+| 5 | Dimas Arya Saputra (`demo-dimas-arya-saputra`) | Individual | Jakarta, Indonesia | 79 | 83 | good |
 | 6 | Sana Rizvi Hussain (`demo-sana-rizvi-hussain`) | Individual | Karachi, Pakistan | 74 | 82 | good |
-| 7 | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | Individual | Hanoi, Vietnam | 53 | 59 | partial |
-| 8 | Neema Mwakyusa (`demo-neema-mwakyusa`) | Individual | Dar es Salaam, Tanzania | 46 | 53 | weak |
-| 9 | Mai Abdel-Aziz Fawzy (`demo-mai-abdel-aziz-fawzy`) | Individual | Cairo, Egypt | 44 | 51 | weak |
-| 10 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | Individual | Amman, Jordan | 44 | 50 | weak |
+| 7 | Nguyễn Thu Hà (`demo-nguyen-thu-ha`) | Individual | Hanoi, Vietnam | 54 | 59 | partial |
+| 8 | Neema Mwakyusa (`demo-neema-mwakyusa`) | Individual | Dar es Salaam, Tanzania | 47 | 53 | weak |
+| 9 | Mai Abdel-Aziz Fawzy (`demo-mai-abdel-aziz-fawzy`) | Individual | Cairo, Egypt | 46 | 51 | weak |
+| 10 | Layla Nasser Odeh (`demo-layla-nasser-odeh`) | Individual | Amman, Jordan | 46 | 50 | weak |
 
 </details>
 
@@ -427,7 +427,7 @@ Ties: none at the top (89); 2 tied adjacent pairs in the top 10. Bands (whole po
 
 ### One Nice to have row
 
-Largest change to any candidate's total from a single Nice to have row: **3** points (expertise Survey Design (Nice), Joaquin Reyes Manalo (`demo-joaquin-reyes-manalo`)). ✓ expected at most about 3.
+Largest change to any candidate's total from a single Nice to have row: **2** points (expertise Agribusiness & Value Chains (Nice), Sana Rizvi Hussain (`demo-sana-rizvi-hussain`)). ✓ expected at most about 3.
 
 ### Extraction
 
@@ -447,72 +447,72 @@ Rows: expertise Digital Governance (Important); expertise Public Procurement (Im
 
 Pool after Required rows: **29** of 98.
 
-Ties: none at the top (88); 1 tied adjacent pair in the top 10. Bands (whole pool): 6 strong, 1 good, 1 partial, 21 weak.
+Ties: none at the top (89); 2 tied adjacent pairs in the top 10. Bands (whole pool): 6 strong, 2 good, 0 partial, 21 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
-| Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | 1 | 88 | 88 | ✓ | ✓ |
-| Aminata Koné-Traoré (`demo-aminata-kone-traore`) | 2 | 86 | 87 | ✓ | ✓ |
+| Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | 1 | 89 | 88 | ✓ | ✓ |
+| Aminata Koné-Traoré (`demo-aminata-kone-traore`) | 2 | 87 | 87 | ✓ | ✓ |
 | Ousmane Ndiaye Fall (`demo-ousmane-ndiaye-fall`) | 3 | 84 | 83 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| wrong location strong fit | Claire Mbarga Lefèvre (`demo-claire-mbarga-lefevre`) | top10 | #6 (80/82) | ✓ |
-| right location wrong fit | Ndèye Astou Faye (`demo-ndeye-astou-faye`) | not top10 | #12 (19/21) | ✓ |
+| wrong location strong fit | Claire Mbarga Lefèvre (`demo-claire-mbarga-lefevre`) | top10 | #6 (81/82) | ✓ |
+| right location wrong fit | Ndèye Astou Faye (`demo-ndeye-astou-faye`) | not top10 | #12 (21/21) | ✓ |
 | tie pair | Yao Kouassi N'Guessan (`demo-yao-kouassi-nguessan`) vs Serge Kouamé N'Dri (`demo-serge-kouame-ndri`) | adjacent fresher first | #4 (81/86) vs #5 (81/86), tied on total and Fit | ✓ |
-| untagged text evidence | Mariam Coulibaly-Sanogo (`demo-mariam-coulibaly-sanogo`) | top10 | #9 (27/30) | ✓ |
+| untagged text evidence | Mariam Coulibaly-Sanogo (`demo-mariam-coulibaly-sanogo`) | top10 | #9 (32/30) | ✓ |
 
 <details><summary>Top 10</summary>
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
-| 1 | Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | Individual | Dakar, Senegal | 88 | 88 | strong |
-| 2 | Aminata Koné-Traoré (`demo-aminata-kone-traore`) | Individual | Abidjan, Côte d'Ivoire | 86 | 87 | strong |
+| 1 | Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | Individual | Dakar, Senegal | 89 | 88 | strong |
+| 2 | Aminata Koné-Traoré (`demo-aminata-kone-traore`) | Individual | Abidjan, Côte d'Ivoire | 87 | 87 | strong |
 | 3 | Ousmane Ndiaye Fall (`demo-ousmane-ndiaye-fall`) | Individual | Dakar, Senegal | 84 | 83 | strong |
 | 4 | Yao Kouassi N'Guessan (`demo-yao-kouassi-nguessan`) | Individual | Abidjan, Côte d'Ivoire | 81 | 86 | strong |
 | 5 | Serge Kouamé N'Dri (`demo-serge-kouame-ndri`) | Individual | Abidjan, Côte d'Ivoire | 81 | 86 | strong |
-| 6 | Claire Mbarga Lefèvre (`demo-claire-mbarga-lefevre`) | Individual | Montréal, Canada | 80 | 82 | strong |
-| 7 | Boureima Ouédraogo (`demo-boureima-ouedraogo`) | Individual | Ouagadougou, Burkina Faso | 73 | 77 | good |
-| 8 | Lena Hoffmann (`lena-hoffmann`) | Individual | Berlin, Germany | 64 | 70 | partial |
-| 9 | Mariam Coulibaly-Sanogo (`demo-mariam-coulibaly-sanogo`) | Individual | Abidjan, Côte d'Ivoire | 27 | 30 | weak |
-| 10 | Aline Uwimana (`demo-aline-uwimana`) | Individual | Kigali, Rwanda | 22 | 26 | weak |
+| 6 | Claire Mbarga Lefèvre (`demo-claire-mbarga-lefevre`) | Individual | Montréal, Canada | 81 | 82 | strong |
+| 7 | Boureima Ouédraogo (`demo-boureima-ouedraogo`) | Individual | Ouagadougou, Burkina Faso | 75 | 77 | good |
+| 8 | Lena Hoffmann (`lena-hoffmann`) | Individual | Berlin, Germany | 67 | 70 | good |
+| 9 | Mariam Coulibaly-Sanogo (`demo-mariam-coulibaly-sanogo`) | Individual | Abidjan, Côte d'Ivoire | 32 | 30 | weak |
+| 10 | Aline Uwimana (`demo-aline-uwimana`) | Individual | Kigali, Rwanda | 26 | 26 | weak |
 
 </details>
 
 ### End to end (extraction → Add all)
 
-Rows added by Add all (10): expertise Public Procurement (Nice); expertise Digital Governance (Nice); expertise Information Systems (Nice); expertise Change Management (Nice); expertise Software Development (Nice); expertise Cybersecurity (Nice); expertise Anti-Corruption (Nice); expertise Capacity Building (Nice); location Côte d'Ivoire/Senegal/Abidjan, Côte d'Ivoire/Dakar, Senegal (Nice); language French/English (Nice).
+Rows added by Add all (11): expertise Public Procurement (Nice); expertise Digital Governance (Nice); expertise Information Systems (Nice); expertise Change Management (Nice); expertise Software Development (Nice); expertise Cybersecurity (Nice); expertise Anti-Corruption (Nice); expertise Capacity Building (Nice); location Côte d'Ivoire/Senegal/Abidjan, Côte d'Ivoire/Dakar, Senegal (Nice); language French (Nice); language English (Nice).
 
 Pool after Required rows: **98** of 98.
 
-Ties: none at the top (84); 3 tied adjacent pairs in the top 10. Bands (whole pool): 5 strong, 3 good, 3 partial, 87 weak.
+Ties: none at the top (85); 2 tied adjacent pairs in the top 10. Bands (whole pool): 6 strong, 3 good, 2 partial, 87 weak.
 
 | Expected | Rank | Total | Fit | Top 5 | Top 10 |
 |---|---|---|---|---|---|
-| Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | 2 | 82 | 88 | ✓ | ✓ |
-| Aminata Koné-Traoré (`demo-aminata-kone-traore`) | 1 | 84 | 87 | ✓ | ✓ |
-| Ousmane Ndiaye Fall (`demo-ousmane-ndiaye-fall`) | 5 | 82 | 83 | ✓ | ✓ |
+| Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | 2 | 84 | 88 | ✓ | ✓ |
+| Aminata Koné-Traoré (`demo-aminata-kone-traore`) | 1 | 85 | 87 | ✓ | ✓ |
+| Ousmane Ndiaye Fall (`demo-ousmane-ndiaye-fall`) | 5 | 83 | 83 | ✓ | ✓ |
 
 | Check | Profile(s) | Expect | Result | |
 |---|---|---|---|---|
-| wrong location strong fit | Claire Mbarga Lefèvre (`demo-claire-mbarga-lefevre`) | top10 | #6 (78/82) | ✓ |
-| right location wrong fit | Ndèye Astou Faye (`demo-ndeye-astou-faye`) | not top10 | #24 (22/21) | ✓ |
-| tie pair | Yao Kouassi N'Guessan (`demo-yao-kouassi-nguessan`) vs Serge Kouamé N'Dri (`demo-serge-kouame-ndri`) | adjacent fresher first | #3 (82/86) vs #4 (82/86), tied on total and Fit | ✓ |
-| untagged text evidence | Mariam Coulibaly-Sanogo (`demo-mariam-coulibaly-sanogo`) | top10 | #16 (29/30) | ✗ |
+| wrong location strong fit | Claire Mbarga Lefèvre (`demo-claire-mbarga-lefevre`) | top10 | #6 (80/82) | ✓ |
+| right location wrong fit | Ndèye Astou Faye (`demo-ndeye-astou-faye`) | not top10 | #23 (25/21) | ✓ |
+| tie pair | Yao Kouassi N'Guessan (`demo-yao-kouassi-nguessan`) vs Serge Kouamé N'Dri (`demo-serge-kouame-ndri`) | adjacent fresher first | #3 (83/86) vs #4 (83/86), tied on total and Fit | ✓ |
+| untagged text evidence | Mariam Coulibaly-Sanogo (`demo-mariam-coulibaly-sanogo`) | top10 | #15 (33/30) | ✗ |
 
 <details><summary>Top 10</summary>
 
 | # | Profile | Type | Location | Total | Fit | Band |
 |---|---|---|---|---|---|---|
-| 1 | Aminata Koné-Traoré (`demo-aminata-kone-traore`) | Individual | Abidjan, Côte d'Ivoire | 84 | 87 | strong |
-| 2 | Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | Individual | Dakar, Senegal | 82 | 88 | strong |
-| 3 | Yao Kouassi N'Guessan (`demo-yao-kouassi-nguessan`) | Individual | Abidjan, Côte d'Ivoire | 82 | 86 | strong |
-| 4 | Serge Kouamé N'Dri (`demo-serge-kouame-ndri`) | Individual | Abidjan, Côte d'Ivoire | 82 | 86 | strong |
-| 5 | Ousmane Ndiaye Fall (`demo-ousmane-ndiaye-fall`) | Individual | Dakar, Senegal | 82 | 83 | strong |
-| 6 | Claire Mbarga Lefèvre (`demo-claire-mbarga-lefevre`) | Individual | Montréal, Canada | 78 | 82 | good |
-| 7 | Boureima Ouédraogo (`demo-boureima-ouedraogo`) | Individual | Ouagadougou, Burkina Faso | 71 | 77 | good |
-| 8 | Oksana Melnyk-Hrytsenko (`demo-oksana-melnyk-hrytsenko`) | Individual | Kyiv, Ukraine | 68 | 74 | good |
-| 9 | Lena Hoffmann (`lena-hoffmann`) | Individual | Berlin, Germany | 64 | 70 | partial |
+| 1 | Aminata Koné-Traoré (`demo-aminata-kone-traore`) | Individual | Abidjan, Côte d'Ivoire | 85 | 87 | strong |
+| 2 | Cheikh Tidiane Sarr (`demo-cheikh-tidiane-sarr`) | Individual | Dakar, Senegal | 84 | 88 | strong |
+| 3 | Yao Kouassi N'Guessan (`demo-yao-kouassi-nguessan`) | Individual | Abidjan, Côte d'Ivoire | 83 | 86 | strong |
+| 4 | Serge Kouamé N'Dri (`demo-serge-kouame-ndri`) | Individual | Abidjan, Côte d'Ivoire | 83 | 86 | strong |
+| 5 | Ousmane Ndiaye Fall (`demo-ousmane-ndiaye-fall`) | Individual | Dakar, Senegal | 83 | 83 | strong |
+| 6 | Claire Mbarga Lefèvre (`demo-claire-mbarga-lefevre`) | Individual | Montréal, Canada | 80 | 82 | strong |
+| 7 | Boureima Ouédraogo (`demo-boureima-ouedraogo`) | Individual | Ouagadougou, Burkina Faso | 72 | 77 | good |
+| 8 | Oksana Melnyk-Hrytsenko (`demo-oksana-melnyk-hrytsenko`) | Individual | Kyiv, Ukraine | 70 | 74 | good |
+| 9 | Lena Hoffmann (`lena-hoffmann`) | Individual | Berlin, Germany | 68 | 70 | good |
 | 10 | Kavya Subramanian (`demo-kavya-subramanian`) | Individual | Bengaluru, India | 61 | 67 | partial |
 
 </details>
@@ -521,15 +521,15 @@ Ties: none at the top (84); 3 tied adjacent pairs in the top 10. Bands (whole po
 
 | Tier | Total | Fit | Row |
 |---|---|---|---|
-| core | 88 | 88 | met, 8 pts (Tagged as Core expertise) |
-| strong | 85 | 86 | met, 6 pts (Tagged as Strong) |
-| working | 80 | 83 | partial, 3.2 pts (Tagged as Working knowledge) |
+| core | 89 | 88 | met, 3 pts (Tagged as Core expertise) |
+| strong | 85 | 86 | met, 2.25 pts (Tagged as Strong) |
+| working | 81 | 83 | partial, 1.2000000000000002 pts (Tagged as Working knowledge) |
 
 ✓ Same profile with Digital Governance (an Important row) as Core, Strong and Working knowledge: the higher tier must score higher.
 
 ### One Nice to have row
 
-Largest change to any candidate's total from a single Nice to have row: **3** points (expertise Public Procurement (Nice), Yao Kouassi N'Guessan (`demo-yao-kouassi-nguessan`)). ✓ expected at most about 3.
+Largest change to any candidate's total from a single Nice to have row: **2** points (expertise Public Procurement (Nice), Yao Kouassi N'Guessan (`demo-yao-kouassi-nguessan`)). ✓ expected at most about 3.
 
 ### Extraction
 
