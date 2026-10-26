@@ -97,7 +97,7 @@ export function scorePool(args: {
       fitFloat: fb.fit,
       adjustments,
       scoring,
-      must_haves_passed: mustHavesPassed(c, requirements),
+      must_haves_passed: mustHavesPassed(c, requirements, orgs),
       narrative: buildNarrative({
         profile: c.profile,
         total: total_score,

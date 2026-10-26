@@ -1,7 +1,8 @@
 import { FileText, Sparkles } from 'lucide-react'
 import { JD_MAX_CHARS, JD_MIN_CHARS } from '../../lib/matching/config'
 
-// Step 1 — the job description (match rework spec §2), optional (§11).
+// The job description (match rework spec §2): step 2 of the priorities
+// modal, optional (§11).
 // Paste only this branch. FUTURE: a docx/PDF upload should FILL this textarea
 // (not bypass it), so the manager sees — and can trim — the extracted text
 // before it's read.
@@ -56,7 +57,7 @@ export function JdStep({
         out what matters.
       </p>
       <p className="mt-1 text-xs font-medium leading-snug text-ink-soft">
-        No job description? Use Rank by priorities instead.
+        No job description? Go back to your priorities and choose See my matches.
       </p>
       <textarea
         id="jd-text"

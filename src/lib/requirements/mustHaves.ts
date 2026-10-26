@@ -4,7 +4,8 @@ import type { Requirement } from '../matching/types'
 import type { OrgIndex } from '../organizations'
 import type { PortfolioItem, Profile } from '../../types/db'
 import { passesOrgMustHave } from './match'
-import { mustHavesToFilterState, orgMustHaves, type SearchState } from './model'
+import { speaks } from '../languages'
+import { languageMustHaves, mustHavesToFilterState, orgMustHaves, type SearchState } from './model'
 
 // Must-have pre-filter (docs/MavenScout-match-rework.md §5.1 step 2).
 // Candidates failing any Must-have are excluded before scoring and never
@@ -17,11 +18,19 @@ import { mustHavesToFilterState, orgMustHaves, type SearchState } from './model'
 // "City, Country" parsing and availability windows all live in filters.ts); this function is the one place to move to a query when the
 // pool outgrows that.
 
-/** Profiles that pass every Org History Must-have (all others pass through). */
+/** Profiles that pass the Org History Must-haves: any of them, as the
+ *  Previous employers filter always was (all others pass through). */
 export function applyOrgMustHaves(profiles: Profile[], reqs: Requirement[], orgs: OrgIndex): Profile[] {
   const orgRows = orgMustHaves(reqs)
   if (orgRows.length === 0) return profiles
-  return profiles.filter((p) => orgRows.every((r) => passesOrgMustHave(p, r.value, orgs)))
+  return profiles.filter((p) => orgRows.some((r) => passesOrgMustHave(p, r.value, orgs)))
+}
+
+/** Profiles that speak any Required language at that row's minimum level. */
+export function applyLanguageMustHaves(profiles: Profile[], reqs: Requirement[]): Profile[] {
+  const rows = languageMustHaves(reqs)
+  if (rows.length === 0) return profiles
+  return profiles.filter((p) => rows.some((r) => speaks(p, r.value.values, r.value.min ?? 'working').length > 0))
 }
 
 /** Profiles that meet every Must-have row and the search term. */
@@ -33,10 +42,12 @@ export function applyMustHaves(
   expertise: ExpertiseIndex,
   orgs: OrgIndex,
 ): Profile[] {
+  // Languages are evaluated per row (each has its own minimum), not through
+  // the filter bar's single level.
   return applyFilters(
-    applyOrgMustHaves(profiles, reqs, orgs),
+    applyLanguageMustHaves(applyOrgMustHaves(profiles, reqs, orgs), reqs),
     portfolioByProfile,
-    mustHavesToFilterState(reqs, search),
+    { ...mustHavesToFilterState(reqs, search), languages: [] },
     expertise,
   )
 }

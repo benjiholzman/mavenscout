@@ -6,7 +6,7 @@ import { useSession } from '../../lib/session'
 import { DevRoleSwitcher } from './DevRoleSwitcher'
 import { UserMenu } from './UserMenu'
 
-// Global navigation (PRD §6): logo, Browse, About; "Join MavenScout" CTA and
+// Global navigation (PRD §6): logo, Find an Expert (the directory), About; "Join MavenScout" CTA and
 // Login when logged out, role-appropriate user menu when logged in (7.9b).
 
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
@@ -16,7 +16,7 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <>
       <NavLink to="/" end className={linkCls} onClick={onNavigate}>
-        Browse
+        Find an Expert
       </NavLink>
       <NavLink to="/about" className={linkCls} onClick={onNavigate}>
         About

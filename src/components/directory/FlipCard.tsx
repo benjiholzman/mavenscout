@@ -16,18 +16,8 @@ import { logoIconUrl } from '../../lib/brandfetch'
 import { fmtPortfolioMeta } from '../../lib/dates'
 import { nameInitials } from '../../lib/monogram'
 import { EMPTY_ORG_INDEX, sectorExperience, type OrgIndex } from '../../lib/organizations'
-import {
-  breakdownRows,
-  preferencePercent,
-  preferenceScoreLabel,
-  rowPointsLabel,
-  rowsByWeight,
-  scoreBreakdown,
-  type BreakdownRow,
-} from '../../lib/matching/display'
-import { isPreferenceResult, type MatchResult } from '../../lib/matching/types'
-import { OutcomeIcon, ScoreEquation } from '../match/outcome'
-import { RankStrip } from '../match/RankStrip'
+import type { MatchResult } from '../../lib/matching/types'
+import { RankHeader } from '../match/RankHeader'
 import { EXPERTISE_TIER_LIMITS } from '../../lib/config'
 import { isFeatured } from '../../lib/membership'
 import { portfolioCover } from '../../lib/portfolio'
@@ -41,15 +31,15 @@ import { CAREER_LEVEL_LABELS, FeaturedRibbon } from '../ui/badges'
 
 // Flip card (PRD 7.1; faces per profiles-membership §2.1): cycles through
 // Front → Expertise → one face per portfolio item (up to 3) — the same faces
-// for every member; there is no intro video. In ranking mode (match rework
-// spec §7) the card also gets a fixed-height rank strip in the top of its
-// frame and a "Match" face inserted right after Front. Faces change only via the
+// for every member; there is no intro video. In ranking mode the card also
+// gets a rank header in the top of its frame: the match %, and a breakdown
+// that opens inside the card (so ranked cards in a row can differ in height
+// while one is open). Faces change only via the
 // ‹ dots › row or a horizontal swipe — no click-anywhere flip, so links and
 // chips on a face behave normally. The bottom bar never animates with the card.
 
 type Face =
   | { kind: 'front' }
-  | { kind: 'match'; result: MatchResult }
   | { kind: 'tags'; tags: ExpertiseTag[] }
   | { kind: 'portfolio'; item: PortfolioItem; n: number; of: number }
 
@@ -84,13 +74,12 @@ export function FlipCard({
 
   const faces = useMemo<Face[]>(() => {
     const f: Face[] = [{ kind: 'front' }]
-    if (ranked) f.push({ kind: 'match', result: ranked.result })
     const tags = expertiseTags(profile).filter((t) => t.tier !== 'working')
     if (tags.length > 0) f.push({ kind: 'tags', tags })
     const items = portfolio.slice(0, PORTFOLIO_FACE_CAP)
     items.forEach((item, i) => f.push({ kind: 'portfolio', item, n: i + 1, of: items.length }))
     return f
-  }, [profile, portfolio, ranked])
+  }, [profile, portfolio])
 
   const go = (delta: number) =>
     setNav(({ index: i }) => ({
@@ -110,13 +99,7 @@ export function FlipCard({
         isFeatured(profile) ? 'border-gold-500 ring-[0.5px] ring-gold-500' : 'border-line'
       }`}
     >
-      {ranked && (
-        <RankStrip
-          rank={ranked.position}
-          result={ranked.result}
-          onAbout={ranked.onAbout}
-        />
-      )}
+      {ranked && <RankHeader rank={ranked.position} result={ranked.result} onAbout={ranked.onAbout} />}
       {/* Flip area — fixed height so every card in the grid lines up */}
       <div
         className="relative h-[416px] [perspective:1200px] [touch-action:pan-y]"
@@ -201,7 +184,6 @@ export function FlipCard({
             ) : (
               <div className="flex h-full flex-col">
                 <BackHeader profile={profile} isFirm={isFirm} />
-                {face.kind === 'match' && <MatchFace result={face.result} onMore={ranked?.onAbout} />}
                 {face.kind === 'tags' && <TagsFace tags={face.tags} />}
                 {face.kind === 'portfolio' && <PortfolioFace face={face} href={profileHref} />}
               </div>
@@ -434,104 +416,6 @@ function BackHeader({ profile, isFirm }: { profile: Profile; isFirm: boolean }) 
           </p>
         )}
       </div>
-    </div>
-  )
-}
-
-const MATCH_FACE_MAX_ROWS = 6
-
-/** "Match" face (spec §7.2): Fit bar, the preference rows with their own
- *  points ("3 of 3 pts"), the Required line and the equation — where the
- *  preferences convert to score points once, so it adds up.
- *  Fits the face without scrolling; overflow goes to "About this result". */
-function MatchFace({ result, onMore }: { result: MatchResult; onMore?: () => void }) {
-  const musts = result.must_haves_passed.length
-  const mustLine = musts > 0 && (
-    <p className="flex items-center gap-1.5 text-xs text-ink-soft">
-      <span className="text-brand-600" aria-hidden>✓</span>
-      Meets {musts === 1 ? 'the Must have' : `all ${musts} Must haves`}
-    </p>
-  )
-
-  // Preferences-only run (spec §11): no Fit, so the face is the build-up alone.
-  if (isPreferenceResult(result))
-    return (
-      <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3.5">
-        <PreferenceRows rows={breakdownRows(result.adjustments)} label="Your preferences" onMore={onMore} />
-        <div className="mt-auto shrink-0 space-y-1.5 border-t border-line-soft pt-2.5">
-          {mustLine}
-          <p className="text-[12.5px] font-semibold leading-[18px] tabular-nums text-ink">
-            {preferenceScoreLabel(result)}
-          </p>
-        </div>
-      </div>
-    )
-
-  const b = scoreBreakdown(result)
-  return (
-    <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3.5">
-      <div className="shrink-0">
-        <div className="flex items-baseline justify-between text-[13px]">
-          <span className="font-medium text-ink">Fit to the JD</span>
-          <span className="font-semibold tabular-nums text-ink">{b.fit}</span>
-        </div>
-        <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-line-soft">
-          <div className="h-full rounded-full bg-brand-500" style={{ width: `${b.fit}%` }} />
-        </div>
-      </div>
-
-      <div className="mt-3.5 shrink-0">
-        <PreferenceRows
-          rows={b.rows}
-          label={`Your preferences${b.scoring.weight > 0 ? ` · ${preferencePercent(b.scoring)} of score` : ''}`}
-          onMore={onMore}
-        />
-      </div>
-
-      <div className="mt-auto shrink-0 space-y-1.5 border-t border-line-soft pt-2.5">
-        {mustLine}
-        <ScoreEquation b={b} className="text-[12.5px] leading-[18px] text-ink" />
-      </div>
-    </div>
-  )
-}
-
-/** The Match face's preference rows, heaviest first; overflow goes to
- *  "About this result". */
-function PreferenceRows({ rows: all, label, onMore }: { rows: BreakdownRow[]; label: string; onMore?: () => void }) {
-  const rows = rowsByWeight(all)
-  const shown = rows.slice(0, MATCH_FACE_MAX_ROWS)
-  const hidden = rows.length - shown.length
-  return (
-    <div className="shrink-0">
-      <SectionLabel>{label}</SectionLabel>
-      {shown.length === 0 ? (
-        <p className="text-[13px] text-ink-faint">No Nice to have or Important rows.</p>
-      ) : (
-        <ul className="space-y-1">
-          {shown.map((r) => {
-            const a = r.adjustment
-            return (
-            <li key={a.requirement_id} className="flex items-center gap-2 text-[13px] leading-5">
-              <OutcomeIcon outcome={a.outcome} />
-              <span className="min-w-0 flex-1 truncate text-ink-soft" title={`${a.label} — ${a.detail}`}>
-                {a.label}
-              </span>
-              <span className="shrink-0 tabular-nums text-ink-faint">{rowPointsLabel(r)}</span>
-            </li>
-            )
-          })}
-        </ul>
-      )}
-      {hidden > 0 && (
-        <button
-          type="button"
-          onClick={onMore}
-          className="mt-1 text-xs font-medium text-brand-700 underline decoration-brand-300 underline-offset-2 hover:decoration-brand-600"
-        >
-          +{hidden} more
-        </button>
-      )}
     </div>
   )
 }

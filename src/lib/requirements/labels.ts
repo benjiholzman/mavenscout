@@ -13,8 +13,8 @@ export const KIND_LABELS: Record<RequirementKind, string> = {
   type: 'Type',
   availability: 'Availability',
   career_level: 'Career level',
-  video_qna: 'Video Q&As only',
-  audio_testimonial: 'Audio testimonials only',
+  video_qna: 'Video Q&As',
+  audio_testimonial: 'Audio testimonial',
   work_arrangement: 'Work arrangement',
 }
 
@@ -34,6 +34,7 @@ export const CAREER_LEVEL_SHORT: Record<string, string> = {
 
 export const ORG_SCOPE_LABELS = {
   current: 'Currently at',
+  past: 'Previously at',
   ever: 'Ever at',
   ever_or_peer: 'Ever at, or at a peer org',
 } as const

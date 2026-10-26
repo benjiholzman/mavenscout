@@ -1,4 +1,4 @@
-import { SearchX, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { Bookmark, RefreshCw, SearchX, SlidersHorizontal, Sparkles, UserPlus } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { FilterBar } from '../components/directory/FilterBar'
@@ -9,10 +9,9 @@ import { SortDropdown } from '../components/directory/SortDropdown'
 import { AboutResultModal } from '../components/match/AboutResultModal'
 import { SaveRankingModal } from '../components/match/SaveRankingModal'
 import { useSaveCandidate } from '../components/openings/SaveCandidateFlow'
-import type { CountFn } from '../components/ranking/LiveCount'
-import { RankingBanner } from '../components/ranking/RankingBanner'
-import { RankingPanel } from '../components/ranking/RankingPanel'
-import type { PickerOptions } from '../components/ranking/PriorityEditors'
+import type { CountFn } from '../components/ranking/PoolPreview'
+import { PrioritiesModal } from '../components/ranking/PrioritiesModal'
+import type { EmployerOption, PickerOptions } from '../components/ranking/PriorityTabs'
 import { SignupPrompt } from '../components/ui/SignupPrompt'
 import { DirectorySkeleton } from '../components/ui/Skeletons'
 import { useDirectoryData } from '../hooks/useDirectoryData'
@@ -32,13 +31,11 @@ import {
   updateRunRequirements,
   type RankingRecord,
 } from '../lib/matching/persist'
-import { runBlockerFor } from '../lib/matching/preferences'
-import type { ExtractedRequirements, RankingMode } from '../lib/matching/types'
+import { hasPreferenceRows, runBlockerFor } from '../lib/matching/preferences'
+import type { ExtractedRequirements, RankingMode, RequirementOf } from '../lib/matching/types'
 import {
-  clearJdSuggestions,
   gridOnlyMustHaves,
   isMust,
-  jdPrefills,
   mustHavesToFilterState,
   preferenceKey,
   sameRows,
@@ -47,19 +44,26 @@ import {
 } from '../lib/requirements/model'
 import { clearDraft, readDraft, writeDraft } from '../lib/requirements/draft'
 import { applyMustHaves, applyOrgMustHaves } from '../lib/requirements/mustHaves'
-import { ORG_SCOPE_LABELS } from '../lib/requirements/labels'
-import { passesOrgMustHave } from '../lib/requirements/match'
-import { useRequirements } from '../lib/requirements/store'
-import { employerGroups, orgAliases } from '../lib/organizations'
+import { orgNames, passesOrgMustHave, PEER_GROUP_LABELS, peerTypeOf } from '../lib/requirements/match'
+import { priorityRows, tabOf, type TabKey } from '../lib/requirements/priorities'
+import { useRequirements, type RequirementsState } from '../lib/requirements/store'
+import {
+  employerGroups,
+  orgAcronym,
+  orgAliases,
+  orgLogoUrl,
+  ORG_TYPE_LABELS,
+  resolveOrganization,
+} from '../lib/organizations'
 import { FIRMS_ENABLED } from '../lib/config'
-import { DEMO_HIRING_MANAGER_ID, useSession } from '../lib/session'
+import { useSession } from '../lib/session'
 import { VERIFIED_IDENTITY_STATEMENT } from '../lib/testimonials/copy'
 import { sortProfiles, type SortMode } from '../lib/sort'
 import { supabase } from '../lib/supabase'
 
-// Directory + ranking mode (match rework spec §2, §8).
+// Directory ("Find an Expert") + ranking mode (match rework spec §2, §8).
 //
-// URL state: ?rank=1 opens the ranking drawer; ?ranking=<job_description_id>
+// URL state: ?rank=1 opens the priorities modal; ?ranking=<job_description_id>
 // shows that ranking (reload and back restore it); ?opening=<id> links the run
 // to an opening (its runs save automatically); ?q / ?qm carry the search term
 // while ranked, so the pool restores with it.
@@ -72,9 +76,9 @@ export default function Directory() {
   const openingId = params.get('opening')
   const rankParam = params.get('rank') === '1'
 
-  // One requirements store behind the filter bar and the ranking drawer —
+  // One requirements store behind the filter bar and the ranking modal —
   // spec §2.1. The filter bar renders the Required rows as a FilterState and
-  // writes changes back as rows.
+  // writes changes back as rows; the modal edits a draft copy and commits it.
   const reqs = useRequirements()
   const { requirements, search } = reqs.state
   const filters = useMemo(() => mustHavesToFilterState(requirements, search), [requirements, search])
@@ -85,17 +89,14 @@ export default function Directory() {
   const [notice, setNotice] = useState<string | null>(null)
   const { save, ui: saveUi } = useSaveCandidate()
 
-  // Ranking drawer: the JD and its suggestions live here so closing the
-  // drawer loses nothing; the rows live in the shared store.
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [focusId, setFocusId] = useState<string | null>(null)
+  // Priorities modal: the JD and its suggestions live here so closing the
+  // modal loses nothing; the rows live in the shared store.
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalView, setModalView] = useState<TabKey | null>(null)
   const [jdText, setJdText] = useState('')
   const [jdCollapsed, setJdCollapsed] = useState(false)
   const [extracted, setExtracted] = useState<ExtractedRequirements | null>(null)
-  /** The drawer's tab, which decides the run's mode. */
-  const [rankTab, setRankTab] = useState<RankingMode>('jd')
   const [reading, setReading] = useState(false)
-  const [orgPrefill, setOrgPrefill] = useState('')
 
   // The active ranking (loaded from, and mirrored in, the URL).
   const [ranking, setRanking] = useState<RankingRecord | null>(null)
@@ -107,6 +108,14 @@ export default function Directory() {
   const [aboutId, setAboutId] = useState<string | null>(null)
 
   const canRank = role === 'hiring_manager' && hasAccess
+
+  useEffect(() => {
+    const prev = document.title
+    document.title = 'Find an Expert · MavenScout'
+    return () => {
+      document.title = prev
+    }
+  }, [])
 
   const updateParams = useCallback(
     (patch: Record<string, string | null>, opts: { push?: boolean } = {}) =>
@@ -152,7 +161,7 @@ export default function Directory() {
   const options = useMemo(() => (data ? deriveOptions(data.profiles) : null), [data])
   const profilesById = useMemo(() => new Map((data?.profiles ?? []).map((p) => [p.id, p])), [data])
 
-  /** Picker options for the requirements grid. */
+  /** Picker options for the priorities modal. */
   const gridOptions = useMemo<PickerOptions | null>(() => {
     if (!data || !options || !expertise) return null
     const typeOf = (id: string) => data.taxonomyCategories.find((c) => c.id === id)?.type
@@ -160,7 +169,6 @@ export default function Directory() {
       expertise,
       locations: options.locationTree,
       languages: options.languages,
-      types: FIRMS_ENABLED ? ['Individual', 'Small Firm', 'Large Firm'] : ['Individual'],
       workArrangements: data.taxonomyItems
         .filter((i) => typeOf(i.category_id) === 'work_arrangement')
         .map((i) => i.name),
@@ -204,13 +212,36 @@ export default function Directory() {
   )
 
   const employers = useMemo(() => (data ? employerGroups(data.profiles, data.orgs) : []), [data])
-  const employersLockedNote = useMemo(() => {
-    const row = gridOnlyMustHaves(requirements)[0]
-    return row ? `Organizational history is set to “${ORG_SCOPE_LABELS[row.value.scope]}” in the ranking panel` : undefined
-  }, [requirements])
+
+  /** The modal's Employers list: the pool's employers, with their type, logo
+   *  and peer group from the organizations list. */
+  const employerOptions = useMemo<EmployerOption[]>(() => {
+    if (!data) return []
+    return employers.flatMap((g) =>
+      g.items.map((name) => {
+        const org = resolveOrganization(data.orgs, name)
+        return {
+          name,
+          orgId: org?.id ?? null,
+          typeLabel: org ? ORG_TYPE_LABELS[org.type] : null,
+          logoUrl: orgLogoUrl(org),
+          acronym: orgAcronym(org),
+          peerLabel: org ? PEER_GROUP_LABELS[org.type] : null,
+        }
+      }),
+    )
+  }, [data, employers])
+
+  const peerLabel = useCallback(
+    (r: RequirementOf<'org_history'>) => {
+      const type = data ? peerTypeOf(r.value, data.orgs) : null
+      return type ? PEER_GROUP_LABELS[type] : null
+    },
+    [data],
+  )
 
   const gridOnlyChips = useMemo(
-    () => gridOnlyMustHaves(requirements).map((r) => ({ id: r.id, label: 'Org history' })),
+    () => gridOnlyMustHaves(requirements).map((r) => ({ id: r.id, label: `Employer: ${orgNames(r.value)}` })),
     [requirements],
   )
 
@@ -246,15 +277,20 @@ export default function Directory() {
     [ranking, requirements],
   )
 
-  /** Preference rows, the tab or (on the JD tab) the JD differ from what was
-   *  scored → Re-run prompt. */
+  /** Priorities the run on screen was set with (the header button's badge). */
+  const priorityCount = useMemo(() => priorityRows(requirements).length, [requirements])
+
+  /** The mode of the run on screen. */
+  const rankMode: RankingMode = ranking?.jd.mode ?? 'jd'
+
+  /** Preference rows or (for a JD run) the JD differ from what was scored →
+   *  Re-run prompt (edits restored from a draft; the modal always re-runs). */
   const requirementsChanged = useMemo(
     () =>
       !!ranking &&
       (preferenceKey(requirements) !== preferenceKey(ranking.jd.requirements ?? []) ||
-        rankTab !== (ranking.jd.mode ?? 'jd') ||
-        (rankTab === 'jd' && jdText.trim() !== ranking.jd.raw_text.trim())),
-    [ranking, requirements, jdText, rankTab],
+        (rankMode === 'jd' && jdText.trim() !== ranking.jd.raw_text.trim())),
+    [ranking, requirements, jdText, rankMode],
   )
 
   const results = useMemo(
@@ -266,11 +302,14 @@ export default function Directory() {
 
   // ---- ranking mode: URL → state --------------------------------------------
 
-  // ?rank=1 opens the drawer once (the /match redirect and openings land here).
+  // ?rank=1 opens the modal once (the /match redirect and openings land here).
   useEffect(() => {
     if (!rankParam) return
     updateParams({ rank: null })
-    if (gateRanking()) setDrawerOpen(true)
+    if (gateRanking()) {
+      setModalView(null)
+      setModalOpen(true)
+    }
   }, [rankParam, updateParams, gateRanking])
 
   useEffect(() => {
@@ -356,7 +395,6 @@ export default function Directory() {
       const text = draft?.jdText ?? rec.jd.raw_text
       setJdText(text)
       setExtracted(draft ? upgradeLegacyExtracted(draft.extracted, expertise) : jd.extracted)
-      setRankTab(draft?.tab ?? jd.mode ?? 'jd')
       // A preferences run has no JD to preview: leave the box open for one.
       setJdCollapsed(!!text.trim())
       setEpoch((e) => e + 1)
@@ -379,9 +417,9 @@ export default function Directory() {
   // survive leaving and returning; matching the run again discards it.
   useEffect(() => {
     if (!ranking) return
-    if (requirementsChanged) writeDraft(ranking.jd.id, { requirements, jdText, extracted, tab: rankTab })
+    if (requirementsChanged) writeDraft(ranking.jd.id, { requirements, jdText, extracted, tab: rankMode })
     else clearDraft(ranking.jd.id)
-  }, [ranking, requirementsChanged, requirements, jdText, extracted, rankTab])
+  }, [ranking, requirementsChanged, requirements, jdText, extracted, rankMode])
 
   // Tightening (or loosening) a Required row after a run is written back to
   // the run — without re-scoring — so a reload keeps it.
@@ -398,34 +436,17 @@ export default function Directory() {
     return () => clearTimeout(t)
   }, [ranking, persistable])
 
-  // The manager's organization, prefilled when Org history is added.
-  useEffect(() => {
-    if (!drawerOpen || orgPrefill) return
-    supabase
-      .from('hiring_managers')
-      .select('organization')
-      .eq('id', DEMO_HIRING_MANAGER_ID)
-      .maybeSingle()
-      .then(({ data: hm }) => {
-        if (hm?.organization) setOrgPrefill(hm.organization)
-      })
-  }, [drawerOpen, orgPrefill])
-
-  // A row opened from a chip or "loosen" link flashes, then settles.
-  useEffect(() => {
-    if (!focusId) return
-    const t = setTimeout(() => setFocusId(null), 2500)
-    return () => clearTimeout(t)
-  }, [focusId])
-
   // ---- ranking mode: actions ------------------------------------------------
 
-  const openDrawer = (focus?: string) => {
+  /** Opens the modal, on the tab holding `focusId` when given (a filter-bar
+   *  chip). */
+  const openModal = (focusId?: string) => {
     if (!gateRanking()) return
-    setDrawerOpen(true)
-    setFocusId(focus ?? null)
+    const row = focusId ? requirements.find((r) => r.id === focusId) : undefined
+    setModalView(row ? tabOf(row.kind) : null)
+    setModalOpen(true)
   }
-  const closeDrawer = useCallback(() => setDrawerOpen(false), [])
+  const closeModal = useCallback(() => setModalOpen(false), [])
 
   /** Clearing the JD drops its suggestions: the run becomes preferences-only. */
   const changeJdText = (text: string) => {
@@ -433,8 +454,10 @@ export default function Directory() {
     if (!text.trim()) setExtracted(null)
   }
 
-  const readJd = async () => {
-    if (!data || !options) return
+  /** Reads the JD; the modal adds what it found (places and languages, at
+   *  Nice to have) to its draft. Expertise only feeds Fit. */
+  const readJd = async (): Promise<ExtractedRequirements | null> => {
+    if (!data || !options) return null
     setReading(true)
     try {
       const found = await extractRequirements(jdText, {
@@ -443,10 +466,8 @@ export default function Directory() {
         languageOptions: options.languages,
       })
       setExtracted(found)
-      // Stated places and languages are pre-filled at Nice to have; expertise
-      // only feeds Fit.
-      reqs.addSuggestions(jdPrefills(found))
       setJdCollapsed(true)
+      return found
     } finally {
       setReading(false)
     }
@@ -458,15 +479,15 @@ export default function Directory() {
     [data, expertise],
   )
 
-  const runBlocker = runBlockerFor({ mode: rankTab, jdText, read: !!extracted, requirements, poolCount: filtered.length })
+  const runBlocker = runBlockerFor({ mode: rankMode, jdText, read: !!extracted, requirements, poolCount: filtered.length })
 
   /** Run: Required rows pre-filter the pool, the survivors are scored, the
-   *  grid turns into the ranked list and the drawer closes. On the JD tab the
-   *  engine scores it; on the priorities tab it's sorted by priorities alone
-   *  (spec §11). */
-  const run = async () => {
-    if (runBlocker) return
-    const mode = rankTab
+   *  grid turns into the ranked list and the modal closes. A JD run is scored
+   *  by the engine; a priorities run by priorities alone (spec §11). */
+  const run = async (state: RequirementsState = reqs.state, mode: RankingMode = rankMode) => {
+    if (!data || !expertise) return
+    const pool = applyMustHaves(data.profiles, data.portfolioByProfile, state.requirements, state.search, expertise, data.orgs)
+    if (runBlockerFor({ mode, jdText, read: !!extracted, requirements: state.requirements, poolCount: pool.length })) return
     setRunning(true)
     try {
       const rec = await runRanking({
@@ -474,23 +495,38 @@ export default function Directory() {
         mode,
         rawText: mode === 'jd' ? jdText : '',
         extracted: mode === 'jd' ? extracted : null,
-        requirements,
-        pool: filtered,
+        requirements: state.requirements,
+        pool,
       })
       if (ranking) clearDraft(ranking.jd.id) // the edits are now scored
       loadedFor.current = rec.jd.id
       setRanking(rec)
       updateParams(
-        { ranking: rec.jd.id, q: search.term || null, qm: search.mode === 'full' ? 'full' : null },
+        { ranking: rec.jd.id, q: state.search.term || null, qm: state.search.mode === 'full' ? 'full' : null },
         { push: !ranking },
       )
-      setDrawerOpen(false)
+      setModalOpen(false)
       setEpoch((e) => e + 1)
     } catch (e) {
       setNotice(`Ranking failed: ${e instanceof Error ? e.message : e}`)
     } finally {
       setRunning(false)
     }
+  }
+
+  /** "See my matches" / "See your matches": the draft becomes the directory's
+   *  requirements. With nothing to weigh (only Must haves, or nothing), it
+   *  just filters: any ranking on screen is cleared and the Must haves stay
+   *  on as filters. Otherwise it ranks. */
+  const commitPriorities = (state: RequirementsState, mode: RankingMode) => {
+    reqs.hydrate(state)
+    setEpoch((e) => e + 1)
+    if (mode === 'preferences' && !hasPreferenceRows(state.requirements)) {
+      if (ranking) exitRanking()
+      setModalOpen(false)
+      return
+    }
+    void run(state, mode)
   }
 
   /** Loosening: score only the newly eligible candidates and merge them in. */
@@ -513,6 +549,14 @@ export default function Directory() {
     } finally {
       setScoring(false)
     }
+  }
+
+  /** Leaves ranking mode without touching the rows. */
+  const exitRanking = () => {
+    if (ranking) clearDraft(ranking.jd.id)
+    setRanking(null)
+    loadedFor.current = null
+    updateParams({ ranking: null, opening: null, q: null, qm: null })
   }
 
   /** Clear exits ranking mode: the JD, preference rows and ranking go;
@@ -542,7 +586,7 @@ export default function Directory() {
     <div className="mx-auto max-w-[1104px] px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold">Browse experts</h1>
+          <h1 className="text-3xl font-semibold">Find an Expert</h1>
           <p className="mt-1 text-sm text-ink-soft">
             A curated pool of vetted {FIRMS_ENABLED ? 'consultants and firms' : 'experts'} in international development.{' '}
             {/* The verification statement (profiles-membership §3.2). */}
@@ -553,11 +597,16 @@ export default function Directory() {
         </div>
         {/* Ranking — deliberately separate from the filter bar (PRD 7.1). */}
         <button
-          onClick={() => openDrawer()}
+          onClick={() => openModal()}
           className="flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-ink/85"
         >
           <Sparkles size={16} className="text-gold-300" />
-          Rank candidates
+          {ranking ? 'Edit ranking' : 'Rank candidates'}
+          {ranking && priorityCount > 0 && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gold-500 px-1.5 text-xs font-semibold text-ink">
+              {priorityCount}
+            </span>
+          )}
         </button>
       </div>
 
@@ -574,45 +623,90 @@ export default function Directory() {
             countFor={countFor}
             onClearAll={handleClearAll}
             gridOnlyMustHaves={gridOnlyChips}
-            onOpenRequirement={(id) => openDrawer(id)}
+            onOpenRequirement={(id) => openModal(id)}
             employers={employers}
             employerSearchTerms={(name) => orgAliases(data.orgs, name)}
-            employersLockedNote={employersLockedNote}
           />
         )}
       </div>
 
-      {ranking && ranked && (
-        <RankingBanner
-          mode={ranking.jd.mode ?? 'jd'}
-          rankedCount={ranked.length}
-          excludedCount={excludedCount}
-          linkedOpeningName={ranking.jd.opening_id ? openingName : null}
-          onEdit={() => openDrawer()}
-          onSave={ranking.jd.opening_id ? undefined : () => setSaveOpen(true)}
-          onClear={clearRanking}
-          newcomerCount={newcomers.length}
-          onScoreNewcomers={scoreThem}
-          scoringNewcomers={scoring}
-          requirementsChanged={requirementsChanged}
-          onRerun={run}
-          rerunning={running}
-          rerunBlocker={runBlocker}
-        />
-      )}
-
       <hr className="mt-6 border-line" />
 
-      <div className="mt-6 flex items-center justify-between gap-4">
-        <p className="text-sm text-ink-soft" aria-live="polite">
-          {data ? `${results.length} result${results.length === 1 ? '' : 's'}` : 'Loading…'}
-        </p>
-        <SortDropdown value={sort} onChange={setSort} ranked={!!ranking} />
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0" aria-live="polite">
+          {ranking && openingName && ranking.jd.opening_id && (
+            <p className="text-xs font-medium text-gold-800">Ranking for: {openingName}</p>
+          )}
+          <p className="text-[15px] text-ink-soft">
+            {!data
+              ? 'Loading…'
+              : ranked
+                ? `${ranked.length} expert${ranked.length === 1 ? '' : 's'} ranked by your ${rankMode === 'jd' ? 'job description and priorities' : 'priorities'}`
+                : `${results.length} result${results.length === 1 ? '' : 's'}`}
+            {ranking && excludedCount > 0 && (
+              <span className="text-ink-faint"> · {excludedCount} filtered out by your Must haves</span>
+            )}
+          </p>
+        </div>
+        <div className="flex items-center gap-2.5">
+          {ranking && (
+            <>
+              <button
+                type="button"
+                onClick={clearRanking}
+                className="px-1.5 text-sm text-ink-soft underline underline-offset-[3px] hover:text-ink"
+              >
+                Clear ranking
+              </button>
+              {!ranking.jd.opening_id && (
+                <button
+                  type="button"
+                  onClick={() => setSaveOpen(true)}
+                  className="flex h-10 items-center gap-1.5 rounded-full border border-line bg-white px-4 text-sm font-medium text-ink hover:border-[#B9C3C7]"
+                >
+                  <Bookmark size={15} className="text-brand-500" aria-hidden />
+                  Save ranking
+                </button>
+              )}
+            </>
+          )}
+          <SortDropdown value={sort} onChange={setSort} ranked={!!ranking} />
+        </div>
       </div>
+
+      {ranking && (newcomers.length > 0 || requirementsChanged) && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {newcomers.length > 0 && (
+            <button
+              type="button"
+              onClick={scoreThem}
+              disabled={scoring}
+              className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3.5 py-1.5 text-[13px] font-medium text-brand-700 hover:bg-brand-100 disabled:opacity-60"
+            >
+              <UserPlus size={14} aria-hidden />
+              {scoring
+                ? 'Scoring…'
+                : `${newcomers.length} more expert${newcomers.length === 1 ? '' : 's'} now meet your Must haves — score ${newcomers.length === 1 ? 'them' : 'them'}`}
+            </button>
+          )}
+          {requirementsChanged && (
+            <button
+              type="button"
+              onClick={() => void run()}
+              disabled={running || !!runBlocker}
+              title={runBlocker ?? undefined}
+              className="inline-flex items-center gap-1.5 rounded-full border border-gold-300 bg-gold-300/20 px-3.5 py-1.5 text-[13px] font-medium text-gold-800 hover:bg-gold-300/30 disabled:opacity-60"
+            >
+              <RefreshCw size={14} aria-hidden />
+              {running ? 'Ranking…' : 'Priorities changed since this ranking — re-run'}
+            </button>
+          )}
+        </div>
+      )}
 
       {!data && <DirectorySkeleton />}
 
-      <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 items-start gap-5 md:grid-cols-2 xl:grid-cols-3">
         {data &&
           results.map((p) => (
             <FlipCard
@@ -653,41 +747,38 @@ export default function Directory() {
         </div>
       )}
 
-      {/* Phones: a sticky way back into the requirements while ranked. */}
-      {ranking && !drawerOpen && (
+      {/* Phones: a sticky way back into the priorities while ranked. */}
+      {ranking && !modalOpen && (
         <button
-          onClick={() => openDrawer()}
+          onClick={() => openModal()}
           className="fixed bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-ink px-4 py-2.5 text-sm font-medium text-white shadow-lg md:hidden"
         >
-          <SlidersHorizontal size={14} aria-hidden /> Edit requirements
+          <SlidersHorizontal size={14} aria-hidden /> Edit ranking
         </button>
       )}
 
       {gridOptions && (
-        <RankingPanel
-          open={drawerOpen}
-          onClose={closeDrawer}
-          tab={rankTab}
-          onTab={setRankTab}
+        <PrioritiesModal
+          open={modalOpen}
+          onClose={closeModal}
+          committed={reqs.state}
+          initialView={modalView}
+          options={gridOptions}
+          employers={employerOptions}
+          peerLabel={peerLabel}
+          countFn={countFn}
+          poolSize={data?.profiles.length ?? 0}
           jd={{
             text: jdText,
             setText: changeJdText,
             collapsed: jdCollapsed,
             setCollapsed: setJdCollapsed,
             reading,
-            onRead: readJd,
+            read: readJd,
             extracted,
-            onClearSuggestions: () => reqs.apply((rows) => clearJdSuggestions(rows, extracted)),
           }}
-          store={reqs}
-          options={gridOptions}
-          countFn={countFn}
-          poolSize={data?.profiles.length ?? 0}
-          focusId={focusId}
-          orgPrefill={orgPrefill}
-          onRun={run}
+          onCommit={commitPriorities}
           running={running}
-          runLabel={ranking ? 'Re-run ranking' : 'Run ranking'}
           linkedOpeningName={openingId ? openingName : null}
         />
       )}

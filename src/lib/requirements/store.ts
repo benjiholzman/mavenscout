@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useReducer } from 'react'
 import type { FilterState } from '../filters'
-import { MAX_TAG_ROWS } from '../matching/config'
+import { MAX_LANGUAGE_PRIORITIES, MAX_TAG_ROWS } from '../matching/config'
 import type { Level, Requirement } from '../matching/types'
 import {
   addRowChecked,
@@ -73,7 +73,10 @@ export function requirementsReducer(state: RequirementsState, action: Requiremen
     case 'addSuggestions':
       return withRows(
         normalizeRequirements(
-          action.suggestions.reduce((rows, s) => addSuggestion(rows, s, MAX_TAG_ROWS), state.requirements),
+          action.suggestions.reduce(
+            (rows, s) => addSuggestion(rows, s, MAX_TAG_ROWS, MAX_LANGUAGE_PRIORITIES),
+            state.requirements,
+          ),
         ),
       )
     case 'apply':

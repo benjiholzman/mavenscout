@@ -111,13 +111,14 @@ export interface FilterState {
    *  (Fluent satisfies it), 'fluent' = Fluent only. */
   languageLevel: Proficiency
   availability: AvailabilityFilter | null
-  /** Featured Members with every standard Video Q&A in (spec §2.2). A filter
-   *  / Required row only — never a scored preference. */
+  /** Featured Members with every standard Video Q&A in (spec §2.2): the
+   *  Must have video Q&A row. (In the priorities modal it can also be Nice to
+   *  have or Important.) */
   hasVideoQnas: boolean
-  /** At least one published audio testimonial (spec §4). Off by default; a
-   *  filter / Required row only — never a scored preference. */
+  /** At least one published audio testimonial (spec §4). Off by default: the
+   *  Must have audio testimonial row. */
   hasAudioTestimonial: boolean
-  /** Previous employers: the Required Org History row at "Ever at", any of
+  /** Previous employers: the Required Org History rows at "Ever at", any of
    *  these organizations. Evaluated with the organizations list in
    *  requirements/mustHaves.ts, not by applyFilters. */
   previousEmployers: string[]
