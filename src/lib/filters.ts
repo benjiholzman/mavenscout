@@ -12,9 +12,24 @@ import type { AvailabilityTrack, PortfolioItem, Proficiency, Profile } from '../
 // and Strong tags unless Working knowledge is included (lib/expertise).
 
 /** When the expert must be available (PRD 7.16). 'any' = no timing
- *  constraint; 'by_month' reads `byMonth`; 'between' reads `fromMonth` and
- *  `untilMonth` (available from the start through the end). */
-export type AvailabilityWhen = 'any' | 'now' | 'within_1m' | 'within_3m' | 'by_month' | 'between'
+ *  constraint. The modal's shortcuts: 'now_1m' / 'now_3m' / 'now_6m' =
+ *  available now and through the next 1 / 3 / 6 months; 'now_open' =
+ *  available now with no end date. 'dates' reads `fromDate` (open by then)
+ *  and `untilDate` (still open then; optional). The rest are older choices a
+ *  saved ranking may still hold: 'by_month' reads `byMonth`; 'between' reads
+ *  `fromMonth` and `untilMonth`. */
+export type AvailabilityWhen =
+  | 'any'
+  | 'now'
+  | 'within_1m'
+  | 'within_3m'
+  | 'by_month'
+  | 'between'
+  | 'now_1m'
+  | 'now_3m'
+  | 'now_6m'
+  | 'now_open'
+  | 'dates'
 
 export interface AvailabilityFilter {
   /** Tracks that count (either = both). At least one is always on. */
@@ -26,24 +41,25 @@ export interface AvailabilityFilter {
   /** 'YYYY-MM' start and end months when `when` is 'between', else null. */
   fromMonth: string | null
   untilMonth: string | null
+  /** 'YYYY-MM-DD' when `when` is 'dates', else null (untilDate may be null). */
+  fromDate?: string | null
+  untilDate?: string | null
 }
 
 /** Both tracks, any time: no constraint, so the filter is off. */
-export const DEFAULT_AVAILABILITY: AvailabilityFilter = { partTime: true, fullTime: true, when: 'any', byMonth: null, fromMonth: null, untilMonth: null }
+export const DEFAULT_AVAILABILITY: AvailabilityFilter = {
+  partTime: true,
+  fullTime: true,
+  when: 'any',
+  byMonth: null,
+  fromMonth: null,
+  untilMonth: null,
+  fromDate: null,
+  untilDate: null,
+}
 
 export function isDefaultAvailability(f: AvailabilityFilter): boolean {
   return f.partTime && f.fullTime && f.when === 'any'
-}
-
-/** The "Available now" toggle: on keeps the chosen tracks and sets the
- *  timing to now; off drops the timing (the filter clears if nothing else
- *  is left). */
-export function toggleAvailableNow(current: AvailabilityFilter | null, on: boolean): AvailabilityFilter | null {
-  const base = current ?? DEFAULT_AVAILABILITY
-  const next: AvailabilityFilter = on
-    ? { ...base, when: 'now', byMonth: null, fromMonth: null, untilMonth: null }
-    : { ...base, when: 'any', byMonth: null, fromMonth: null, untilMonth: null }
-  return isDefaultAvailability(next) ? null : next
 }
 
 /** Reads a stored availability value, converting the old shape
@@ -63,6 +79,10 @@ export function normalizeAvailability(raw: unknown): AvailabilityFilter {
     const tracks = { partTime: partTime || !fullTime, fullTime }
     if (v.when === 'by_month')
       return v.byMonth ? { ...tracks, when: 'by_month', ...none, byMonth: v.byMonth } : { ...tracks, when: 'any', ...none }
+    if (v.when === 'dates')
+      return v.fromDate
+        ? { ...tracks, when: 'dates', ...none, fromDate: v.fromDate, untilDate: v.untilDate ?? null }
+        : { ...tracks, when: 'any', ...none }
     if (v.when === 'between')
       return v.fromMonth && v.untilMonth
         ? { ...tracks, when: 'between', ...none, fromMonth: v.fromMonth, untilMonth: v.untilMonth }
@@ -180,6 +200,13 @@ export function availabilityDeadline(f: AvailabilityFilter, graceMonths = 0, now
     case 'between':
       // Open by the end of the start month.
       return f.fromMonth ? monthEndPlus(f.fromMonth, graceMonths) : null
+    case 'now_1m':
+    case 'now_3m':
+    case 'now_6m':
+    case 'now_open':
+      return graceMonths ? addMonthsTo(now, graceMonths) : now
+    case 'dates':
+      return f.fromDate ? addMonthsTo(dayEnd(f.fromDate), graceMonths) : null
   }
 }
 
@@ -188,14 +215,28 @@ function monthEndPlus(ym: string, months: number): Date {
   return new Date(y, m + months, 0, 23, 59, 59) // end of that month
 }
 
-/** For a start–end window, the track must not end before the end month. */
-function windowEndStart(f: AvailabilityFilter): Date | null {
-  if (f.when !== 'between' || !f.untilMonth) return null
-  return new Date(`${f.untilMonth}-01T00:00:00`)
+const dayEnd = (ymd: string) => new Date(`${ymd}T23:59:59`)
+
+const NOW_MONTHS = { now_1m: 1, now_3m: 3, now_6m: 6 } as const
+
+/** The date the track must still be open on (null = no end constraint;
+ *  'now_open' is handled in trackMatches: no end date at all). */
+function windowEndStart(f: AvailabilityFilter, now: Date): Date | null {
+  if (f.when === 'between') return f.untilMonth ? new Date(`${f.untilMonth}-01T00:00:00`) : null
+  if (f.when === 'dates') return f.untilDate ? new Date(`${f.untilDate}T00:00:00`) : null
+  if (f.when in NOW_MONTHS) return addMonthsTo(now, NOW_MONTHS[f.when as keyof typeof NOW_MONTHS])
+  return null
 }
 
-function trackMatches(track: AvailabilityTrack, deadline: Date | null, mustLastTo: Date | null, now: Date): boolean {
+function trackMatches(
+  track: AvailabilityTrack,
+  deadline: Date | null,
+  mustLastTo: Date | null,
+  now: Date,
+  openEnded = false,
+): boolean {
   if (!track || track.status === 'unavailable') return false
+  if (openEnded && track.until) return false
   // An availability that has already ended is closed; for a start–end window
   // it must still be open in the end month.
   if (track.until && new Date(track.until) < (mustLastTo ?? now)) return false
@@ -209,10 +250,11 @@ export function matchesAvailability(p: Profile, f: AvailabilityFilter, graceMont
   const now = new Date()
   const deadline = availabilityDeadline(f, graceMonths, now)
   if (deadline && !availabilityFresh(p, now.getTime())) return false
-  const lastTo = windowEndStart(f)
+  const lastTo = windowEndStart(f, now)
+  const openEnded = f.when === 'now_open'
   return (
-    (f.partTime && trackMatches(p.part_time_availability, deadline, lastTo, now)) ||
-    (f.fullTime && trackMatches(p.full_time_availability, deadline, lastTo, now))
+    (f.partTime && trackMatches(p.part_time_availability, deadline, lastTo, now, openEnded)) ||
+    (f.fullTime && trackMatches(p.full_time_availability, deadline, lastTo, now, openEnded))
   )
 }
 
@@ -226,6 +268,14 @@ export function monthRangeLabel(from: string, until: string): string {
   return from.slice(0, 4) === until.slice(0, 4)
     ? `${short(from)} – ${monthLabel(until)}`
     : `${monthLabel(from)} – ${monthLabel(until)}`
+}
+
+const dayLabel = (ymd: string) =>
+  new Date(`${ymd}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+
+/** "Mar 3, 2027 – Jun 30, 2027", or "From Mar 3, 2027". */
+export function dateRangeLabel(from: string, until: string | null): string {
+  return until ? `${dayLabel(from)} – ${dayLabel(until)}` : `From ${dayLabel(from)}`
 }
 
 function trackLabel(f: AvailabilityFilter): string | null {
@@ -242,10 +292,15 @@ export function availabilitySummary(f: AvailabilityFilter): string {
     within_3m: 'Within 3 months',
     by_month: f.byMonth ? `By ${monthLabel(f.byMonth)}` : null,
     between: f.fromMonth && f.untilMonth ? monthRangeLabel(f.fromMonth, f.untilMonth) : null,
+    now_1m: 'Now, next month',
+    now_3m: 'Now, next 3 months',
+    now_6m: 'Now, next 6 months',
+    now_open: 'Now, open-ended',
+    dates: f.fromDate ? dateRangeLabel(f.fromDate, f.untilDate ?? null) : null,
   }[f.when]
   const track = trackLabel(f)
-  if (track && when)
-    return `${track}, ${f.when === 'between' ? when : `${when.charAt(0).toLowerCase()}${when.slice(1)}`}`
+  const keepCase = f.when === 'between' || f.when === 'dates'
+  if (track && when) return `${track}, ${keepCase ? when : `${when.charAt(0).toLowerCase()}${when.slice(1)}`}`
   return track ?? when ?? 'Availability'
 }
 
@@ -260,6 +315,11 @@ export function availabilityLabel(f: AvailabilityFilter): string {
     within_3m: ' within 3 months',
     by_month: f.byMonth ? ` by ${monthLabel(f.byMonth)}` : '',
     between: f.fromMonth && f.untilMonth ? ` ${monthRangeLabel(f.fromMonth, f.untilMonth)}` : '',
+    now_1m: ' now for the next month',
+    now_3m: ' now for the next 3 months',
+    now_6m: ' now for the next 6 months',
+    now_open: ' now, open-ended',
+    dates: f.fromDate ? ` ${dateRangeLabel(f.fromDate, f.untilDate ?? null)}` : '',
   }[f.when]
   return `Available${track ? ` ${track.toLowerCase()}` : ''}${when}`
 }

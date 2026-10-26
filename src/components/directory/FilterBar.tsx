@@ -8,7 +8,6 @@ import {
   type FilterState,
   type SearchMode,
   availabilitySummary,
-  toggleAvailableNow,
 } from '../../lib/filters'
 import type { Proficiency, TaxonomyCategory, TaxonomyItem } from '../../types/db'
 import { FIRMS_ENABLED } from '../../lib/config'
@@ -168,28 +167,24 @@ export function FilterBar({
         </div>
 
         {/* Featured Members' interview videos; a filter only, never scored. */}
-        <Switch
-          checked={filters.hasVideoQnas}
-          onChange={(v) => set('hasVideoQnas', v)}
-          label="Featured only"
-        />
-        <InfoTip text="Featured members can list up to 10 portfolio items, and have 5 pre-recorded video responses to common interview questions. Learn more on the About page." />
-        {/* Shares state with the Availability filter and its requirement
-            row: on = available now on either chosen track (fresh within
-            AVAILABILITY_FRESH_DAYS); off drops the timing, keeping the tracks. */}
-        <Switch
-          checked={filters.availability?.when === 'now'}
-          onChange={(on) => set('availability', toggleAvailableNow(filters.availability, on))}
-          label="Available now"
-        />
+        <span className="flex items-center gap-1.5">
+          <Switch
+            checked={filters.hasVideoQnas}
+            onChange={(v) => set('hasVideoQnas', v)}
+            label="Featured only"
+          />
+          <InfoTip text="Featured members can list up to 10 portfolio items, and have 5 pre-recorded video responses to common interview questions. Learn more on the About page." />
+        </span>
         {/* Off by default; a filter only, never scored (testimonials never
             feed ranking). */}
-        <Switch
-          checked={filters.hasAudioTestimonial}
-          onChange={(v) => set('hasAudioTestimonial', v)}
-          label="Audio testimonials only"
-        />
-        <InfoTip text="Audio testimonials are recorded by someone the expert has previously worked with to serve as a reference." />
+        <span className="flex items-center gap-1.5">
+          <Switch
+            checked={filters.hasAudioTestimonial}
+            onChange={(v) => set('hasAudioTestimonial', v)}
+            label="Audio testimonials only"
+          />
+          <InfoTip text="Audio testimonials are recorded by someone the expert has previously worked with to serve as a reference." />
+        </span>
       </div>
 
       {/* Filter row */}

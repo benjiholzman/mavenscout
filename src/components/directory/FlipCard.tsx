@@ -34,7 +34,6 @@ import { portfolioCover } from '../../lib/portfolio'
 import { expertiseTags, TIER_LABELS } from '../../lib/expertise'
 import type { ExpertiseTag, PortfolioItem, Profile } from '../../types/db'
 import { AvailabilityChip } from '../ui/AvailabilityChip'
-import { ButtonLink } from '../ui/Button'
 import { OrgLogo } from '../ui/OrgLogo'
 import { Tooltip } from '../ui/Tooltip'
 import { useSavedMarks } from '../openings/SaveCandidateFlow'
@@ -107,7 +106,7 @@ export function FlipCard({
 
   return (
     <div
-      className={`flex flex-col rounded-card border bg-white shadow-card transition-shadow duration-200 hover:shadow-card-hover ${
+      className={`group/card flex flex-col rounded-card border bg-white shadow-card transition-shadow duration-200 hover:shadow-card-hover ${
         isFeatured(profile) ? 'border-gold-500 ring-[0.5px] ring-gold-500' : 'border-line'
       }`}
     >
@@ -120,7 +119,7 @@ export function FlipCard({
       )}
       {/* Flip area — fixed height so every card in the grid lines up */}
       <div
-        className="relative h-[444px] [perspective:1200px] [touch-action:pan-y]"
+        className="relative h-[416px] [perspective:1200px] [touch-action:pan-y]"
         onTouchStart={(e) => {
           const t = e.touches[0]
           touchStart.current = { x: t.clientX, y: t.clientY }
@@ -135,6 +134,47 @@ export function FlipCard({
           if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? 1 : -1)
         }}
       >
+        {/* Save marks: over the cover, shown on hover (always on touch screens);
+            a mark that's on stays shown. */}
+        {face.kind === 'front' && (
+          <div className="absolute left-2.5 top-2.5 z-10 flex items-center gap-1">
+            <Tooltip
+              content={
+                <>
+                  <b className="font-semibold">Favorites</b> · {marks.saved ? 'saved: change or remove' : 'save to a long list'}
+                </>
+              }
+            >
+              <SaveButton
+                label={marks.saved ? 'Saved to Favorites: change or remove' : 'Save to Favorites (long list)'}
+                pressed={marks.saved}
+                hover="hover:text-brand-600"
+                on="text-brand-600"
+                onClick={() => onFavorite(profile)}
+              >
+                <Bookmark size={16} className={marks.saved ? 'fill-current' : ''} />
+              </SaveButton>
+            </Tooltip>
+            <Tooltip
+              align="center"
+              content={
+                <>
+                  <b className="font-semibold">Starred</b> · {marks.starred ? 'starred: change or unstar' : 'save to a short list'}
+                </>
+              }
+            >
+              <SaveButton
+                label={marks.starred ? 'Starred: change or unstar' : 'Star (short list)'}
+                pressed={marks.starred}
+                hover="hover:text-gold-500"
+                on="text-gold-500"
+                onClick={() => onTopPick(profile)}
+              >
+                <Star size={16} className={marks.starred ? 'fill-current' : ''} />
+              </SaveButton>
+            </Tooltip>
+          </div>
+        )}
         <AnimatePresence mode="wait" initial={false} custom={direction}>
           <motion.div
             key={index}
@@ -172,11 +212,11 @@ export function FlipCard({
 
       {/* Bottom bar — never flips */}
       <div className="rounded-b-card border-t border-line-strong bg-paper">
-        <div className="flex h-8 items-center justify-center gap-1.5 pt-0.5">
+        <div className="flex h-11 items-center justify-center gap-2">
           {faces.length > 1 && (
             <>
               <NavArrow label="Previous" onClick={() => go(-1)}>
-                <ChevronLeft size={16} strokeWidth={2.2} />
+                <ChevronLeft size={18} strokeWidth={2.2} />
               </NavArrow>
               <div className="flex items-center">
                 {faces.map((_, i) => (
@@ -185,70 +225,36 @@ export function FlipCard({
                     onClick={() => pick(i)}
                     aria-label={`Show face ${i + 1} of ${faces.length}`}
                     aria-current={i === index}
-                    className="group flex px-[3px] py-[7px] focus-visible:outline-none"
+                    className="group flex px-1 py-2.5 focus-visible:outline-none"
                   >
                     <span
-                      className={`block h-1.5 rounded-full transition-all group-focus-visible:ring-2 group-focus-visible:ring-brand-500 group-focus-visible:ring-offset-1 ${
-                        i === index ? 'w-4 bg-brand-500' : 'w-1.5 bg-ink/20 group-hover:bg-ink/40'
+                      className={`block h-2 rounded-full transition-all group-focus-visible:ring-2 group-focus-visible:ring-brand-500 group-focus-visible:ring-offset-1 ${
+                        i === index ? 'w-5 bg-brand-500' : 'w-2 bg-ink/20 group-hover:bg-ink/40'
                       }`}
                     />
                   </button>
                 ))}
               </div>
               <NavArrow label="Next" onClick={() => go(1)}>
-                <ChevronRight size={16} strokeWidth={2.2} />
+                <ChevronRight size={18} strokeWidth={2.2} />
               </NavArrow>
             </>
           )}
-        </div>
-        <div className="flex items-center justify-between gap-2 px-3 pb-2.5 pt-0.5">
-          <div className="-ml-2 flex items-center">
-            <Tooltip
-              content={
-                <>
-                  <b className="font-semibold">Favorites</b> · {marks.saved ? 'saved: change or remove' : 'save to a long list'}
-                </>
-              }
-            >
-              <SaveButton
-                label={marks.saved ? 'Saved to Favorites: change or remove' : 'Save to Favorites (long list)'}
-                pressed={marks.saved}
-                hover="hover:text-brand-600"
-                on="text-brand-600"
-                onClick={() => onFavorite(profile)}
-              >
-                <Bookmark size={18} className={marks.saved ? 'fill-current' : ''} />
-              </SaveButton>
-            </Tooltip>
-            <Tooltip
-              align="center"
-              content={
-                <>
-                  <b className="font-semibold">Starred</b> · {marks.starred ? 'starred: change or unstar' : 'save to a short list'}
-                </>
-              }
-            >
-              <SaveButton
-                label={marks.starred ? 'Starred: change or unstar' : 'Star (short list)'}
-                pressed={marks.starred}
-                hover="hover:text-gold-500"
-                on="text-gold-500"
-                onClick={() => onTopPick(profile)}
-              >
-                <Star size={18} className={marks.starred ? 'fill-current' : ''} />
-              </SaveButton>
-            </Tooltip>
-          </div>
-          <ButtonLink to={profileHref} variant="tint">
-            View profile
-          </ButtonLink>
         </div>
       </div>
     </div>
   )
 }
 
-function Avatar({ profile, isFirm, small = false }: { profile: Profile; isFirm: boolean; small?: boolean }) {
+function Avatar(props: { profile: Profile; isFirm: boolean; small?: boolean }) {
+  return (
+    <Link to={`/profile/${props.profile.handle}`} aria-label={props.profile.name} tabIndex={-1} className="shrink-0">
+      <AvatarImage {...props} />
+    </Link>
+  )
+}
+
+function AvatarImage({ profile, isFirm, small = false }: { profile: Profile; isFirm: boolean; small?: boolean }) {
   const shape = isFirm ? (small ? 'rounded-[9px]' : 'rounded-[14px]') : 'rounded-full'
   const size = small
     ? 'h-[34px] w-[34px] text-xs'
@@ -323,7 +329,7 @@ function FrontFace({
   return (
     <div className="flex h-full flex-col">
       <div
-        className={`relative h-[120px] shrink-0 bg-brand-100 bg-cover bg-center ${squareTop ? '' : 'rounded-t-[13px]'}`}
+        className={`relative h-[102px] shrink-0 bg-brand-100 bg-cover bg-center ${squareTop ? '' : 'rounded-t-[13px]'}`}
         style={profile.cover_image_url ? { backgroundImage: `url(${profile.cover_image_url})` } : undefined}
       >
         {isFeatured(profile) && <FeaturedRibbon />}
@@ -335,7 +341,7 @@ function FrontFace({
             {testimonialOrgs.length > 0 && <TestimonialTeaserChip orgs={testimonialOrgs} />}
           </div>
         </div>
-        <NameLink profile={profile} className="text-lg leading-6" />
+        <NameLink profile={profile} className="shrink-0 text-lg leading-7" />
         <p className="mt-1 line-clamp-2 shrink-0 pb-px text-sm leading-5 text-ink-soft">
           {profile.headline}
         </p>
@@ -363,7 +369,7 @@ function FrontFace({
             </div>
           </MetaRow>
         </div>
-        <div className="mt-auto shrink-0 pt-2.5">
+        <div className="shrink-0 pt-3">
           <SectionLabel>Sector experience</SectionLabel>
           {orgs.length > 0 ? (
             <div className="flex flex-wrap gap-2">
@@ -372,7 +378,7 @@ function FrontFace({
                   <span
                     aria-label={org.name}
                     role="img"
-                    className="flex h-[54px] w-[54px] overflow-hidden rounded-xl border border-line bg-white p-1 hover:border-brand-300"
+                    className="flex h-[54px] w-[54px] overflow-hidden rounded-xl border border-line bg-white p-1"
                   >
                     <OrgLogo
                       url={logoIconUrl(org.logoUrl)}
@@ -602,7 +608,7 @@ function PortfolioFace({
   return (
     <>
       <div
-        className="relative h-[138px] shrink-0 bg-line bg-cover bg-center"
+        className="relative h-[102px] shrink-0 bg-line bg-cover bg-center"
         style={
           cover
             ? { backgroundImage: `url(${cover})` }
@@ -624,11 +630,8 @@ function PortfolioFace({
           <p className="mt-1 shrink-0 truncate text-[13.5px] leading-[19px] text-ink-faint">{meta}</p>
         )}
         <div className="mb-2 mt-[9px] h-px shrink-0 bg-line-soft" />
-        <p className="shrink-0 truncate text-[13.5px] leading-[19px] text-ink-soft">
-          <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-[.06em] text-ink-faint">
-            Role
-          </span>
-          {item.role}
+        <p className="shrink-0 truncate text-[13.5px] font-medium leading-[19px] text-ink">
+          Role: {item.role}
         </p>
         <p className="mt-1.5 line-clamp-5 text-[13.5px] leading-5 text-ink-soft">{item.description}</p>
       </div>
@@ -643,7 +646,7 @@ function NavArrow({ label, onClick, children }: { label: string; onClick: () => 
       aria-label={label}
       className="group -mx-1.5 -my-1 flex h-10 w-10 items-center justify-center text-ink-faint hover:text-ink focus-visible:text-ink focus-visible:outline-none"
     >
-      <span className="flex h-7 w-7 items-center justify-center rounded-full transition-colors group-hover:bg-line-soft group-focus-visible:ring-2 group-focus-visible:ring-brand-500 group-focus-visible:ring-offset-2">
+      <span className="flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover:bg-line-soft group-focus-visible:ring-2 group-focus-visible:ring-brand-500 group-focus-visible:ring-offset-2">
         {children}
       </span>
     </button>
@@ -671,7 +674,7 @@ function SaveButton({
       onClick={onClick}
       aria-label={label}
       aria-pressed={pressed}
-      className={`flex h-10 w-[34px] items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${pressed ? on : 'text-ink-faint'} ${hover}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${pressed ? on : 'text-ink-soft opacity-0 focus-visible:opacity-100 group-hover/card:opacity-100 [@media(hover:none)]:opacity-100'} ${hover}`}
     >
       {children}
     </button>

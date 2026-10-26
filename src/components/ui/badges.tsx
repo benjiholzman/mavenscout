@@ -1,4 +1,3 @@
-import { Star } from 'lucide-react'
 import { fmtMonthYear } from '../../lib/dates'
 import type { AvailabilityTrack, CareerLevel, Profile } from '../../types/db'
 import { InfoTip } from './InfoTip'
@@ -26,7 +25,6 @@ export function FirmTypeBadge({ type }: { type: 'Small Firm' | 'Large Firm' }) {
 export function FeaturedRibbon() {
   return (
     <span className="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full border border-gold-500 bg-white/95 px-[7px] py-0.5 text-[11px] font-semibold uppercase tracking-[.05em] text-gold-800 shadow-sm">
-      <Star size={11} className="fill-gold-500 text-gold-500" aria-hidden />
       Featured
     </span>
   )

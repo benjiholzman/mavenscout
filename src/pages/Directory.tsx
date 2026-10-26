@@ -1,7 +1,8 @@
-import { BadgeCheck, SearchX, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { SearchX, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { FilterBar } from '../components/directory/FilterBar'
+import { InfoTip } from '../components/ui/InfoTip'
 import { FlipCard } from '../components/directory/FlipCard'
 import { JumpToTop } from '../components/directory/JumpToTop'
 import { SortDropdown } from '../components/directory/SortDropdown'
@@ -543,12 +544,11 @@ export default function Directory() {
         <div>
           <h1 className="text-3xl font-semibold">Browse experts</h1>
           <p className="mt-1 text-sm text-ink-soft">
-            A curated pool of vetted {FIRMS_ENABLED ? 'consultants and firms' : 'experts'} in international development.
-          </p>
-          {/* The verification statement (profiles-membership §3.2). */}
-          <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-ink-faint">
-            <BadgeCheck size={14} className="mt-px shrink-0 text-emerald-700" />
-            <span>{VERIFIED_IDENTITY_STATEMENT}</span>
+            A curated pool of vetted {FIRMS_ENABLED ? 'consultants and firms' : 'experts'} in international development.{' '}
+            {/* The verification statement (profiles-membership §3.2). */}
+            <span className="relative top-0.5">
+              <InfoTip text={VERIFIED_IDENTITY_STATEMENT} />
+            </span>
           </p>
         </div>
         {/* Ranking — deliberately separate from the filter bar (PRD 7.1). */}
