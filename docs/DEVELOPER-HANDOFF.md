@@ -13,7 +13,7 @@ RLS notes) — the PRD defines *what* was intended; this defines *where the seam
 | Stack | React 18 + TypeScript + Vite, Tailwind 3, Framer Motion, React Router 6, Supabase (Postgres + Storage) |
 | Run | `npm install && npm run dev` — needs `.env` with `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (see `.env.example`). `npm run dev:lan` serves HTTPS on the local network (self-signed certificate) for testing on a phone: browsers allow the microphone and `crypto.subtle` only on secure origins |
 | Database | `supabase/000_schema.sql` → `001` → `002` → `003` → `004` → `005` → `006` → `007_seed_demo_profiles_1` … `_4` → `008` → `009` → `010` → `011`, run in order in the Supabase SQL editor; then `012` once the `data-foundations` branch is merged (never before: it drops what older code reads); then `013`; `014` once the `profiles-membership` branch is merged; then `015`, `016`; `017` once the `verification` branch is merged; then the demo re-seed `018_reseed_demo_0` → `_4`; then `019`. 000 includes tables + RLS + storage buckets + grants; 001–003 are seed data; 004 fills portfolio organization/years and work-history logo links on the seeded rows; 005 adds the match-rework columns (`job_descriptions.requirements/extracted`; `match_results.rank/band/fit_score/adjustments/adjustments_capped/must_haves_passed`) and deletes pre-rework rankings; 006 adds `profiles.is_demo` (flags the original 15 and normalizes their country names); the four 007 files add 100 synthetic `demo-*` profiles (generated — see *Demo data* below); 008 adds `match_results.scoring` for the preference-weighted total and deletes rankings scored under the old additive formula; 009 adds the canonical `organizations` list (200 seeded) and `portfolio_items.organization_id`; 010 adds the canonical `languages` list and `profiles.spoken_languages` (Fluent/Working), backfilled at Fluent, plus logo fixes for four organizations; 011 adds the unified expertise list (140 items in 15 groups, each with a kind, aliases and the old names it absorbs) and `profiles.tiered_expertise`, filled by `ms_migrate_expertise`. 009–011 are additive (old columns and taxonomies untouched); 012 re-migrates any stragglers, then drops `profiles.languages/expertise/skills`, the old taxonomies and the migration helpers. 013 adds portfolio video links, the single portfolio image list and `profiles.submitted_at`; 014 removes `portfolio_items.cover_image` and the intro and portfolio video rows. 015 (additive) adds the testimonial flow: a stable `id` on every `work_history` entry, the request, referee, code and lifecycle columns on `audio_testimonials`, the `testimonial_events` audit table, `profiles.email` and `profiles.testimonial_grace_until`, and `hiring_managers.email` / `updates_opt_in`. 016 adds hiring-manager sign-up and the `verification_checks` audit table; 017 drops `profiles.verification_status`. 018 is the step 5 demo re-seed (see *Demo data* below): part 0 adds `hiring_managers.is_demo`, parts 1–4 are generated. 019 (additive) adds `job_descriptions.mode` (`'jd'` | `'preferences'`) for preferences-only ranking. A fresh project bootstraps from these files. An existing database only needs the migrations it hasn't run — 004 and 005 use `ADD COLUMN IF NOT EXISTS`, so they're no-ops on fresh projects, where 000 already creates the columns. |
-| Verification baseline | Every PRD Definition-of-Done item (Section 13) was verified in-browser at desktop and 375px before handoff. The Playwright scripts lived in a temp scratchpad and are **not** committed — if you want a regression suite, the DoD checklist is the spec to automate against. The match rework's acceptance criteria (`docs/MavenScout-match-rework.md` §10) were verified the same way at desktop (1280px) and 375px in October 2026, plus scripted checks of the filter-bar ↔ requirements round-trip (22 filter combinations matched the pre-rework directory except the intended career-level change), the scoring math, and the displayed rounding (20,000 random cases, re-run for the preference-weighted total); those scripts are not committed either. |
+| Verification baseline | Every PRD Definition-of-Done item (Section 13) was verified in-browser at desktop and 375px before handoff. The Playwright scripts lived in a temp scratchpad and are **not** committed — if you want a regression suite, the DoD checklist is the spec to automate against. The match rework's acceptance criteria were verified the same way at desktop (1280px) and 375px in October 2026, against the earlier drawer version; the revision 4 criteria (`docs/MavenScout-match-rework.md` §10, the priorities modal) have not been re-verified that way yet. Also verified then: scripted checks of the filter-bar ↔ requirements round-trip (22 filter combinations matched the pre-rework directory except the intended career-level change), the scoring math, and the displayed rounding (20,000 random cases, re-run for the preference-weighted total); those scripts are not committed either. |
 
 ## What is mocked vs. real (the load-bearing distinction)
 
@@ -69,9 +69,9 @@ Member and many Members.
 `TESTIMONIAL_DEADLINE_DAYS` (unset by default) lets a verified profile be approved
 without its testimonial and gives it that many days to publish one, using the same
 `testimonial_grace_until` column as the withdrawal grace period; while it's set the
-copy stops claiming every expert is vouched for. The directory's "Has audio
-testimonial" filter (requirement kind `audio_testimonial`) is Required-only like
-`video_qna`, and flip cards show "Testimonial from [organization]" from teaser rows
+copy stops claiming every expert is vouched for. The directory's "Audio
+testimonials only" filter (requirement kind `audio_testimonial`) is, like "Featured
+only" (`video_qna`), also an ordinary priority in the ranking modal, and flip cards show "Testimonial from [organization]" from teaser rows
 (`TEASER_COLUMNS` in `lib/testimonials/display.ts`: no emails or transcripts).
 
 **Hiring-manager accounts (profiles-membership §9; `src/lib/managers.ts`).** Sign-up
@@ -253,7 +253,7 @@ when one is added, build it from `isListed`.
 ## Loop8 — swapping in the real matching engine
 
 The contract is **§4 (extraction) and §6 (types, persistence) of
-`docs/MavenScout-match-rework.md`**, which supersedes PRD §7.7. It's typed in
+`docs/MavenScout-match-rework.md`**, the detailed spec behind PRD §7.7. It's typed in
 `src/lib/matching/types.ts`; replacing the engine touches nothing outside
 `src/lib/matching/`.
 
@@ -277,7 +277,7 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
     `tiered_expertise` as Core (3) / Strong (5) / Working knowledge (≤10); the
     counts are `EXPERTISE_TIER_LIMITS` in `src/lib/config.ts`.
   - Requirement rows: kind `skill` and category-level rows are gone; an expertise
-    row is `{ name, includeWorking? }`. Several Required expertise rows are **OR
+    row is `{ name, includeWorking? }`. Several Must have expertise rows are **OR
     within a kind, AND across kinds**, counting Core + Strong (plus Working
     knowledge when the manager includes it) — `matchesExpertiseSelection` in
     `src/lib/expertise.ts`. Language rows carry `min` (`working` | `fluent`;
@@ -306,7 +306,7 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
     `job_descriptions.extracted`.
   - `rankPool(jobDescriptionId, requirements, pool) → MatchResult[]` (`score.ts`) —
     receives the stored JD by id (never the full text per candidate) plus the
-    requirement rows, and a pool that has **already passed the Required rows**.
+    requirement rows, and a pool that has **already passed the Must haves**.
     Returns ranked results: `fit_score`, one `Adjustment` per Nice to have /
     Important row (`met | partial | not_met | not_applicable`, points earned),
     `scoring` (`{weight, earned, possible}`), `must_haves_passed`, `band`, `rank`,
@@ -333,19 +333,23 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   and the display. Every tunable number is in `config.ts`. Ties: Fit → more
   recent `availability_updated_at` → id. Membership level never affects rank.
 - **What stays app-side** (don't move it into the engine):
-  - The requirements grid / filter-bar state (`src/lib/requirements/`). Required
-    rows are evaluated by `applyMustHaves()` (`mustHaves.ts`), which reuses the
+  - The priority rows / filter-bar state (`src/lib/requirements/`, including the
+    priorities modal's areas in `priorities.ts`). Must haves are evaluated by `applyMustHaves()` (`mustHaves.ts`), which reuses the
     directory filter logic exactly. It runs in the browser on the loaded pool
     today; it's the one place to turn into a database query when the pool grows.
   - The displayed build-up (`display.ts`: rows show their own points; Fit part +
     preferences = total, exactly) and persistence
     (`persist.ts`).
-- **Org History:** the tiered `met` / `partial` (peer org) / `not_met` shape is the
-  contract. Organization identity comes from the canonical organizations list
-  (`src/lib/organizations.ts`: name, alias or country office, so "IBRD" = "World
-  Bank Group"), with name matching for organizations not on it; peers count only
-  if the manager types them — **suggesting peer organizations is the engine's job**. The row is only ever
-  added deliberately (ethics note in the spec).
+- **Employers (Org History):** the tiered `met` / `partial` (peer org) / `not_met`
+  shape is the contract. Each employer row has a scope, Now / Before / Either
+  (`current` / `past` / `ever`), and optionally "Also count <peer group>"
+  (`includePeers`). Organization identity comes from the canonical organizations
+  list (`src/lib/organizations.ts`: name, alias or country office, so "IBRD" =
+  "World Bank Group"), with name matching for organizations not on it. The
+  placeholder treats organizations of the same type on the list as peers
+  (`lib/requirements/match.ts`); **suggesting better peer organizations is the
+  engine's job**. The row is only ever added deliberately (ethics note in the
+  spec).
 - **Loosening after a run** scores only the newly eligible candidates
   (`scoreNewcomers` in `persist.ts`). If the engine normalizes scores across the
   pool (e.g. percentile scaling), that has to become a full re-run — see the comment
@@ -376,19 +380,19 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   one expected profile per run falls below Good; see "Score distribution by
   role" in `docs/samples/ranking-baseline.md`). But with many Nice to have / Important
   rows, w hits the 20% cap and the earned ÷ possible ratio falls, because few
-  candidates meet most of a long list: the Sahel ranking (Add all: 12 rows, 46 points
-  possible) tops out at 77, so nobody there is Strong, although its #1 has Fit 83.
-  The UI nudges managers ("Adding many preferences spreads their weight; keep the
-  ones that matter" under Add all), but the engine should decide whether bands
-  should account for the number of rows (or the ratio should be normalized), and
-  re-check against the baseline.
+  candidates meet most of a long list. Measured under the earlier 3 / 8 points, a
+  12-row Sahel ranking (46 points possible) topped out at 77, so nobody there was
+  Strong, although its #1 had Fit 83. The 1 / 3 points reach the 20% cap at 8
+  points, so this still applies; re-measure it. The engine should decide whether
+  bands should account for the number of rows (or the ratio should be
+  normalized), and re-check against the baseline.
 - **Baseline to beat:** `npm run baseline` scores five sample ToRs
   (`docs/samples/tor-0*.txt`) against the live pool with the current engine and
   rewrites `docs/samples/ranking-baseline.md`: whether the expected profiles land in
-  the top 5 / top 10 with fixed manager rows and end to end (extraction → Add all),
+  the top 5 / top 10 with fixed manager rows and end to end (extraction → every suggestion added at Nice to have, the harness's "Add all"),
   deliberate test cases (wrong location, untagged evidence, current vs former staff,
   tie pairs, decoys), profile variants (one profile as Core / Strong / Working on an
-  item; a Required language at Working under Fluent only) and extraction recall. Expectations live
+  item; a Must have language at Working under Fluent only) and extraction recall. Expectations live
   in `docs/samples/expectations.json`. The harness is read-only (SELECTs and in-memory
   `scorePool`); run it after every engine change.
 - Narratives are templated (~100 words, grounded in the shown numbers); the engine
@@ -408,7 +412,7 @@ The contract is **§4 (extraction) and §6 (types, persistence) of
   testimonial where the level requires it), verification labels, testimonial confirmation lines and referee email
   rules, Featured status and the listing rule. A baseline guard keeps each profile's
   role in `docs/samples/expectations.json` (no ToR item added as a tag to an existing
-  profile, Required languages stay Fluent, tie pairs identical). The parts are
+  profile, Must have languages stay Fluent, tie pairs identical). The parts are
   idempotent: they upsert the profiles on id and replace their portfolio items,
   testimonials, Video Q&As and verification rows with fixed ids.
 - **What it contains:** 98 listed individuals (the 92 that existed, ids and handles
