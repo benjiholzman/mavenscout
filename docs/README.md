@@ -9,6 +9,12 @@
 | [MavenScout-design.md](MavenScout-design.md) | Brand constraints (accent color, logo assets) and design brief. |
 | [MavenScout — Ranking Engine Brief for Loop8.md](<MavenScout — Ranking Engine Brief for Loop8.md>) | The brief for Loop8: how ranking works today, what the engine owns, the contract, decision rights, the baseline to beat and open questions. |
 | [DEVELOPER-HANDOFF.md](DEVELOPER-HANDOFF.md) | Where the scaffolded seams are (real auth, Stripe, the security hardening checklist), how Loop8's engine replaces the placeholder matcher, and the demo data to replace. |
+| [SOW/](SOW/) | Loop8: scope extract of the signed POC statement of work (scope, deliverables, success criteria). |
+| [planning/PROJECT_PLAN.md](planning/PROJECT_PLAN.md) | Loop8: delivery plan for the ranking engine POC, phases, current state and open questions. |
+| [planning/test-cases-draft.md](planning/test-cases-draft.md) | Loop8: draft of harder vocabulary-mismatch ranking test cases, for review. |
+| [reports/technical-assessment.md](reports/technical-assessment.md) | Loop8: technical assessment (draft): codebase audit, engine inputs and outputs, preliminary cost per ranking. |
+| [runbooks/poc-environment.md](runbooks/poc-environment.md) | Loop8: AWS POC environment runbook: read-only checks, create steps, teardown, inventory. |
+| [handoffs/](handoffs/) | Loop8: end-of-phase handoff notes. |
 | [samples/](samples/) | Sample terms of reference for ranking, the expected results they're checked against (`expectations.json`), and the ranking baseline report generated from them by `npm run baseline` (`ranking-baseline.md`). |
 
 ## Precedence
