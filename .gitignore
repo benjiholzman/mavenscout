@@ -12,3 +12,26 @@ ds-bundle/
 .design-sync/learnings/
 .design-sync/node_modules
 .claude/
+
+# --- Loop8 engagement ---
+# Client PII / confidential context and meeting notes (never commit; this repo is public)
+docs/meetings/
+docs/context/
+# Loop8 internal engineering standards, kept locally for reference only
+docs/best-practices/
+# Local scratch / progress notes
+.scratch/
+
+# Secrets / env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python (ranking engine, if built in Python)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
