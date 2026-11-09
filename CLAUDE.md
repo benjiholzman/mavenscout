@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (and Fable) when working with code in this repository.
 
+@loop8/CLAUDE.md
+
 ## Project
 
 MavenScout — a specialized hiring marketplace connecting international development organizations with vetted individual consultants (firm listings are hidden behind `FIRMS_ENABLED`; firms take part as hiring organizations) for short-term, knowledge-based work. A curated pool of experts, searchable and filterable, with AI ranking against a job description, video/audio screening material, and a lightweight team-collaboration layer for shortlisting. Each consultant's profile doubles as their public professional website.
