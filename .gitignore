@@ -12,3 +12,26 @@ ds-bundle/
 .design-sync/learnings/
 .design-sync/node_modules
 .claude/
+
+# --- Loop8 engagement (everything of ours lives under loop8/) ---
+# Internal material: work hours, project context, best practices, session notes (never commit; this repo is public)
+loop8/internal/
+# Personal session rules and progress notes
+CLAUDE.local.md
+.claudetask
+.scratch/
+
+# Secrets / env
+.env.*
+!.env.example
+*.pem
+*.key
+*.secrets
+
+# Python (ranking engine, if built in Python)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
