@@ -97,6 +97,9 @@ smoke test is in Part B.
 | A5 Anthropic use-case form | Not submitted | 2026-11-09 |
 | A6 Bedrock quotas | Tokens per minute applied: 0 for Haiku 5.5 and Sonnet 5.5, against defaults of 10,000,000 and 6,000,000. No increase requested. Titan V2: 600 requests and 300,000 tokens per minute, not adjustable. Requests per minute quotas for the 5.5 models were not listed | 2026-11-09 |
 | A7 support plan | The Support API answered, so the plan is not Basic. Business Support+ activation still to be confirmed | 2026-11-09 |
+| A8 GPT-6 models | Read-only check: GPT-6 Luna 4,000,000 tokens per minute, GPT-6 Sol and GPT-6.1 Sol 2,000,000, GPT-6.1 Terra 2,000,000, GPT-6 Astra 0. US and global profiles ACTIVE. No model invoked, no published price for Luna | 2026-11-13 |
+| A9 quota increase requests for Claude | Requests for Haiku 5.5 (10,000,000 tokens per minute) and Sonnet 5.5 (6,000,000) were filed on 2026-11-12 with the project lead's approval. Later reads show cases closed without a grant. A second set of requests may exist, since the creation times reported by two people differ. To be verified with a live query. This is the only change to the account that we know of | 2026-11-13 |
+| A10 models confirmed for the POC | Titan Text Embeddings V2, GPT-6 Luna (Fit) and GPT-6 Sol (extraction and summaries). Claude Haiku 5.5 and Sonnet 5.5 are not in the plan | 2026-11-16 |
 
 ---|---|---|
 | A1 account and role | | |
@@ -177,7 +180,7 @@ model is chosen.
 
 ### B3b. Request the Bedrock quota increases
 
-The applied tokens per minute quota for Claude Haiku 5.5 and Claude Sonnet 5.5 is 0, so no call can succeed until it is raised. This needs an administrator and the customer's approval, and the lead time is unknown. Start it as soon as the customer approves enabling the models. Use the Service Quotas console or `aws service-quotas request-service-quota-increase` with the quota codes found in Part A6, and record each request id in the inventory.
+The applied tokens per minute quota for Claude Haiku 5.5 and Claude Sonnet 5.5 is 0, so no call can succeed until it is raised. This needs an administrator and the customer's approval, and the lead time is unknown. The Claude models are no longer in the plan (Titan V2, GPT-6 Luna and GPT-6 Sol are confirmed), so this is optional and only needed for a later comparison. Use the Service Quotas console or `aws service-quotas request-service-quota-increase` with the quota codes found in Part A6, and record each request id in the inventory.
 
 ### Later, after the Phase 1 architecture decision
 

@@ -40,7 +40,7 @@ at a known and affordable cost per ranking across about 3,000 profiles.
 | Item | Status |
 |---|---|
 | Repo access | Have it. Loop8 works on `loop8-develop`, which is the source of truth. `main` is the customer's and is never touched |
-| Customer AWS account | Dedicated MavenScout account. Read-only checks on 2026-11-09 and 2026-11-13 (see the runbook findings): Titan V2, GPT-6 Luna and GPT-6 Sol are usable. Claude Haiku 5.5 and Sonnet 5.5 are blocked: quota at 0 and the Anthropic use case form not submitted. Quota increase requests were filed on 2026-11-12 and have not been granted. No Lambda functions and no budgets yet |
+| Customer AWS account | Dedicated MavenScout account. Read-only checks on 2026-11-09 and 2026-11-13 (see the runbook findings): Titan V2, GPT-6 Luna and GPT-6 Sol are usable. Claude Haiku 5.5 and Sonnet 5.5 are blocked (quota at 0, Anthropic use case form not submitted) and are not in the plan. Quota increase requests were filed on 2026-11-12 and have not been granted. No Lambda functions and no budgets yet |
 | AWS Business Support+ | Requested. The Support API did not answer as Basic, to be confirmed |
 | Test data | 98 synthetic profiles (`is_demo`), five sample ToRs, `expectations.json` and the baseline harness (`npm run baseline`) are in the repo. The baseline has not been re-run against a database yet |
 | Engine contract | Defined: match-rework spec sections 4 and 6, `src/lib/matching/types.ts` |
@@ -68,7 +68,7 @@ The original three mode plan (filter, then preferences, then AI) does not scale 
 
 The pool independence rule (brief rule 3) is kept by the absolute threshold and the estimated Fit below it.
 
-Models are settings by role, not fixed choices. Working choice while the Claude quota is 0: Titan Text Embeddings V2 for embeddings, GPT-6 Luna for Fit, GPT-6 Sol for extraction and summaries. Claude Haiku 5.5 and Sonnet 5.5 stay as the comparison once unblocked. The prices of the GPT-6 models are not published, so cost figures use Claude prices as a reference only. Reference estimate per ranking at a shortlist of 100, not measured: about $0.04 for variants A and B, $0.09 for C and $0.11 for D (the four variants the customer asked to test). See the architecture page, cost section.
+Models are settings by role. Confirmed on 2026-11-16: Titan Text Embeddings V2 for embeddings, GPT-6 Luna for Fit, GPT-6 Sol for extraction and summaries. Claude Haiku 5.5 and Sonnet 5.5 are not part of the plan and would only be compared if they are unblocked. The prices of the GPT-6 models are not published, so cost figures use Claude prices as a reference only. Reference estimate per ranking at a shortlist of 100, not measured: about $0.04 for variants A and B, $0.09 for C and $0.11 for D (the four variants the customer asked to test). See the architecture page, cost section.
 
 ## Phases
 
@@ -139,7 +139,7 @@ To build the proof of concept of the ranking engine behind `extractRequirements`
 
 ### Assumptions
 
-1. The text model and the Fit model are GPT-6 Sol and GPT-6 Luna until the Claude quota is granted. Their quality for this task is not yet measured.
+1. The text model is GPT-6 Sol and the Fit model is GPT-6 Luna. Their quality for this task is not yet measured, and the first measured variant decides whether the choice holds.
 2. The app passes a hiring manager identifier to the engine. The app's authentication is simulated, so this is a value, not a login.
 3. The customer approves every cost figure and the budget amount. The customer pays the AWS cost.
 4. The term of the SOW allows two to three weeks of work. To be confirmed.
@@ -184,7 +184,7 @@ To build the proof of concept of the ranking engine behind `extractRequirements`
 3. **Cost and latency target per ranking.** The customer has not given one. The document asks for the acceptable wait time.
 4. **Differences from the SOW architecture diagram.** Profiles stay in Supabase instead of DynamoDB, ranked results use S3 and DynamoDB instead of ElastiCache, and CloudFront, Cognito and Amplify are not included. Each is documented with its reason in the technical assessment. Agree with the project manager how to tell the customer.
 5. **Vector database.** OpenSearch Serverless is chosen. It still needs a short build check: filtering by a list of ids, accuracy under the default compression, creation from the CLI and its real cost.
-6. **Quota and access.** Not blocking any more, because Luna, Sol and Titan are usable. Claude Haiku 5.5 and Sonnet 5.5 stay blocked until the quota requests are granted and the Anthropic use case form is decided. Lead time unknown.
+6. **Quota and access.** Not blocking, because Luna, Sol and Titan are the confirmed models. Claude Haiku 5.5 and Sonnet 5.5 stay blocked until the quota requests are granted and the Anthropic use case form is decided. They are optional for a later comparison.
 7. **Region.** us-east-1 with the US inference profile. The customer should know requests can be processed in us-east-1, us-east-2 or us-west-2.
 8. **Term.** The SOW runs 30 days from kickoff (roughly until November 18, not verified). More time needs a signed written amendment. Ask the project manager how the term is counted and whether the plan below fits.
 9. **Expertise.** The customer proposed reading expertise as free text and dropping its filter and priority. Whether expertise counts twice (as a tag and as text) is open.
