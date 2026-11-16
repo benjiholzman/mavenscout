@@ -6,7 +6,7 @@
 | Phase | All |
 | Task | Scope reference |
 | Owner | Loop8 project manager |
-| Date | 2026-11-04, architecture section 2026-11-09 |
+| Date | 2026-11-04, architecture section 2026-11-09, notes 2026-11-16 |
 | Sources | The signed SOW PDF |
 
 | | |
@@ -151,5 +151,10 @@ A production implementation following a successful POC requires a separate produ
 ## 19. Term (summary)
 
 The SOW runs from the date of last signature until completion of the POC or thirty (30) days from
-kickoff, whichever occurs first. Work beyond the defined scope is quoted separately and requires
-written approval before it starts.
+kickoff, whichever occurs first.
+
+Work beyond the defined scope is quoted separately and requires written approval before it starts.
+In the signed PDF this sits in section 12, not in the term section. Written amendments to the SOW
+are valid only when signed (section 20.4). Seniority appears in the scope (section 3) but not in
+the success criteria (section 5). Confirm with the project manager that the PDF in hand is the
+signed version, because the copy we read is marked as a draft with the customer signature blank.
