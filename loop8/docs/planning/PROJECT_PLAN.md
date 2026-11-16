@@ -6,7 +6,7 @@
 | Phase | P0 to P4 |
 | Task | Delivery plan |
 | Owner | Guillermo Sandoval |
-| Date | 2026-11-09 |
+| Date | 2026-11-16 |
 | Sources | SOW extract, ranking brief, match rework spec, architecture blueprint |
 
 Repo: `benjiholzman/mavenscout`, Loop8 source of truth: branch `loop8-develop`
@@ -35,17 +35,17 @@ Success, per SOW section 5:
 And per the brief: the engine must clearly beat the placeholder on vocabulary-mismatch test cases,
 at a known and affordable cost per ranking across about 3,000 profiles.
 
-## State as of 2026-11-09
+## State as of 2026-11-16
 
 | Item | Status |
 |---|---|
 | Repo access | Have it. Loop8 works on `loop8-develop`, which is the source of truth. `main` is the customer's and is never touched |
-| Customer AWS account | Dedicated MavenScout account. Read-only role checked on 2026-11-09 (see the runbook findings): Haiku 5.5, Sonnet 5.5 and Titan V2 listed as active, Anthropic use case form not submitted, Bedrock tokens per minute quota applied at 0 for the two Claude models, no Lambda functions and no budgets |
+| Customer AWS account | Dedicated MavenScout account. Read-only checks on 2026-11-09 and 2026-11-13 (see the runbook findings): Titan V2, GPT-6 Luna and GPT-6 Sol are usable. Claude Haiku 5.5 and Sonnet 5.5 are blocked: quota at 0 and the Anthropic use case form not submitted. Quota increase requests were filed on 2026-11-12 and have not been granted. No Lambda functions and no budgets yet |
 | AWS Business Support+ | Requested. The Support API did not answer as Basic, to be confirmed |
 | Test data | 98 synthetic profiles (`is_demo`), five sample ToRs, `expectations.json` and the baseline harness (`npm run baseline`) are in the repo. The baseline has not been re-run against a database yet |
 | Engine contract | Defined: match-rework spec sections 4 and 6, `src/lib/matching/types.ts` |
-| Design | Proposed and documented in `loop8/docs/architecture/index.html` (asynchronous, Bedrock, OpenSearch Serverless, two stages). Not yet approved by the customer |
-| Customer document | "Flows and Costs" sent to the project manager for the customer (`loop8/docs/client-proposal/`). Three open questions to the customer: wait time, approval to enable the AI models, the score breakdown |
+| Design | Documented in `loop8/docs/architecture/index.html` (asynchronous, Bedrock, OpenSearch Serverless, two stages, models as settings by role). The customer approved the plan on 2026-11-13 |
+| Customer document | "Flows and Costs" sent to the customer (`loop8/docs/client-proposal/`). Answered on 2026-11-12: four variants to test, summaries of 40 to 60 words, a target of 10 to 30 seconds, a cap of 10 rankings per account per month if time allows. Still open: the score breakdown |
 | App build | `npm ci && npm run build` passes on `loop8-develop` |
 
 ## Working model
@@ -55,20 +55,20 @@ at a known and affordable cost per ranking across about 3,000 profiles.
 3. Per SOW section 9, no Terraform, CloudFormation or CI/CD is committed to this repository. The POC environment in the customer's AWS account is created with the AWS CLI and recorded in `loop8/docs/runbooks/poc-environment.md`.
 4. The repository is public. No secrets, account IDs, client personal data, commercial terms or internal notes. Everything Loop8 writes lives under `loop8/`, and internal notes live in `loop8/internal/` (gitignored).
 
-## Engine direction (proposed 2026-11-09, to be confirmed in Phase 1)
+## Engine direction (decided 2026-11-13)
 
 The original three mode plan (filter, then preferences, then AI) does not scale to large pools: a manager may skip filters, and preferences only rank, they do not filter. On the 2026-11-02 call the customer agreed to Loop8 proposing a better approach, provided it is affordable per ranking. The detailed design is in `loop8/docs/architecture/index.html`. In short:
 
 1. **Must haves filter first** (app side, unchanged). Failing candidates are never scored.
-2. **Read the JD once.** `extractRequirements` runs one language model call (Claude Sonnet 5.5). The output is stored with the JD. The model never sets a Must have.
-3. **Stage 1, search by meaning.** Embeddings (Titan Text Embeddings V2) of profile fragments are stored in a vector database (OpenSearch Serverless, pgvector in Supabase as the documented fallback). A candidate passes by an absolute similarity threshold, not by rank, with a hard cap of 200. Transcripts are never indexed.
-4. **Stage 2, Fit per candidate.** Claude Haiku 5.5 judges Fit (0 to 100) from the top 5 fragments of each candidate, with component scores. Candidates below the threshold get a capped, flagged estimated Fit from their similarity.
-5. **Total and narrative.** The existing scoring code computes the total and band. Narratives (Claude Sonnet 5.5, about 100 words) are written after the totals for the top 20, with the existing template as fallback.
+2. **Read the JD once.** `extractRequirements` runs one language model call (the text model setting). The output is stored with the JD. Until the customer confirms in writing that the AI may suggest Important and Must have priorities shown before the run, the model never sets a Must have.
+3. **Stage 1, search by meaning.** Embeddings (Titan Text Embeddings V2) of profile fragments are stored in a vector database (OpenSearch Serverless, chosen on 2026-11-13). Indexing is a script run by hand in the POC. A candidate passes by an absolute similarity threshold, not by rank, with a hard cap of 200. Transcripts are never indexed.
+4. **Stage 2, Fit per candidate.** The Fit model setting judges Fit (0 to 100) from the top 5 fragments of each candidate, with component scores. Candidates below the threshold get a capped, flagged estimated Fit from their similarity.
+5. **Total and narrative.** The existing scoring code computes the total and band. Summaries (40 to 60 words, the text model setting) are written last: 3 by default, the next 5 on demand, or none, with the existing template as fallback.
 6. **Asynchronous jobs.** API Gateway returns a job id, an SQS queue feeds a worker Lambda, state lives in DynamoDB and results in S3, so no request is held open and retries are safe. A repeated search with the same inputs returns the stored result at no cost (design intent, not built).
 
 The pool independence rule (brief rule 3) is kept by the absolute threshold and the estimated Fit below it.
 
-Estimated cost per ranking, US inference profile, official AWS prices, not measured: about $0.19 with the recommended model mix (plausible range $0.09 to $0.56). See the technical assessment, section 4.
+Models are settings by role, not fixed choices. Working choice while the Claude quota is 0: Titan Text Embeddings V2 for embeddings, GPT-6 Luna for Fit, GPT-6 Sol for extraction and summaries. Claude Haiku 5.5 and Sonnet 5.5 stay as the comparison once unblocked. The prices of the GPT-6 models are not published, so cost figures use Claude prices as a reference only. Reference estimate per ranking at a shortlist of 100, not measured: about $0.04 for variants A and B, $0.09 for C and $0.11 for D (the four variants the customer asked to test). See the architecture page, cost section.
 
 ## Phases
 
@@ -117,6 +117,58 @@ Phases follow the Nimbus tracker (P0 to P4). SOW weeks 1 to 3 map to P1 to P3. T
 4. Demo walkthrough; POC environment kept 30 days post-demo, then decommissioned
 5. Handoff of the final code to the customer. Loop8 never touches `main`; how the customer receives `loop8-develop` is agreed at handoff
 
+## Build plan for the engine and its AWS environment (2026-11-16)
+
+The order below follows the engagement rules: what the task is for, what the design decided, what will be built, assumptions, impact, acceptance criteria and steps. A build record is added to each step after it is validated.
+
+### What this is for
+
+To build the proof of concept of the ranking engine behind `extractRequirements` and `rankPool`, run it on the customer's AWS account, and measure the four variants the customer asked to test. Everything here is limited to the proof of concept in the SOW.
+
+### What the design already decided
+
+1. Asynchronous engine: API Gateway HTTP API, a Lambda api, SQS with a dead-letter queue, a worker Lambda, DynamoDB for job state, idempotency and counters, S3 for inputs and results, Secrets Manager, CloudWatch and a Budget alert.
+2. Bedrock through the US inference profiles. Titan Text Embeddings V2 (1024 dimensions) and OpenSearch Serverless for the vector search. Supabase stays the source of profiles.
+3. Model roles as settings: text model, Fit model, embedding model.
+4. Scoring rules, Must have filtering and the Fit rules from `loop8/CLAUDE.md` section 3, unchanged.
+
+### What will be built
+
+1. **Code** in `loop8/engine/`: the job lifecycle (create, queue, work, store, read), the model calls behind a role setting, the indexing script, the result shape the app already expects, and the per account monthly counter (only if time allows).
+2. **Environment** with the AWS CLI, recorded in `loop8/docs/runbooks/poc-environment.md` the same day each resource is created. No Infrastructure as Code and no CI/CD (SOW section 9). Every resource carries the funding tag from `loop8/CLAUDE.md` section 9.
+
+### Assumptions
+
+1. The text model and the Fit model are GPT-6 Sol and GPT-6 Luna until the Claude quota is granted. Their quality for this task is not yet measured.
+2. The app passes a hiring manager identifier to the engine. The app's authentication is simulated, so this is a value, not a login.
+3. The customer approves every cost figure and the budget amount. The customer pays the AWS cost.
+4. The term of the SOW allows two to three weeks of work. To be confirmed.
+
+### Impact analysis
+
+1. No change to `main`. The only code outside `loop8/` is the two engine functions in `src/lib/matching/`, with a reason written in the issue.
+2. New AWS resources add cost to the customer's account. Each is created only after explicit approval and removed at decommissioning.
+3. The "ask first" rules stay in force except the one in open question 10, which needs written confirmation.
+
+### Acceptance criteria
+
+1. `npm run baseline` is recorded before any change and after each engine change.
+2. Variants A to D each run end to end and report quality, time per ranking and cost per ranking, all marked as measured with where they came from.
+3. A ranking of a pasted job description returns in 10 to 30 seconds for the small model variants (the customer's target), and the failure paths (model error, duplicate request, expired job) behave as the design says.
+4. Results show the score breakdown and a summary, and a candidate's score does not depend on the rest of the pool.
+
+### Remaining steps
+
+1. Run `npm run baseline` with the demo data and record the placeholder numbers (P1). Proof: the baseline file changes and the numbers are in the plan.
+2. Update this plan and the runbook with the quota requests of 2026-11-12 (same day rule).
+3. Create the budget with an alert, with the amount chosen by the customer (needs approval).
+4. Build the job lifecycle skeleton in `loop8/engine/` with fake model calls, then test the failure paths locally.
+5. Connect Titan V2 and the Fit model, and measure variant A (small model only, 5 summaries).
+6. Run the short OpenSearch build check (needs approval, creates resources and cost), then index the demo profiles by script.
+7. Add the text model calls for extraction and summaries, and measure variants B, C and D.
+8. Add the monthly counter per hiring manager if time allows.
+9. Validation, handoff documents per phase, and the demo (P4).
+
 ## Decision rights (from the brief)
 
 | Tier | Covers |
@@ -131,10 +183,13 @@ Phases follow the Nimbus tracker (P0 to P4). SOW weeks 1 to 3 map to P1 to P3. T
 2. **Conversational agent.** SOW section 3 mentions selecting services for a "conversational agent" but no deliverable or success criterion covers one. Confirm it is out of scope for this POC.
 3. **Cost and latency target per ranking.** The customer has not given one. The document asks for the acceptable wait time.
 4. **Differences from the SOW architecture diagram.** Profiles stay in Supabase instead of DynamoDB, ranked results use S3 and DynamoDB instead of ElastiCache, and CloudFront, Cognito and Amplify are not included. Each is documented with its reason in the technical assessment. Agree with the project manager how to tell the customer.
-5. **Vector database.** OpenSearch Serverless needs a short test: filtering by a list of ids, accuracy under the default compression, creation from the CLI and its real cost.
-6. **Quota and access.** An administrator of the customer account must submit the Anthropic use case form and request the Bedrock quota increases. Lead time unknown, so this is the critical path.
+5. **Vector database.** OpenSearch Serverless is chosen. It still needs a short build check: filtering by a list of ids, accuracy under the default compression, creation from the CLI and its real cost.
+6. **Quota and access.** Not blocking any more, because Luna, Sol and Titan are usable. Claude Haiku 5.5 and Sonnet 5.5 stay blocked until the quota requests are granted and the Anthropic use case form is decided. Lead time unknown.
 7. **Region.** us-east-1 with the US inference profile. The customer should know requests can be processed in us-east-1, us-east-2 or us-west-2.
-8. **Term.** The SOW runs 30 days from kickoff (roughly until November 18). More time needs a signed written amendment.
+8. **Term.** The SOW runs 30 days from kickoff (roughly until November 18, not verified). More time needs a signed written amendment. Ask the project manager how the term is counted and whether the plan below fits.
+9. **Expertise.** The customer proposed reading expertise as free text and dropping its filter and priority. Whether expertise counts twice (as a tag and as text) is open.
+10. **Priority suggestions.** The customer agreed the AI may suggest Important and Must have priorities if they are shown before the run. This changes an "ask first" rule, so it is recorded here only after the written confirmation and then in `loop8/CLAUDE.md`.
+11. **Scope of the model change.** Seniority, work arrangement and employers stay as they are, outside Fit.
 
 ## Team
 

@@ -6,7 +6,7 @@
 | Phase | P1 |
 | Task | SOW deliverable 1, technical assessment report |
 | Owner | Guillermo Sandoval |
-| Date | 2026-11-09 |
+| Date | 2026-11-09, notes 2026-11-16 |
 | Sources | Code on `loop8-develop`, AWS Price List API, read-only checks of the customer AWS account, SOW |
 
 SOW deliverable 1, Phase 1. **Status: draft in progress.**
@@ -162,11 +162,11 @@ The full design, with diagrams, failure handling, limits and risks, is in `loop8
 | Front door | API Gateway HTTP API, two routes | Requests are short because work is asynchronous |
 | Work | Lambda api, SQS with a dead-letter queue, Lambda worker | Caps concurrent jobs, redelivers after a crash, no request held open |
 | State and results | DynamoDB (job state, idempotency, TTL 7 days), S3 (inputs and results) | Temporary data that expires by itself, results too large for a synchronous response |
-| Models | Bedrock, US inference profiles: Claude Sonnet 5.5, Claude Haiku 5.5, Titan Text Embeddings V2 | The 5.5 models are reachable only through inference profiles |
-| Vector search | OpenSearch Serverless, after a short test. Fallback: pgvector with exact search in Supabase | It is the vector database in the SOW diagram and keeps search load off the app's database |
+| Models | Bedrock, US inference profiles. The models are settings by role (text, Fit, embeddings). Titan Text Embeddings V2 is in use. GPT-6 Luna (Fit) and GPT-6 Sol (extraction and summaries) are the working choice while the quota for Claude Haiku 5.5 and Sonnet 5.5 is 0. The cost figures in section 4 use Claude prices and are a reference only | The Claude 5.5 models are reachable only through inference profiles, and the customer approved the working choice on 2026-11-13 |
+| Vector search | OpenSearch Serverless (chosen 2026-11-13), after a short build check | It is the vector database in the SOW diagram and it keeps search load off the app's database |
 | Profiles | Supabase (existing), read through the shared pooler in transaction mode | The profiles already live there |
 
-Open decisions: the customer's wait time and cost expectations, approval to enable the AI models, and the result of the OpenSearch test.
+Open decisions: the result of the OpenSearch build check and the unblocking of the Claude models. The customer gave the wait time target (10 to 30 seconds) and approved the working model choice on 2026-11-12 and 2026-11-13.
 
 ## 6. Differences from the SOW architecture diagram
 
@@ -184,5 +184,5 @@ The signed SOW diagram shows API Gateway, Lambda, Amazon Bedrock with Titan embe
 1. Run `npm run baseline` against a Supabase copy with the demo data and record the placeholder numbers.
 2. With an administrator of the customer account: submit the Anthropic use case form and request the Bedrock quota increases.
 3. Measure real profile token sizes and prototype Fit on a handful of profiles to measure output tokens, latency and cost.
-4. Run the OpenSearch test and decide between it and the pgvector fallback.
+4. Run the short OpenSearch build check (filtering by a list of ids, accuracy, creation from the CLI, real cost).
 5. Replace section 4 with measured numbers.
