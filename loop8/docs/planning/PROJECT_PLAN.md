@@ -33,7 +33,7 @@ Success, per SOW section 5:
 3. Each result has a plain-language narrative explaining its rank.
 
 And per the brief: the engine must clearly beat the placeholder on vocabulary-mismatch test cases,
-at a known and affordable cost per ranking across about 3,000 profiles.
+at a known and affordable cost per ranking across about 3,000 profiles. On 2026-11-16 the customer added how success will be judged: show with an objective measure that the AI ranking is better than the manual one, not only different, and how much better, so the gain can be weighed against the AI cost.
 
 ## State as of 2026-11-16
 
@@ -46,6 +46,7 @@ at a known and affordable cost per ranking across about 3,000 profiles.
 | Engine contract | Defined: match-rework spec sections 4 and 6, `src/lib/matching/types.ts` |
 | Design | Documented in `loop8/docs/architecture/index.html` (asynchronous, Bedrock, OpenSearch Serverless, two stages, models as settings by role). The customer approved the plan on 2026-11-13 |
 | Customer document | "Flows and Costs" sent to the customer (`loop8/docs/client-proposal/`). Answered on 2026-11-12: four variants to test, summaries of 40 to 60 words, a target of 10 to 30 seconds, a cap of 10 rankings per account per month if time allows. Still open: the score breakdown |
+| Customer call 2026-11-16 | Phase 1 reported closed and Phase 2 started. The customer accepted Luna and Sol, asked for the most limited version first, and left the data model, weights and expertise until the first version exists. Dates: build this week with WhatsApp updates, show and test on 2026-11-23, a possible wrap-up call on 2026-12-02 or 03. The 2026-11-30 call is not settled. The baseline of P1 has not been run yet |
 | App build | `npm ci && npm run build` passes on `loop8-develop` |
 
 ## Working model
@@ -156,6 +157,7 @@ To build the proof of concept of the ranking engine behind `extractRequirements`
 2. Variants A to D each run end to end and report quality, time per ranking and cost per ranking, all marked as measured with where they came from.
 3. A ranking of a pasted job description returns in 10 to 30 seconds for the small model variants (the customer's target), and the failure paths (model error, duplicate request, expired job) behave as the design says.
 4. Results show the score breakdown and a summary, and a candidate's score does not depend on the rest of the pool.
+5. The same test cases are ranked manually and with the AI, and one measure shows whether the AI ranking is better and by how much, next to the measured cost per ranking.
 
 ### Remaining steps
 
@@ -163,7 +165,7 @@ To build the proof of concept of the ranking engine behind `extractRequirements`
 2. Update this plan and the runbook with the quota requests of 2026-11-12 (same day rule).
 3. Create the budget with an alert, with the amount chosen by the customer (needs approval).
 4. Build the job lifecycle skeleton in `loop8/engine/` with fake model calls, then test the failure paths locally.
-5. Connect Titan V2 and the Fit model, and measure variant A (small model only, 5 summaries).
+5. Connect Titan V2 and the Fit model, and measure variant A (small model only, 5 summaries), including the manual against AI comparison on the test cases. This is what is shown on 2026-11-23.
 6. Run the short OpenSearch build check (needs approval, creates resources and cost), then index the demo profiles by script.
 7. Add the text model calls for extraction and summaries, and measure variants B, C and D.
 8. Add the monthly counter per hiring manager if time allows.
@@ -186,10 +188,12 @@ To build the proof of concept of the ranking engine behind `extractRequirements`
 5. **Vector database.** OpenSearch Serverless is chosen. It still needs a short build check: filtering by a list of ids, accuracy under the default compression, creation from the CLI and its real cost.
 6. **Quota and access.** Not blocking, because Luna, Sol and Titan are the confirmed models. Claude Haiku 5.5 and Sonnet 5.5 stay blocked until the quota requests are granted and the Anthropic use case form is decided. They are optional for a later comparison.
 7. **Region.** us-east-1 with the US inference profile. The customer should know requests can be processed in us-east-1, us-east-2 or us-west-2.
-8. **Term.** The SOW runs 30 days from kickoff (roughly until November 18, not verified). More time needs a signed written amendment. Ask the project manager how the term is counted and whether the plan below fits.
+8. **Term.** The SOW runs 30 days from kickoff (roughly until November 18, not verified). More time needs a signed written amendment. The customer's dates on 2026-11-16 reach 2026-12-03, so ask the project manager how the term is counted and whether a written amendment is needed. This is the most urgent question.
 9. **Expertise.** The customer proposed reading expertise as free text and dropping its filter and priority. Whether expertise counts twice (as a tag and as text) is open.
 10. **Priority suggestions.** The customer agreed the AI may suggest Important and Must have priorities if they are shown before the run. This changes an "ask first" rule, so it is recorded here only after the written confirmation and then in `loop8/CLAUDE.md`.
 11. **Scope of the model change.** Seniority, work arrangement and employers stay as they are, outside Fit.
+12. **Quality measure.** The customer wants an objective measure of manual against AI ranking quality but did not define it. Proposal: rank the same test cases both ways and compare the position of the expected profiles, next to the measured cost. To be agreed with the customer.
+13. **Not discussed on 2026-11-16.** The monthly cap, the threshold, written confirmation of suggested priorities, expertise counted twice and the AWS budget amount. They keep their status above.
 
 ## Team
 
