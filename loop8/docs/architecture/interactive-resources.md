@@ -30,7 +30,7 @@ This catalog lists the interactive web resource produced alongside the ranking e
 | Page version | Date | What changed |
 |---|---|---|
 | 3 | 2026-11-09 | First published version. A design proposal before any code, with Claude Haiku 5.5 and Sonnet 5.5 as the recommended models and pgvector as the documented fallback |
-| 4 | 2026-11-13 | The models become settings by role. Added what the customer asked for on 2026-11-12. The AWS account status now includes the GPT-6 line. OpenSearch Serverless is the chosen vector database. The cost section is rebuilt around reference prices, because the prices of the models in use are not published. The architecture, pipeline and funnel diagrams are updated |
+| 4 | 2026-11-13 | The models become settings by role (confirmed on 2026-11-16 as Titan V2, GPT-6 Luna and GPT-6 Sol). Added what the customer asked for on 2026-11-12. The AWS account status now includes the GPT-6 line. OpenSearch Serverless is the chosen vector database. The cost section is rebuilt around reference prices, because the prices of the models in use are not published. The architecture, pipeline and funnel diagrams are updated |
 
 ## How to keep it in sync
 
