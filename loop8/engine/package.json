@@ -7,7 +7,8 @@
     "test": "node build-tests.mjs && node --test \".test-dist/**/*.test.mjs\"",
     "typecheck": "tsc --noEmit",
     "build": "node build.mjs",
-    "local": "esbuild scripts/run-local.ts --bundle --platform=node --format=esm --packages=external --outfile=.local-dist/run-local.mjs && node .local-dist/run-local.mjs"
+    "local": "esbuild scripts/run-local.ts --bundle --platform=node --format=esm --packages=external --outfile=.local-dist/run-local.mjs && node .local-dist/run-local.mjs",
+    "serve": "esbuild scripts/serve-local.ts --bundle --platform=node --format=esm --packages=external --outfile=.local-dist/serve-local.mjs && node .local-dist/serve-local.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.700.0",
