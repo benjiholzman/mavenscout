@@ -29,21 +29,23 @@ export async function processJob(jobId: string, attempt: number, deps: WorkerDep
     log('job_failed', { jobId, errorCode })
   }
 
-  const raw = await store.getObject(job.inputKey)
-  if (raw === null) {
-    await fail('input_missing')
-    return 'failed'
-  }
-  const request = JSON.parse(raw) as RankRequest
-  const rankJob: RankJob = { jobId, ...request }
-
-  const existing = await store.listCheckpoints(jobId)
-  const checkpointed = new Set(existing.map((r) => r.profile_id))
-  const fallbacks: Fallback[] = []
-
-  let outcome
+  let parsing = false
   try {
-    outcome = await runEngine(rankJob, engine, {
+    const raw = await store.getObject(job.inputKey)
+    if (raw === null) {
+      await fail('input_missing')
+      return 'failed'
+    }
+    parsing = true
+    const request = JSON.parse(raw) as RankRequest
+    parsing = false
+    const rankJob: RankJob = { jobId, ...request }
+
+    const existing = await store.listCheckpoints(jobId)
+    const checkpointed = new Set(existing.map((r) => r.profile_id))
+    const fallbacks: Fallback[] = []
+
+    const outcome = await runEngine(rankJob, engine, {
       settings: job.settings,
       existing,
       async saveCheckpoint(r: JdMatchResult) {
@@ -55,38 +57,48 @@ export async function processJob(jobId: string, attempt: number, deps: WorkerDep
         fallbacks.push(f)
       },
     })
-  } catch (e) {
-    if (attempt >= limits.maxAttempts) await fail('engine_error')
-    throw e
-  }
 
-  const resultKey = `results/${jobId}.json`
-  await store.putObject(
-    resultKey,
-    JSON.stringify({
-      jobId,
+    const resultKey = `results/${jobId}.json`
+    const finishedAt = deps.now()
+    const endToEndMs = finishedAt - job.createdAt
+    await store.putObject(
+      resultKey,
+      JSON.stringify({
+        jobId,
+        state: outcome.state,
+        settings: job.settings,
+        modelIds: engine.modelIds,
+        promptVersion: engine.promptVersion,
+        threshold: job.settings.threshold,
+        endToEndMs,
+        results: outcome.results,
+        fallbacks: outcome.fallbacks,
+      }),
+    )
+    await store.setProgress(jobId, outcome.results.length)
+    await store.finishJob(jobId, {
       state: outcome.state,
-      settings: job.settings,
+      finishedAt,
+      resultKey,
+      record: outcome.record,
+      fallbacks: outcome.fallbacks,
       modelIds: engine.modelIds,
       promptVersion: engine.promptVersion,
-      threshold: job.settings.threshold,
-      results: outcome.results,
-      fallbacks: outcome.fallbacks,
-    }),
-  )
-  await store.setProgress(jobId, outcome.results.length)
-  const finishedAt = deps.now()
-  const endToEndMs = finishedAt - job.createdAt
-  await store.finishJob(jobId, {
-    state: outcome.state,
-    finishedAt,
-    resultKey,
-    record: outcome.record,
-    fallbacks: outcome.fallbacks,
-    modelIds: engine.modelIds,
-    promptVersion: engine.promptVersion,
-    endToEndMs,
-  })
-  log('job_finished', { jobId, state: outcome.state, endToEndMs, fallbackCount: outcome.fallbacks.length })
-  return 'done'
+      endToEndMs,
+    })
+    log('job_finished', { jobId, state: outcome.state, endToEndMs, fallbackCount: outcome.fallbacks.length })
+    return 'done'
+  } catch (e) {
+    if (attempt >= limits.maxAttempts) {
+      try {
+        await fail(parsing ? 'input_invalid' : 'engine_error')
+      } catch (failError) {
+        log('job_fail_write_failed', {
+          jobId,
+          message: failError instanceof Error ? failError.message : String(failError),
+        })
+      }
+    }
+    throw e
+  }
 }

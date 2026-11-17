@@ -73,6 +73,7 @@ test('normal run writes result file and finishes DONE', async () => {
   assert.equal(out.promptVersion, 'stub-1')
   assert.deepEqual(out.modelIds, { fit: 'stub', text: 'stub' })
   assert.equal(out.threshold, j?.settings.threshold)
+  assert.equal(out.endToEndMs, 5000)
 })
 
 test('failureRate 1 finishes PARTIAL with one fallback per profile', async () => {
@@ -119,4 +120,58 @@ test('engine crash at maxAttempts finishes FAILED and throws', async () => {
   assert.equal(j?.state, 'FAILED')
   assert.equal(j?.errorCode, 'engine_error')
   assert.equal(j?.endToEndMs, 5000)
+})
+
+const LAST = DEFAULT_LIMITS.maxAttempts
+
+test('malformed input JSON at maxAttempts finishes FAILED input_invalid and throws', async () => {
+  const { store, deps } = await setup()
+  await store.putObject('inputs/j1.json', '{not json')
+  await assert.rejects(processJob('j1', LAST, deps), SyntaxError)
+  const j = await store.getJob('j1')
+  assert.equal(j?.state, 'FAILED')
+  assert.equal(j?.errorCode, 'input_invalid')
+})
+
+test('store getObject error at maxAttempts finishes FAILED engine_error and throws', async () => {
+  const { store, deps } = await setup()
+  const bad = { ...store, getObject: async () => { throw new Error('s3 down') } }
+  await assert.rejects(processJob('j1', LAST, { ...deps, store: bad }), /s3 down/)
+  const j = await store.getJob('j1')
+  assert.equal(j?.state, 'FAILED')
+  assert.equal(j?.errorCode, 'engine_error')
+})
+
+test('result putObject failure at maxAttempts finishes FAILED', async () => {
+  const { store, deps } = await setup()
+  const bad = {
+    ...store,
+    putObject: async (k: string, v: string) => {
+      if (k.startsWith('results/')) throw new Error('put failed')
+      return store.putObject(k, v)
+    },
+  }
+  await assert.rejects(processJob('j1', LAST, { ...deps, store: bad }), /put failed/)
+  assert.equal((await store.getJob('j1'))?.state, 'FAILED')
+})
+
+test('storage and input failures below maxAttempts leave RUNNING and throw', async () => {
+  const { store, deps } = await setup()
+  const bad = { ...store, getObject: async () => { throw new Error('s3 down') } }
+  await assert.rejects(processJob('j1', 1, { ...deps, store: bad }), /s3 down/)
+  assert.equal((await store.getJob('j1'))?.state, 'RUNNING')
+  const s2 = await setup()
+  await s2.store.putObject('inputs/j1.json', '{not json')
+  await assert.rejects(processJob('j1', 1, s2.deps), SyntaxError)
+  assert.equal((await s2.store.getJob('j1'))?.state, 'RUNNING')
+})
+
+test('when finishJob throws inside fail the original error propagates', async () => {
+  const { store, deps } = await setup()
+  const bad = {
+    ...store,
+    getObject: async () => { throw new Error('original') },
+    finishJob: async () => { throw new Error('ddb down') },
+  }
+  await assert.rejects(processJob('j1', LAST, { ...deps, store: bad }), /original/)
 })

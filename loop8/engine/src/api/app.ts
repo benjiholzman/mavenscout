@@ -73,6 +73,9 @@ async function createJob(req: ApiRequest, deps: ApiDeps): Promise<ApiResponse> {
   }
   const key = req.headers['idempotency-key']
   if (!key) return err(400, 'missing_idempotency_key', 'The idempotency-key header is required')
+  if (key.length > 128 || !/^[A-Za-z0-9._:-]+$/.test(key)) {
+    return err(400, 'invalid_idempotency_key', 'The idempotency-key header must be at most 128 characters of A-Z a-z 0-9 . _ : -')
+  }
 
   const existing = await store.findIdempotent(key)
   if (existing) return replay(existing, v.value, deps)

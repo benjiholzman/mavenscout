@@ -202,3 +202,14 @@ test('the idempotency header is matched case-insensitively', async () => {
   const r = await handleApi({ ...post(valid), headers: { 'Idempotency-Key': 'K' } }, deps)
   assert.equal(r.status, 202)
 })
+
+test('idempotency key that is too long or has odd characters gives 400', async () => {
+  const { deps } = setup()
+  for (const key of ['k'.repeat(129), 'has space', 'bad/key', 'café']) {
+    const r = await handleApi(post(valid, key), deps)
+    assert.equal(r.status, 400)
+    assert.equal((r.body as { error: string }).error, 'invalid_idempotency_key')
+  }
+  assert.equal((await handleApi(post(valid, 'a'.repeat(128)), deps)).status, 202)
+  assert.equal((await handleApi(post(valid, 'A-b_c.d:1'.replace('_', '.')), deps)).status, 202)
+})
