@@ -67,7 +67,6 @@ These come from the model decision of 2026-11-14 and the architecture blueprint.
 | `SOL_PROFILE` | B3 smoke test | Read from Part A3 | TBD |
 | OpenSearch collection type (newer or classic) | Part C | Build check result | TBD |
 | `APP_ORIGIN` | D1 S3 CORS and D7 API CORS | Project lead | TBD |
-| Lambda runtime and code package | D5 | Walking skeleton plan | TBD |
 | API throttle rate and burst | D7 | Walking skeleton plan | TBD |
 
 ---
@@ -307,6 +306,8 @@ aws dynamodb update-time-to-live --region $AWS_REGION --table-name mavenscout-de
 
 The dead-letter queue first, then the jobs queue that redrives into it after 5 receives. An alarm emails as soon as anything lands in the dead-letter queue.
 
+Three timings must stay in this order: the worker Lambda timeout (180 seconds, set in D5) is shorter than the job lease (`leaseMs`, 200 seconds, in `loop8/engine/src/shared/limits.ts`), which is shorter than the SQS visibility timeout (1080 seconds, set below). If the lease is shorter than the Lambda timeout, a second worker can take over a job that is still running. If the visibility timeout is shorter than the lease, the message comes back before the lease can expire. Change one of them only together with the others.
+
 ```bash
 aws sqs create-queue --region $AWS_REGION --queue-name mavenscout-dev-jobs-dlq \
   --attributes MessageRetentionPeriod=1209600 --tags "$TAGS_MAP_JSON"
@@ -350,7 +351,7 @@ aws iam create-role --role-name mavenscout-dev-api-role \
 aws iam put-role-policy --role-name mavenscout-dev-api-role --policy-name mavenscout-dev-api \
   --policy-document '{"Version":"2012-10-17","Statement":['"$LOGS_STMT"',
     {"Effect":"Allow","Action":["s3:PutObject","s3:GetObject"],"Resource":"arn:aws:s3:::'$BUCKET'/*"},
-    {"Effect":"Allow","Action":["dynamodb:GetItem","dynamodb:PutItem","dynamodb:UpdateItem","dynamodb:Query"],"Resource":"'$TABLE_ARN'"},
+    {"Effect":"Allow","Action":["dynamodb:GetItem","dynamodb:PutItem","dynamodb:UpdateItem"],"Resource":"'$TABLE_ARN'"},
     {"Effect":"Allow","Action":"sqs:SendMessage","Resource":"'$QUEUE_ARN'"}]}'
 
 # worker role: queue consumer, job table, S3, Supabase secret, the three models, the vector collection.
@@ -361,6 +362,7 @@ aws iam put-role-policy --role-name mavenscout-dev-worker-role --policy-name mav
     {"Effect":"Allow","Action":["sqs:ReceiveMessage","sqs:DeleteMessage","sqs:GetQueueAttributes","sqs:ChangeMessageVisibility"],"Resource":"'$QUEUE_ARN'"},
     {"Effect":"Allow","Action":["dynamodb:GetItem","dynamodb:PutItem","dynamodb:UpdateItem","dynamodb:Query"],"Resource":"'$TABLE_ARN'"},
     {"Effect":"Allow","Action":["s3:PutObject","s3:GetObject"],"Resource":"arn:aws:s3:::'$BUCKET'/*"},
+    {"Effect":"Allow","Action":"s3:ListBucket","Resource":"arn:aws:s3:::'$BUCKET'"},
     {"Effect":"Allow","Action":"secretsmanager:GetSecretValue","Resource":"'$SECRET_ARN'"},
     {"Effect":"Allow","Action":"bedrock:InvokeModel","Resource":[
       "arn:aws:bedrock:'$AWS_REGION':'$ACCOUNT_ID':inference-profile/'$LUNA_PROFILE'",
@@ -370,13 +372,20 @@ aws iam put-role-policy --role-name mavenscout-dev-worker-role --policy-name mav
     {"Effect":"Allow","Action":"aoss:APIAccessAll","Resource":"arn:aws:aoss:'$AWS_REGION':'$ACCOUNT_ID':collection/*"}]}'
 ```
 
+The worker role has `s3:ListBucket` so that a missing input object comes back as NoSuchKey, which the worker turns into the `input_missing` failure; without it S3 answers AccessDenied for a missing key. The api role does not need it.
+
 Two follow-ups for the worker, done when they apply. If the vector database stays OpenSearch, add the worker role ARN to the `Principal` list of the C3 data access policy with `aws opensearchserverless update-access-policy`. The `openai.gpt-6-*` model pattern covers the foundation models behind both profiles in every Region the profiles route to (A8); narrow it to the exact model ids once A8 is recorded.
 
 ### D5. Log groups and the two Lambdas
 
-Log groups are created first so they carry the tags and a retention period. The code packages come from the walking skeleton build; the runtime and worker memory are set by that plan.
+Log groups are created first so they carry the tags and a retention period. The code packages come from the walking skeleton build in `loop8/engine`; worker memory is set by that plan.
 
 ```bash
+RUNTIME=nodejs22.x
+API_HANDLER=index.handler
+WORKER_HANDLER=index.handler
+npm --prefix loop8/engine ci && npm --prefix loop8/engine run build
+
 for fn in api worker; do
   aws logs create-log-group --region $AWS_REGION \
     --log-group-name /aws/lambda/mavenscout-dev-$fn --tags "$TAGS_MAP_JSON"
@@ -384,18 +393,20 @@ for fn in api worker; do
     --log-group-name /aws/lambda/mavenscout-dev-$fn --retention-in-days 14
 done
 
-ENV_JSON='{"Variables":{"JOBS_TABLE":"mavenscout-dev-jobs","JOBS_BUCKET":"'$BUCKET'","JOBS_QUEUE_URL":"'$QUEUE_URL'","SUPABASE_SECRET_ID":"mavenscout-dev/supabase","FIT_MODEL":"'$LUNA_PROFILE'","TEXT_MODEL":"'$SOL_PROFILE'","EMBED_MODEL":"'$EMBED_MODEL'"}}'
+ENV_JSON='{"Variables":{"JOBS_TABLE":"mavenscout-dev-jobs","JOBS_BUCKET":"'$BUCKET'","JOBS_QUEUE_URL":"'$QUEUE_URL'","SUPABASE_SECRET_ID":"mavenscout-dev/supabase","ENGINE_VARIANT":"A","FIT_MODEL":"'$LUNA_PROFILE'","TEXT_MODEL":"'$LUNA_PROFILE'","EMBED_MODEL":"'$EMBED_MODEL'"}}'
 
 aws lambda create-function --region $AWS_REGION --function-name mavenscout-dev-api \
-  --runtime $RUNTIME --handler $API_HANDLER --zip-file fileb://api.zip \
+  --runtime $RUNTIME --handler $API_HANDLER --zip-file fileb://loop8/engine/dist/api.zip \
   --role arn:aws:iam::$ACCOUNT_ID:role/mavenscout-dev-api-role \
   --timeout 10 --environment "$ENV_JSON" --tags "$TAGS_MAP_JSON"
 
 aws lambda create-function --region $AWS_REGION --function-name mavenscout-dev-worker \
-  --runtime $RUNTIME --handler $WORKER_HANDLER --zip-file fileb://worker.zip \
+  --runtime $RUNTIME --handler $WORKER_HANDLER --zip-file fileb://loop8/engine/dist/worker.zip \
   --role arn:aws:iam::$ACCOUNT_ID:role/mavenscout-dev-worker-role \
   --timeout 180 --memory-size ${WORKER_MEMORY_MB:-1024} --environment "$ENV_JSON" --tags "$TAGS_MAP_JSON"
 ```
+
+This sets variant A, the first variant to measure: Luna for everything, 5 summaries. Other variants change `ENGINE_VARIANT`, `TEXT_MODEL` and `SUMMARY_COUNT` together.
 
 ### D6. Connect the queue to the worker
 

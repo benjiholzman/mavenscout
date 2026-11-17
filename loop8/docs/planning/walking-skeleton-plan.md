@@ -128,6 +128,7 @@ Every log line is JSON and carries the job id; profile text is never logged. Eac
 | Continuation when the worker runs short of time | At a 30 second target, a job that needs it has already missed the target. Checkpoints and redelivery still cover crashes |
 | Monthly cap, 3 minute message, progress callback, summaries route | Need agreement or are built only if time allows. The manager id is reserved in the request |
 | `extractRequirements` through the engine | Blueprint step 8 |
+| Candidates that fall back in a PARTIAL job | They are listed only in the result's fallbacks and do not appear in the ranking the app shows. Showing them flagged depends on the labeled fallback decision, which needs the customer's agreement first |
 
 ## 4. Our calls
 
