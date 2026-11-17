@@ -1,3 +1,4 @@
+import { TerminalError } from '../core/errors'
 import { runEngine } from '../core/run'
 import type { Engine, Fallback, JdMatchResult, RankJob } from '../core/types'
 import type { Limits } from '../shared/limits'
@@ -89,6 +90,18 @@ export async function processJob(jobId: string, attempt: number, deps: WorkerDep
     log('job_finished', { jobId, state: outcome.state, endToEndMs, fallbackCount: outcome.fallbacks.length })
     return 'done'
   } catch (e) {
+    if (e instanceof TerminalError) {
+      try {
+        await fail(e.code)
+      } catch (failError) {
+        log('job_fail_write_failed', {
+          jobId,
+          message: failError instanceof Error ? failError.message : String(failError),
+        })
+        throw e
+      }
+      return 'failed'
+    }
     if (attempt >= limits.maxAttempts) {
       try {
         await fail(parsing ? 'input_invalid' : 'engine_error')

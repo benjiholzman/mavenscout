@@ -15,3 +15,9 @@ test('a bad number throws', () => {
   assert.throws(() => loadSettings({ PARALLEL_CALLS: '-1' }), /Invalid setting PARALLEL_CALLS/)
   assert.throws(() => loadSettings({ SUMMARY_COUNT: '2.5' }), /Invalid setting SUMMARY_COUNT/)
 })
+test('THRESHOLD must be between 0 and 1', () => {
+  assert.throws(() => loadSettings({ THRESHOLD: '50' }), /Invalid setting THRESHOLD/)
+  assert.throws(() => loadSettings({ THRESHOLD: '1.5' }), /Invalid setting THRESHOLD/)
+  assert.equal(loadSettings({ THRESHOLD: '1' }).threshold, 1)
+  assert.equal(loadSettings({ THRESHOLD: '0' }).threshold, 0)
+})

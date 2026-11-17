@@ -1,4 +1,5 @@
 import type { Requirement } from '../core/types'
+import { JD_MAX_CHARS } from '../../../../src/lib/matching/config'
 import type { Limits } from './limits'
 
 export interface RankRequest {
@@ -6,6 +7,7 @@ export interface RankRequest {
   requirements: Requirement[]
   poolIds: string[]
   managerId?: string
+  jdText?: string
 }
 
 type Invalid = { ok: false; status: 400 | 413; error: string }
@@ -33,6 +35,9 @@ export function validateRankRequest(
   if (!Array.isArray(o.poolIds)) return invalid
   if (!o.poolIds.every((id) => typeof id === 'string' && id !== '')) return invalid
   if (o.managerId !== undefined && typeof o.managerId !== 'string') return invalid
+  if (o.jdText !== undefined) {
+    if (typeof o.jdText !== 'string' || o.jdText.trim() === '' || o.jdText.length > JD_MAX_CHARS) return invalid
+  }
   const poolIds = [...new Set(o.poolIds as string[])].sort()
   if (poolIds.length > limits.maxPoolIds) return invalid
   const value: RankRequest = {
@@ -41,5 +46,6 @@ export function validateRankRequest(
     poolIds,
   }
   if (o.managerId !== undefined) value.managerId = o.managerId as string
+  if (o.jdText !== undefined) value.jdText = o.jdText as string
   return { ok: true, value }
 }

@@ -21,6 +21,7 @@ export interface RankJob {
   requirements: Requirement[]
   poolIds: string[]
   managerId?: string
+  jdText?: string
 }
 
 export interface Usage {

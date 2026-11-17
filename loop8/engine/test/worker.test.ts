@@ -8,6 +8,7 @@ import { createStubEngine } from '../src/engine/stub'
 import { loadSettings } from '../src/core/settings'
 import { bandFor } from '../../../src/lib/matching/config'
 import type { Engine, JdMatchResult } from '../src/core/types'
+import { TerminalError } from '../src/core/errors'
 
 const T0 = 1_000_000
 const POOL = ['p1', 'p2', 'p3']
@@ -174,4 +175,16 @@ test('when finishJob throws inside fail the original error propagates', async ()
     finishJob: async () => { throw new Error('ddb down') },
   }
   await assert.rejects(processJob('j1', LAST, { ...deps, store: bad }), /original/)
+})
+
+test('a TerminalError fails the job at once and does not rethrow', async () => {
+  const engine: Engine = {
+    modelIds: { embed: 'x' }, promptVersion: 'none',
+    async rank() { throw new TerminalError('jd_text_required') },
+  }
+  const { store, deps } = await setup({ engine })
+  assert.equal(await processJob('j1', 1, deps), 'failed')
+  const j = await store.getJob('j1')
+  assert.equal(j?.state, 'FAILED')
+  assert.equal(j?.errorCode, 'jd_text_required')
 })

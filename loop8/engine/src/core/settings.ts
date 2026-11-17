@@ -12,7 +12,7 @@ function threshold(env: Record<string, string | undefined>): number | null {
   const raw = env.THRESHOLD
   if (raw === undefined || raw === '') return null
   const n = Number(raw)
-  if (!Number.isFinite(n) || n < 0) throw new Error('Invalid setting THRESHOLD')
+  if (!Number.isFinite(n) || n < 0 || n > 1) throw new Error('Invalid setting THRESHOLD')
   return n
 }
 

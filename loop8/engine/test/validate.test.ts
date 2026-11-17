@@ -16,6 +16,27 @@ test('valid request is accepted with sorted ids', () => {
   }
 })
 
+test('jdText is accepted and carried through', () => {
+  const r = validateRankRequest(body({ ...good, jdText: 'Evaluate health programs' }), L)
+  assert.ok(r.ok)
+  if (r.ok) assert.equal(r.value.jdText, 'Evaluate health programs')
+})
+
+test('jdText is absent from the result when not sent', () => {
+  const r = validateRankRequest(body(good), L)
+  assert.ok(r.ok)
+  if (r.ok) assert.equal('jdText' in r.value, false)
+})
+
+test('jdText must be a non-empty string of at most 15000 chars', () => {
+  for (const bad of ['', 5, null, ['x'], 'a'.repeat(15001)]) {
+    const r = validateRankRequest(body({ ...good, jdText: bad }), { ...L, maxBodyBytes: 100000 })
+    assert.deepEqual(r, { ok: false, status: 400, error: 'invalid_input' })
+  }
+  const ok = validateRankRequest(body({ ...good, jdText: 'a'.repeat(15000) }), { ...L, maxBodyBytes: 100000 })
+  assert.ok(ok.ok)
+})
+
 test('body over maxBodyBytes gives 413 body_too_large', () => {
   const r = validateRankRequest(body(good), { ...L, maxBodyBytes: 10 })
   assert.deepEqual(r, { ok: false, status: 413, error: 'body_too_large' })
@@ -58,4 +79,10 @@ test('duplicate ids are de-duplicated, not rejected, and count after de-duplicat
   const r = validateRankRequest(body({ ...good, poolIds: ['b', 'a', 'b', 'a', 'b'] }), lim)
   assert.ok(r.ok)
   if (r.ok) assert.deepEqual(r.value.poolIds, ['a', 'b'])
+})
+
+test('whitespace only jdText is invalid', () => {
+  const r = validateRankRequest(body({ ...good, jdText: '   \n ' }), L)
+  assert.ok(!r.ok)
+  if (!r.ok) assert.equal(r.error, 'invalid_input')
 })
