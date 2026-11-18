@@ -225,3 +225,11 @@ Then re-run B9: it must return no rows.
 | IAM OIDC provider for GitHub Actions | `token.actions.githubusercontent.com` | global | 2026-11-18, bootstrap stack | |
 | IAM role, read only plan role (pull requests and `loop8-develop`) | `mavenscout-gha-plan` | global | 2026-11-18, bootstrap stack | |
 | IAM role, apply role (pinned to `loop8-develop`) | `mavenscout-gha-apply` | global | 2026-11-18, bootstrap stack | |
+| Terraform state object | `poc/terraform.tfstate` in `mavenscout-poc-tfstate` | us-east-1 | 2026-11-18, first apply by the pipeline | |
+| SNS topic for budget and alarm messages, no subscription yet | `mavenscout-engine-alerts` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| SNS topic policy | `mavenscout-engine-alerts` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| Monthly budget, 350 USD, alerts at 50% and 80% of actual spend and 100% of the forecast | `mavenscout-engine-monthly` | global | 2026-11-18, Terraform apply by the pipeline | |
+| Budget action at 100% of actual spend, attaches the deny policy to the engineer roles | on `mavenscout-engine-monthly` | global | 2026-11-18, Terraform apply by the pipeline | |
+| IAM policy that denies model invocation | `mavenscout-engine-bedrock-deny` | global | 2026-11-18, Terraform apply by the pipeline | |
+| IAM role and inline policy for the budget action | `mavenscout-engine-budget-action` | global | 2026-11-18, Terraform apply by the pipeline | |
+| CloudWatch alarm on Titan V2 input tokens per hour (5,000,000) | `mavenscout-engine-tokens-amazon.titan-embed-text-v2-0` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
