@@ -69,10 +69,11 @@ repos:
         pass_filenames: false
 
       # The repository is public. A literal account ID in an ARN would publish it.
+      # 000000000000 is the placeholder account the offline tests use.
       - id: no-aws-account-ids
         name: No AWS account IDs in infrastructure files or workflows
         language: pygrep
-        entry: 'arn:aws[a-z-]*:[a-z0-9-]*:[a-z0-9-]*:[0-9]{12}:'
+        entry: 'arn:aws[a-z-]*:[a-z0-9-]*:[a-z0-9-]*:(?!000000000000:)[0-9]{12}:'
         files: ^(loop8/infra/|\.github/)
 
       # Writing rules of loop8/CLAUDE.md section 10: no em dashes or en dashes.
