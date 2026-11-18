@@ -31,11 +31,12 @@ export interface FragmentMetadata {
   expertiseTags: string[]
   careerLevel: string | null
   availability: unknown | null
-  /** The employer or project organization of this one fragment, when its
-   *  source entry has one (work history, portfolio, additional experience).
-   *  Kept here, never in the embedded text, so an employer name cannot score
-   *  in Fit (loop8/CLAUDE.md section 3.5; embedding contract point 2). The
-   *  query side strips org names from the job description for the same reason. */
+  /** The organization name tied to this one fragment, when its source entry
+   *  has one: the employer (work history, portfolio, additional experience),
+   *  the institution (education), or the issuing body (credential). Kept here,
+   *  never in the embedded text, so an organization name cannot score in Fit
+   *  (loop8/CLAUDE.md section 3.5; embedding contract point 2). The query side
+   *  strips org names from the job description for the same reason. */
   organization?: string | null
 }
 

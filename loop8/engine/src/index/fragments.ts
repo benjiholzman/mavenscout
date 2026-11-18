@@ -63,11 +63,16 @@ function withOrg(metadata: FragmentMetadata, organization: string | null | undef
 }
 
 function educationText(e: EducationEvidence): string {
-  return join([e.degreeOrCourse, e.institution])
+  // The institution is an organization name, so it is excluded from the embedded
+  // text and kept in metadata (contract point 2). Only the degree or course,
+  // which is the capability, is embedded.
+  return join([e.degreeOrCourse])
 }
 
 function credentialText(e: CredentialEvidence): string {
-  return join([e.name, e.issuingOrganization])
+  // The issuing organization is excluded from the embedded text and kept in
+  // metadata for the same reason. Only the credential name is embedded.
+  return join([e.name])
 }
 
 /** One fragment, or null when the text is empty (skip empty fragments). */
@@ -105,13 +110,13 @@ export function toFragments(source: FragmentSource): Fragment[] {
     out.push(make(profileId, 'work_history', keyFor(e.id, i), roleText(e), withOrg(metadata, e.organization))),
   )
   source.education.forEach((e, i) =>
-    out.push(make(profileId, 'education', keyFor(e.id, i), educationText(e), metadata)),
+    out.push(make(profileId, 'education', keyFor(e.id, i), educationText(e), withOrg(metadata, e.institution))),
   )
   source.additionalExperience.forEach((e, i) =>
     out.push(make(profileId, 'additional_experience', keyFor(e.id, i), roleText(e), withOrg(metadata, e.organization))),
   )
   source.credentials.forEach((e, i) =>
-    out.push(make(profileId, 'credential', keyFor(e.id, i), credentialText(e), metadata)),
+    out.push(make(profileId, 'credential', keyFor(e.id, i), credentialText(e), withOrg(metadata, e.issuingOrganization))),
   )
 
   const tags = source.expertiseTags.filter((t) => t.trim() !== '')

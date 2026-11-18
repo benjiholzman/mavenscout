@@ -31,16 +31,27 @@ const ALLOWED_TYPES: readonly FragmentType[] = [
   'expertise_tags',
 ]
 
-const employerTypes = new Set<FragmentType>(['portfolio', 'work_history', 'additional_experience'])
+// Every fragment type that carries an organization name: an employer (work
+// history, portfolio, additional experience), an institution (education), or an
+// issuing body (credential). All of them must keep that name in metadata, never
+// in the embedded text.
+const orgBearingTypes = new Set<FragmentType>([
+  'portfolio',
+  'work_history',
+  'additional_experience',
+  'education',
+  'credential',
+])
 
 /** A string that appears in no other field, so if it shows up in any fragment
  *  text the structured join must have embedded the organization. */
 const SENTINEL_ORG = 'Zzqx Sentinel Employer'
 
-/** Prove our own construction: the org is never in the embedded text, and each
- *  employer fragment keeps it in metadata. A synthetic input avoids the false
- *  positives a scan over real author prose would hit (short acronyms, bios that
- *  legitimately name employers). */
+/** Prove our own construction: the org name is never in the embedded text, and
+ *  each org-bearing fragment keeps it in metadata. This covers employers,
+ *  education institutions and credential issuers. A synthetic input avoids the
+ *  false positives a scan over real author prose would hit (short acronyms,
+ *  bios that legitimately name employers). */
 function assertSentinelOrgExcluded(): void {
   const base: FragmentMetadata = {
     location: null,
@@ -57,20 +68,20 @@ function assertSentinelOrgExcluded(): void {
       { id: 'p1', projectName: 'Alpha Platform', role: 'Lead Engineer', description: 'Shipped it', results: 'Adopted widely', organization: SENTINEL_ORG },
     ],
     workHistory: [{ id: 'w1', role: 'Senior Engineer', organization: SENTINEL_ORG, description: 'Built services' }],
-    education: [],
+    education: [{ id: 'e1', degreeOrCourse: 'MSc Data Science', institution: SENTINEL_ORG }],
     additionalExperience: [{ id: 'a1', role: 'Technical Advisor', organization: SENTINEL_ORG, description: 'Advised teams' }],
-    credentials: [],
+    credentials: [{ id: 'c1', name: 'PMP', issuingOrganization: SENTINEL_ORG }],
     expertiseTags: [],
     metadata: base,
   }
   const fragments = toFragments(source)
-  const employer = fragments.filter((f) => employerTypes.has(f.type))
-  assert.equal(employer.length, 3, 'sentinel source should yield three employer fragments')
+  const orgBearing = fragments.filter((f) => orgBearingTypes.has(f.type))
+  assert.equal(orgBearing.length, 5, 'sentinel source should yield five org-bearing fragments')
   for (const f of fragments) {
     assert.ok(!f.text.includes(SENTINEL_ORG), `sentinel org leaked into text of ${f.fragmentId}: ${f.text}`)
   }
-  for (const f of employer) {
-    assert.equal(f.metadata.organization, SENTINEL_ORG, `employer fragment ${f.fragmentId} lost its org in metadata`)
+  for (const f of orgBearing) {
+    assert.equal(f.metadata.organization, SENTINEL_ORG, `org-bearing fragment ${f.fragmentId} lost its org in metadata`)
   }
 }
 
