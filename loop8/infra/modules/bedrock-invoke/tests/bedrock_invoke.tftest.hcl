@@ -32,6 +32,10 @@ variables {
   model_ids   = ["model-a:0", "model-b:0"]
 
   trusted_role_names = ["Loop8-ReadOnly"]
+
+  profile_model_ids = ["model-c", "model-d"]
+  profile_prefix    = "us"
+  profile_regions   = ["us-east-1", "us-east-2", "us-west-2"]
 }
 
 run "policy_uses_the_prefix" {
@@ -68,5 +72,38 @@ run "role_uses_the_prefix_and_carries_the_policy" {
   assert {
     condition     = aws_iam_role_policy_attachment.invoke.role == "mavenscout-engine-titan-invoke"
     error_message = "The policy must be attached to the invoke role"
+  }
+}
+
+run "profile_models_need_the_profile_and_every_region" {
+  command = plan
+
+  assert {
+    condition     = length(data.aws_iam_policy_document.invoke_profiles.statement[0].resources) == 8
+    error_message = "Two profile models need one profile arn and three foundation model arns each"
+  }
+
+  assert {
+    condition     = contains(data.aws_iam_policy_document.invoke_profiles.statement[0].resources, "arn:aws:bedrock:us-west-2::foundation-model/model-c")
+    error_message = "The foundation model must be allowed in every region of the profile"
+  }
+
+  assert {
+    condition     = contains(data.aws_iam_policy_document.invoke_profiles.statement[0].resources, "arn:aws:bedrock:us-east-1:mock-account:inference-profile/us.model-d")
+    error_message = "The inference profile arn must be allowed"
+  }
+}
+
+run "no_profile_models_means_no_profile_statement" {
+  command = plan
+
+  variables {
+    profile_model_ids = []
+    profile_regions   = []
+  }
+
+  assert {
+    condition     = length(data.aws_iam_policy_document.invoke_profiles.statement) == 0
+    error_message = "An empty statement would make the policy invalid"
   }
 }

@@ -17,3 +17,21 @@ variable "trusted_role_names" {
   description = "Names of the roles that may assume the invoke role"
   type        = list(string)
 }
+
+variable "profile_model_ids" {
+  description = "Foundation model ids called through a cross region inference profile"
+  type        = list(string)
+  default     = []
+}
+
+variable "profile_prefix" {
+  description = "Prefix of the inference profile ids, for example us"
+  type        = string
+  default     = "us"
+}
+
+variable "profile_regions" {
+  description = "Regions the inference profile routes to. The foundation model must be allowed in each"
+  type        = list(string)
+  default     = []
+}
