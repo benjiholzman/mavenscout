@@ -9,3 +9,11 @@ module "cost_guard" {
   engineer_role_names  = var.engineer_role_names
   bedrock_alarm_models = var.bedrock_alarm_models
 }
+
+module "bedrock_invoke" {
+  source = "./modules/bedrock-invoke"
+
+  name_prefix = "mavenscout-engine"
+  region      = var.aws_region
+  model_ids   = var.invoke_model_ids
+}

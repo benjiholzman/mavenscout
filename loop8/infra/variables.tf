@@ -31,3 +31,9 @@ variable "enable_opensearch" {
   type        = bool
   default     = false
 }
+
+variable "invoke_model_ids" {
+  description = "Foundation models that engineers may invoke. Titan V2 only. Luna and Sol are added with their token alarms"
+  type        = list(string)
+  default     = ["amazon.titan-embed-text-v2:0"]
+}
