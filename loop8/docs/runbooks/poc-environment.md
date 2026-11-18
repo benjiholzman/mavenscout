@@ -569,6 +569,15 @@ Then re-run the tagging check: it must return no rows. Quota increases and the M
 | IAM policy that allows `bedrock:InvokeModel` on Titan V2 (version 1), and from 2026-11-18 on Luna and Sol through the US inference profiles (version 2) | `mavenscout-engine-bedrock-invoke` | global | 2026-11-18, Terraform apply by the pipeline | Not attached to `Loop8-ReadOnly`, see B3c |
 | IAM role the engineers assume to call the models, trusts only `Loop8-ReadOnly` | `mavenscout-engine-titan-invoke` | global | 2026-11-18, Terraform apply by the pipeline | The budget deny also targets it |
 | CloudWatch alarms on Luna and Sol input tokens per hour (20,000,000 and 5,000,000, estimates), one for the profile id and one for the model id | `mavenscout-engine-tokens-us.openai.gpt-6-luna`, `...-openai.gpt-6-luna`, `...-us.openai.gpt-6-sol`, `...-openai.gpt-6-sol` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | The alarm whose dimension receives data is kept after the first calls |
+| S3 bucket for job inputs and results (private, encrypted, objects expire after 7 days) | `mavenscout-engine-jobs-<account id>` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| DynamoDB table for job state (on demand, TTL on `expires_at`) | `mavenscout-engine-jobs` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| SQS jobs queue (visibility timeout 1,080 s, 5 receives) and its dead letter queue | `mavenscout-engine-jobs`, `mavenscout-engine-jobs-dlq` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| CloudWatch alarm on the dead letter queue, notifies the alert topic | `mavenscout-engine-jobs-dlq-not-empty` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| IAM roles of the api and worker Lambdas, each with one inline policy. Neither has model access | `mavenscout-engine-api-role`, `mavenscout-engine-worker-role` | global | 2026-11-18, Terraform apply by the pipeline | |
+| CloudWatch log groups of the Lambdas, 14 days of retention | `/aws/lambda/mavenscout-engine-api`, `/aws/lambda/mavenscout-engine-worker` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| Lambda functions, Node 22, stub engine (api 10 s, worker 180 s and 1,024 MB) | `mavenscout-engine-api`, `mavenscout-engine-worker` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| Event source mapping from the jobs queue to the worker, one job per call, at most 2 at once | on `mavenscout-engine-worker` | us-east-1 | 2026-11-18, Terraform apply by the pipeline, second run | |
+| HTTP API with `POST /jobs` and `GET /jobs/{id}`, the `$default` stage with throttling (5 per second, burst 10) and the Lambda invoke permission | `mavenscout-engine-api` | us-east-1 | 2026-11-18, Terraform apply by the pipeline, second run | URL read with `aws apigatewayv2 get-apis`, not recorded here |
 
 ## Change log
 
@@ -579,3 +588,4 @@ Then re-run the tagging check: it must return no rows. Quota increases and the M
 | 2026-11-16 | Models changed to GPT-6 Luna, GPT-6 Sol and Titan V2 for v1 (model decision of 2026-11-14); findings of 2026-11-13 added; checks A8 and A9 added; Part C (OpenSearch test) and Part D (walking skeleton resources) written from the blueprint; resource names unified under `mavenscout-dev-`; teardown extended to every resource; aligned with blueprint v4 (OpenSearch chosen, 2 to 3 jobs at once, 1 GB worker, 5 minute presigned links, optional summaries route) |
 | 2026-11-18 | Project lead: bootstrap stack and first Terraform apply recorded in the inventory |
 | 2026-11-18 | Project lead: Titan role, Luna and Sol policy version 2, token alarms and alert subscription recorded in the inventory |
+| 2026-11-18 | Project lead: engine data and API resources recorded in the inventory, Part D replaced by Terraform |

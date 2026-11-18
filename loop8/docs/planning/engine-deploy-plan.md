@@ -65,3 +65,13 @@ The Lambda packages are made by Terraform from the esbuild output (`dist/api/ind
 | 3 | Smoke test with the sample job | Project lead machine | No (calls the public API with demo ids) | Criterion 2 |
 | 4 | Tell Krish the API URL for `VITE_ENGINE_URL` and update the runbook inventory | Project lead | No | Inventory rows, criterion 3 |
 | 5 | Connect Luna: Bedrock permission for the worker role, the secret header and its parameter, the 150% budget cut, and the engine code that calls the model | Project lead and Krish | Yes | Variant A measured |
+
+## 8. Build record
+
+| Date | Step | What was done and how it was checked |
+|---|---|---|
+| 2026-11-18 | 2, first apply | Pull request 40 merged. The plan showed 25 to add, 0 to change, 0 to destroy. The apply created 23 resources and failed on two: the event source mapping (`lambda:TagResource`) and the API stage (`apigateway:TagResource`), because the apply role lacked those actions. Terraform kept the partial state |
+| 2026-11-18 | 2, bootstrap fix | Issue 41 and pull request 42 added the five tagging actions to the apply role. A change set of the stack `mavenscout-bootstrap` showed one change, the inline policy of the apply role, with no replacement. It was executed (`UPDATE_COMPLETE`) and the policy was read back |
+| 2026-11-18 | 2, second apply | The merge of pull request 42 ran the apply again: 2 added, 0 changed, 0 destroyed |
+| 2026-11-18 | 3, smoke test | With the sample job, the first `POST /jobs` returned 202 and the same idempotency key returned the same job id. The job reached DONE in 1.4 seconds with 0 fallbacks. Every engine resource carries the funding tag (read with the tagging API and `iam list-role-tags`) and the dead letter queue alarm is in state OK |
+| 2026-11-18 | Finding | The pipeline logs of a public repository show the account ID, because the role ARNs are repository variables and GitHub masks only secrets. The plan comment replaces the ID since pull request 40. Moving the two ARNs to secrets and deleting the old runs is open |
