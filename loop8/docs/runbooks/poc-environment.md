@@ -557,13 +557,16 @@ Then re-run the tagging check: it must return no rows. Quota increases and the M
 | IAM role, read only plan role (pull requests and `loop8-develop`) | `mavenscout-gha-plan` | global | 2026-11-18, bootstrap stack | |
 | IAM role, apply role (pinned to `loop8-develop`) | `mavenscout-gha-apply` | global | 2026-11-18, bootstrap stack | |
 | Terraform state object | `poc/terraform.tfstate` in `mavenscout-poc-tfstate` | us-east-1 | 2026-11-18, first apply by the pipeline | |
-| SNS topic for budget and alarm messages, no subscription yet | `mavenscout-engine-alerts` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| SNS topic for budget and alarm messages | `mavenscout-engine-alerts` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | One email subscription added by hand on 2026-11-18 and confirmed (address not recorded here, the repository is public) |
 | SNS topic policy | `mavenscout-engine-alerts` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
 | Monthly budget, 350 USD, alerts at 50% and 80% of actual spend and 100% of the forecast | `mavenscout-engine-monthly` | global | 2026-11-18, Terraform apply by the pipeline | |
 | Budget action at 100% of actual spend, attaches the deny policy to the engineer roles | on `mavenscout-engine-monthly` | global | 2026-11-18, Terraform apply by the pipeline | |
 | IAM policy that denies model invocation | `mavenscout-engine-bedrock-deny` | global | 2026-11-18, Terraform apply by the pipeline | |
 | IAM role and inline policy for the budget action | `mavenscout-engine-budget-action` | global | 2026-11-18, Terraform apply by the pipeline | |
 | CloudWatch alarm on Titan V2 input tokens per hour (5,000,000) | `mavenscout-engine-tokens-amazon.titan-embed-text-v2-0` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| IAM policy that allows `bedrock:InvokeModel` on Titan V2 (version 1), and from 2026-11-18 on Luna and Sol through the US inference profiles (version 2) | `mavenscout-engine-bedrock-invoke` | global | 2026-11-18, Terraform apply by the pipeline | Not attached to `Loop8-ReadOnly`, see B3c |
+| IAM role the engineers assume to call the models, trusts only `Loop8-ReadOnly` | `mavenscout-engine-titan-invoke` | global | 2026-11-18, Terraform apply by the pipeline | The budget deny also targets it |
+| CloudWatch alarms on Luna and Sol input tokens per hour (20,000,000 and 5,000,000, estimates), one for the profile id and one for the model id | `mavenscout-engine-tokens-us.openai.gpt-6-luna`, `...-openai.gpt-6-luna`, `...-us.openai.gpt-6-sol`, `...-openai.gpt-6-sol` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | The alarm whose dimension receives data is kept after the first calls |
 
 ## Change log
 
@@ -573,3 +576,4 @@ Then re-run the tagging check: it must return no rows. Quota increases and the M
 | 2026-11-16 | Project lead: findings A8 to A10 added, Claude quota step marked optional |
 | 2026-11-16 | Models changed to GPT-6 Luna, GPT-6 Sol and Titan V2 for v1 (model decision of 2026-11-14); findings of 2026-11-13 added; checks A8 and A9 added; Part C (OpenSearch test) and Part D (walking skeleton resources) written from the blueprint; resource names unified under `mavenscout-dev-`; teardown extended to every resource; aligned with blueprint v4 (OpenSearch chosen, 2 to 3 jobs at once, 1 GB worker, 5 minute presigned links, optional summaries route) |
 | 2026-11-18 | Project lead: bootstrap stack and first Terraform apply recorded in the inventory |
+| 2026-11-18 | Project lead: Titan role, Luna and Sol policy version 2, token alarms and alert subscription recorded in the inventory |
