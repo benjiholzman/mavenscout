@@ -52,3 +52,10 @@ module "engine_api" {
   max_jobs_at_once = var.max_jobs_at_once
   worker_memory_mb = var.worker_memory_mb
 }
+
+module "engine_secrets" {
+  source = "./modules/engine-secrets"
+
+  name_prefix  = "mavenscout"
+  secret_names = ["supabase"]
+}

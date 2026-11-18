@@ -173,17 +173,19 @@ aws budgets create-budget --account-id $ACCOUNT_ID \
 
 ### B2. Secret for the Supabase connection
 
-Created empty. The worker and the profile indexer read profiles from Supabase Postgres through the shared pooler in transaction mode (port 6543), as the blueprint describes. The value is a JSON object with the key `SUPABASE_DB_URL`, added later by whoever holds it, from a local file that is deleted afterwards. It is never pasted into chat, tickets or this repo.
+Created empty by Terraform (module `engine-secrets`), named `mavenscout/supabase`. The apply role can only manage secrets that start with `mavenscout/`. The worker and the profile indexer read profiles from Supabase through the shared pooler in transaction mode (port 6543), as the blueprint describes. The value is one JSON object, for example `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_DB_URL`, added by whoever holds it. It is never pasted into chat, tickets or this repo, and never goes through Terraform, the plan or the state.
+
+The person who holds the values runs the script with the MavenScout session active. It shows the role and the last four digits of the account, asks for a typed yes, asks for each value with the typing hidden (empty skips a key), writes a temporary file only that user can read, uploads it and deletes it:
 
 ```bash
-aws secretsmanager create-secret --region $AWS_REGION \
-  --name mavenscout-dev/supabase \
-  --description "Supabase pooler connection for the MavenScout ranking engine POC" \
-  --tags "$TAGS_KV_JSON"
+loop8/infra/scripts/put-secret.sh mavenscout/supabase SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_DB_URL
+```
 
-# Later, by the key holder:
-# aws secretsmanager put-secret-value --region $AWS_REGION \
-#   --secret-id mavenscout-dev/supabase --secret-string file://supabase-secret.json
+Check without showing the value:
+
+```bash
+aws secretsmanager describe-secret --region $AWS_REGION --secret-id mavenscout/supabase \
+  --query '[Name,LastChangedDate]'
 ```
 
 ### B3. Bedrock smoke test
