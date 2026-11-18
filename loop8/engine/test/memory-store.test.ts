@@ -128,3 +128,24 @@ test('setProgress, objects and queue', async () => {
   assert.equal(TERMINAL.has('DONE'), true)
   assert.equal(TERMINAL.has('RUNNING'), false)
 })
+
+test('releaseLease frees the lease of its owner so the next delivery can acquire it at once', async () => {
+  const s = createMemoryStore()
+  await s.createJob(job('j1'))
+  assert.equal(await s.acquireLease('j1', 'w1', 10, 1000), true)
+  assert.equal(await s.releaseLease('j1', 'w2'), false)
+  assert.equal(await s.acquireLease('j1', 'w2', 20, 1000), false)
+  assert.equal(await s.releaseLease('j1', 'w1'), true)
+  assert.equal((await s.getJob('j1'))?.state, 'RUNNING')
+  assert.equal(await s.acquireLease('j1', 'w2', 20, 1000), true)
+})
+
+test('releaseLease does nothing for a terminal, queued or unknown job', async () => {
+  const s = createMemoryStore()
+  await s.createJob(job('j1'))
+  assert.equal(await s.releaseLease('j1', 'w1'), false)
+  await s.acquireLease('j1', 'w1', 10, 1000)
+  await s.finishJob('j1', { state: 'DONE', finishedAt: 11 })
+  assert.equal(await s.releaseLease('j1', 'w1'), false)
+  assert.equal(await s.releaseLease('nope', 'w1'), false)
+})

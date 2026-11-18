@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { gzipSync } from 'node:zlib'
-import { createAwsStore, createAwsQueue } from '../src/shared/aws-store'
+import { createAwsStore, createAwsQueue, createAwsRetry } from '../src/shared/aws-store'
 import type { JobItem } from '../src/shared/store'
 
 type Call = { name: string; input: Record<string, any> }
@@ -151,4 +151,24 @@ test('queue sends the bare job id', async () => {
   await createAwsQueue({ queueUrl: 'https://q', region: 'us-east-1' }, sqs as any).send('j1')
   assert.equal(sqs.calls[0].input.MessageBody, 'j1')
   assert.equal(sqs.calls[0].input.QueueUrl, 'https://q')
+})
+
+test('releaseLease is conditional on the owner and a running state', async () => {
+  const ok = fakeClient(() => ({}))
+  assert.equal(await mk(ok).releaseLease('j1', 'w1'), true)
+  const u = ok.calls[0]
+  assert.equal(u.name, 'UpdateCommand')
+  assert.match(u.input.ConditionExpression, /#leaseOwner = :owner/)
+  assert.match(u.input.ConditionExpression, /#state = :running/)
+  assert.equal(u.input.ExpressionAttributeValues[':owner'], 'w1')
+  assert.match(u.input.UpdateExpression, /#leaseUntil = :zero/)
+  assert.equal(u.input.ExpressionAttributeValues[':zero'], 0)
+  assert.equal(await mk(fakeClient(() => conflict())).releaseLease('j1', 'w1'), false)
+})
+
+test('createAwsRetry changes the visibility of the received message', async () => {
+  const sqs = fakeClient(() => ({}))
+  await createAwsRetry({ queueUrl: 'Q', region: 'us-east-1' }, sqs as any)('rh-1', 10)
+  assert.equal(sqs.calls[0].name, 'ChangeMessageVisibilityCommand')
+  assert.deepEqual(sqs.calls[0].input, { QueueUrl: 'Q', ReceiptHandle: 'rh-1', VisibilityTimeout: 10 })
 })

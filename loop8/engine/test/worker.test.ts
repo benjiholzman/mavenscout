@@ -6,7 +6,7 @@ import { DEFAULT_LIMITS } from '../src/shared/limits'
 import { createMemoryStore } from '../src/shared/memory-store'
 import { createStubEngine } from '../src/engine/stub'
 import { loadSettings } from '../src/core/settings'
-import { bandFor } from '../../../src/lib/matching/config'
+import { bandFor, JD_MAX_CHARS } from '../../../src/lib/matching/config'
 import type { Engine, JdMatchResult } from '../src/core/types'
 import { TerminalError } from '../src/core/errors'
 
@@ -187,4 +187,174 @@ test('a TerminalError fails the job at once and does not rethrow', async () => {
   const j = await store.getJob('j1')
   assert.equal(j?.state, 'FAILED')
   assert.equal(j?.errorCode, 'jd_text_required')
+})
+
+test('a caught retryable error releases the lease, asks for a quick retry and rethrows', async () => {
+  const { store, deps } = await setup({ engine: createStubEngine({ crash: true }) })
+  let retries = 0
+  await assert.rejects(processJob('j1', 1, { ...deps, retrySoon: async () => { retries++ } }), /stub crash/)
+  assert.equal(retries, 1)
+  const j = await store.getJob('j1')
+  assert.equal(j?.state, 'RUNNING')
+  assert.equal(await store.acquireLease('j1', 'w2', T0 + 6000, DEFAULT_LIMITS.leaseMs), true)
+})
+
+test('no quick retry at maxAttempts, the job fails instead', async () => {
+  const { store, deps } = await setup({ engine: createStubEngine({ crash: true }) })
+  let retries = 0
+  await assert.rejects(
+    processJob('j1', DEFAULT_LIMITS.maxAttempts, { ...deps, retrySoon: async () => { retries++ } }),
+    /stub crash/,
+  )
+  assert.equal(retries, 0)
+  assert.equal((await store.getJob('j1'))?.state, 'FAILED')
+})
+
+test('no quick retry when the lease cannot be released, so the message is not skipped and lost', async () => {
+  const { store, deps } = await setup({ engine: createStubEngine({ crash: true }) })
+  let retries = 0
+  const bad = { ...store, releaseLease: async () => { throw new Error('ddb down') } }
+  await assert.rejects(
+    processJob('j1', 1, { ...deps, store: bad, retrySoon: async () => { retries++ } }),
+    /stub crash/,
+  )
+  assert.equal(retries, 0)
+})
+
+test('a failing quick retry request still rethrows the original error', async () => {
+  const { deps } = await setup({ engine: createStubEngine({ crash: true }) })
+  await assert.rejects(
+    processJob('j1', 1, { ...deps, retrySoon: async () => { throw new Error('sqs down') } }),
+    /stub crash/,
+  )
+})
+
+test('a TerminalError does not ask for a quick retry', async () => {
+  const engine: Engine = {
+    modelIds: { embed: 'x' }, promptVersion: 'none',
+    async rank() { throw new TerminalError('jd_text_required') },
+  }
+  const { deps } = await setup({ engine })
+  let retries = 0
+  assert.equal(await processJob('j1', 1, { ...deps, retrySoon: async () => { retries++ } }), 'failed')
+  assert.equal(retries, 0)
+})
+
+async function withJdSetup(requestText?: string) {
+  const r = await setup()
+  await r.store.putObject(
+    'inputs/j1.json',
+    JSON.stringify({ jobDescriptionId: 'jd1', requirements: [], poolIds: POOL, jdText: requestText }),
+  )
+  return r
+}
+
+function spyEngine(seen: (string | undefined)[]): Engine {
+  return {
+    modelIds: { embed: 'x' }, promptVersion: 'none',
+    async rank(job, ctx) {
+      seen.push(job.jdText)
+      for (const id of job.poolIds) await ctx.fallback(id, 'not_indexed')
+    },
+  }
+}
+
+function captureLogs(): { lines: string[]; restore(): void } {
+  const lines: string[] = []
+  const prev = console.log
+  console.log = (l: string) => { lines.push(l) }
+  return { lines, restore: () => { console.log = prev } }
+}
+
+test('jobText fills a missing jdText and the engine sees it', async () => {
+  const seen: (string | undefined)[] = []
+  const { deps } = await withJdSetup()
+  const asked: string[] = []
+  await processJob('j1', 1, {
+    ...deps, engine: spyEngine(seen), jobText: async (id) => { asked.push(id); return 'Looked up text' },
+  })
+  assert.deepEqual(seen, ['Looked up text'])
+  assert.deepEqual(asked, ['jd1'])
+})
+
+test('a blank request jdText triggers the lookup', async () => {
+  const seen: (string | undefined)[] = []
+  const { deps } = await withJdSetup('   ')
+  await processJob('j1', 1, { ...deps, engine: spyEngine(seen), jobText: async () => 'Looked up text' })
+  assert.deepEqual(seen, ['Looked up text'])
+})
+
+test('a request jdText is kept and the lookup is not called', async () => {
+  const seen: (string | undefined)[] = []
+  const { deps } = await withJdSetup('From request')
+  let calls = 0
+  await processJob('j1', 1, { ...deps, engine: spyEngine(seen), jobText: async () => { calls++; return 'x' } })
+  assert.deepEqual(seen, ['From request'])
+  assert.equal(calls, 0)
+})
+
+test('a null or blank lookup leaves jdText unset', async () => {
+  for (const found of [null, '  ']) {
+    const seen: (string | undefined)[] = []
+    const { deps } = await withJdSetup()
+    await processJob('j1', 1, { ...deps, engine: spyEngine(seen), jobText: async () => found })
+    assert.deepEqual(seen, [undefined])
+  }
+})
+
+test('a lookup error below maxAttempts releases the lease and rethrows', async () => {
+  const { store, deps } = await withJdSetup()
+  let retries = 0
+  await assert.rejects(
+    processJob('j1', 1, {
+      ...deps, retrySoon: async () => { retries++ }, jobText: async () => { throw new Error('supabase down') },
+    }),
+    /supabase down/,
+  )
+  assert.equal(retries, 1)
+  assert.equal((await store.getJob('j1'))?.state, 'RUNNING')
+  assert.equal(await store.acquireLease('j1', 'w2', T0 + 5000, 200000), true)
+})
+
+test('a looked-up text over JD_MAX_CHARS fails the job as jd_text_too_long and does not rethrow', async () => {
+  const { store, deps } = await withJdSetup()
+  assert.equal(
+    await processJob('j1', 1, { ...deps, jobText: async () => 'x'.repeat(JD_MAX_CHARS + 1) }),
+    'failed',
+  )
+  const j = await store.getJob('j1')
+  assert.equal(j?.state, 'FAILED')
+  assert.equal(j?.errorCode, 'jd_text_too_long')
+})
+
+test('job_jd_resolved logs the source once and never the text', async () => {
+  const cases: [string | undefined, boolean, string][] = [
+    ['From request', true, 'request'],
+    [undefined, true, 'lookup'],
+    [undefined, false, 'none'],
+  ]
+  for (const [text, hasLookup, source] of cases) {
+    const { deps } = await withJdSetup(text)
+    const cap = captureLogs()
+    try {
+      await processJob('j1', 1, {
+        ...deps, engine: spyEngine([]), ...(hasLookup ? { jobText: async () => 'Secret looked up text' } : {}),
+      })
+    } finally { cap.restore() }
+    const events = cap.lines.map((l) => JSON.parse(l)).filter((l) => l.event === 'job_jd_resolved')
+    assert.equal(events.length, 1)
+    assert.equal(events[0].jdSource, source)
+    assert.equal(events[0].jobId, 'j1')
+    assert.ok(!cap.lines.join('\n').includes('Secret'))
+    assert.ok(!cap.lines.join('\n').includes('From request'))
+  }
+})
+
+test('job_jd_resolved is not logged when the lookup throws', async () => {
+  const { deps } = await withJdSetup()
+  const cap = captureLogs()
+  try {
+    await assert.rejects(processJob('j1', 1, { ...deps, jobText: async () => { throw new Error('boom') } }), /boom/)
+  } finally { cap.restore() }
+  assert.ok(!cap.lines.some((l) => l.includes('job_jd_resolved')))
 })

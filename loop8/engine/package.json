@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit",
     "build": "node build.mjs",
     "local": "esbuild scripts/run-local.ts --bundle --platform=node --format=esm --packages=external --outfile=.local-dist/run-local.mjs && node .local-dist/run-local.mjs",
+    "check-artifact": "esbuild scripts/check-artifact.ts --bundle --platform=node --format=esm --packages=external --outfile=.local-dist/check-artifact.mjs && node .local-dist/check-artifact.mjs",
     "serve": "esbuild scripts/serve-local.ts --bundle --platform=node --format=esm --packages=external --outfile=.local-dist/serve-local.mjs && node .local-dist/serve-local.mjs"
   },
   "dependencies": {
