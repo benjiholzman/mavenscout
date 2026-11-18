@@ -18,7 +18,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { DIMENSIONS, embedText, getEmbedStats, METRIC, MODEL_VERSION } from '../src/bedrock/titan'
+import { DIMENSIONS, embedText, getEmbedStats, METRIC, MODEL_VERSION, resetEmbedStats } from '../src/bedrock/titan'
 import { toFragments } from '../src/index/fragments'
 import { fromDemoSeed, type DemoProfile } from '../src/index/source'
 import type { EmbeddedFragment, Fragment, IndexArtifact } from '../src/index/types'
@@ -69,9 +69,12 @@ async function embedAll(
   let reused = 0
   let called = 0
   let next = 0
+  // Once one worker fails, the others stop pulling new work, so a failed run does
+  // not keep billing Titan calls while main() unwinds (customer-paid POC).
+  let aborted = false
 
   async function worker(): Promise<void> {
-    while (next < fragments.length) {
+    while (next < fragments.length && !aborted) {
       const i = next++
       const f = fragments[i]
       const cached = prior.get(f.textHash)
@@ -79,8 +82,14 @@ async function embedAll(
         reused++
         embedded[i] = { ...f, vector: cached }
       } else {
-        called++
-        embedded[i] = { ...f, vector: await embedText(f.text) }
+        try {
+          const vector = await embedText(f.text)
+          called++
+          embedded[i] = { ...f, vector }
+        } catch (err) {
+          aborted = true
+          throw err
+        }
       }
     }
   }
@@ -90,6 +99,7 @@ async function embedAll(
 }
 
 async function main(): Promise<void> {
+  resetEmbedStats()
   const profiles = await loadDemoProfiles()
   const fragments = profiles.flatMap((p) => toFragments(fromDemoSeed(p)))
   console.log(`Loaded ${profiles.length} demo profiles, ${fragments.length} fragments.`)

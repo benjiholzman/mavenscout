@@ -101,7 +101,7 @@ function run(profiles: DemoProfile[]): void {
     assert.deepEqual(
       fragments.map((f) => [f.fragmentId, f.textHash]),
       again.map((f) => [f.fragmentId, f.textHash]),
-      `fragmentation not deterministic for ${demo.id}`,
+      `fragmentation not deterministic for ${demoKey(demo)}`,
     )
 
     const ids = new Set<string>()

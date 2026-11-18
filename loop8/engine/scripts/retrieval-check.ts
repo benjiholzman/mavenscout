@@ -15,7 +15,7 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { embedText } from '../src/bedrock/titan'
+import { embedText, MODEL_VERSION } from '../src/bedrock/titan'
 import { demoHandle, demoKey, type DemoProfile } from '../src/index/source'
 import type { IndexArtifact } from '../src/index/types'
 
@@ -53,6 +53,13 @@ async function main(): Promise<void> {
     throw new Error(`no artifact at ${ARTIFACT}; run build.ts first`)
   }
   const artifact = JSON.parse(readFileSync(ARTIFACT, 'utf8')) as IndexArtifact
+  // The query must embed in the same space as the index, or cosine scores are
+  // meaningless. Fail loudly rather than print a confident but wrong hit rate.
+  if (artifact.modelVersion !== MODEL_VERSION) {
+    throw new Error(
+      `model mismatch: artifact ${artifact.modelVersion} but query embeds with ${MODEL_VERSION}`,
+    )
+  }
   const byId = await handlesById()
   const { tors } = JSON.parse(readFileSync(join(SAMPLES, 'expectations.json'), 'utf8')) as { tors: Tor[] }
 

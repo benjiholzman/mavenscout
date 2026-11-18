@@ -5,9 +5,9 @@
 // two embed into the same space and cosine scores are comparable. Do not add a
 // second embedding path.
 //
-// To run this (and build.ts) two prerequisites are needed, both gated:
-//   1. npm i @aws-sdk/client-bedrock-runtime  (edits the root package.json, so
-//      it carries the reason from issue #20).
+// To run this (and build-index.ts) two prerequisites are needed, both gated:
+//   1. @aws-sdk/client-bedrock-runtime is a dependency of the engine package
+//      (loop8/engine/package.json), where the bundled scripts resolve it from.
 //   2. AWS Bedrock access to invoke Titan in the customer account (us-east-1),
 //      with the APN tag on anything created. Read-only access cannot invoke;
 //      confirm InvokeModel is allowed before a real run.
@@ -43,9 +43,16 @@ let embedInputTokens = 0
 
 /** Successful embedText calls and the total input tokens Titan billed for them,
  *  for a measured one-time indexing cost. Retries do not count until they
- *  succeed. */
+ *  succeed. Counters are process-global, so a caller that wants the cost of one
+ *  phase resets them first with resetEmbedStats. */
 export function getEmbedStats(): { calls: number; inputTokens: number } {
   return { calls: embedCalls, inputTokens: embedInputTokens }
+}
+
+/** Zero the usage counters, so a following run measures only its own calls. */
+export function resetEmbedStats(): void {
+  embedCalls = 0
+  embedInputTokens = 0
 }
 
 /** True for throttling and transient server errors worth retrying. */
@@ -101,5 +108,7 @@ export async function embedText(text: string): Promise<number[]> {
       throw err
     }
   }
+  // Unreachable: the final attempt always throws above. Kept so the function
+  // type-checks as always returning or throwing.
   throw lastErr
 }
