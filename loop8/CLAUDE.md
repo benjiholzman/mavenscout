@@ -72,13 +72,13 @@ There is no test runner, linter or CI in this repository. Do not claim tooling e
 
 ## 9. AWS rules
 
-1. SOW section 9: the customer receives no Infrastructure as Code and no CI/CD. Do not add `terraform/`, CloudFormation, CDK or `.github/workflows/` to this repository.
-2. The temporary POC environment in the customer's AWS account (SOW section 13, decommissioned 30 days after the demo) is created with the AWS CLI and recorded in `loop8/docs/runbooks/poc-environment.md`. Update the runbook the same day a resource is created.
+1. The SOW does not list Infrastructure as Code or CI/CD as deliverables. For the POC the team uses Terraform and a simple GitHub Actions pipeline (decided on 2026-11-17, see `loop8/docs/planning/poc-start-plan.md`). Terraform lives in `loop8/infra/` and workflows in `.github/workflows/`, which is outside `loop8/`, so the issue states the reason. The only CloudFormation allowed is the one bootstrap template in `loop8/infra/bootstrap/`, which creates what Terraform needs to start. Do not add CDK. Pre-commit checks run from `loop8/.pre-commit-config.yaml`. Nothing in these files may contain an account ID, a secret or a role ARN, because the repository is public.
+2. The temporary POC environment in the customer's AWS account (SOW section 13, decommissioned 30 days after the demo) is created by the pipeline from the Terraform, after a one time bootstrap with the AWS CLI, and recorded in `loop8/docs/runbooks/poc-environment.md`. Update the runbook the same day a resource is created. The trust policies use the immutable GitHub subject of this repository, and the apply role is pinned to the `loop8-develop` branch.
 3. The customer pays the AWS cost of the POC (SOW section 13.3), so every cost figure we give is a number the customer reads and decides on.
-4. Every AWS resource carries this tag. It is the AWS Partner Central funding attribution. Do not change or drop it.
+4. Every AWS resource carries this tag. It is the AWS Partner Central funding attribution, with the Loop8 key and the value of the AI/ML listing (confirmed by the project lead on 2026-11-18). Do not change or drop it.
 
    ```text
-   aws-apn-id = pc:8m1j53s4l98quhnwq6wgbhf0l
+   aws-apn-id-916873233657 = pc:8m1j53s4l98quhnwq6wgbhf0l
    ```
 
 5. Ask the user to authenticate when credentials expire. Never guess a profile or account.
