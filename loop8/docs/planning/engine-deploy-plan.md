@@ -66,7 +66,11 @@ The Lambda packages are made by Terraform from the esbuild output (`dist/api/ind
 | 4 | Tell Krish the API URL for `VITE_ENGINE_URL` and update the runbook inventory | Project lead | No | Inventory rows, criterion 3 |
 | 5 | Connect Luna: Bedrock permission for the worker role, the secret header and its parameter, the 150% budget cut, and the engine code that calls the model | Project lead and Krish | Yes | Variant A measured |
 
-## 8. Build record
+## 8. Secret containers (added on 2026-11-18)
+
+The customer is sending the Supabase values. Terraform creates the empty secret `mavenscout/supabase` (module `engine-secrets`). The holder adds the value with `loop8/infra/scripts/put-secret.sh`, which asks for it hidden, uses a private temporary file and deletes it. No value goes through chat, the repository, the plan or the state. Cost is about $0.40 per secret per month (public price, estimate). The secret for the API header is added in the same way in the change that connects Luna. Acceptance: the plan shows one secret to add, and after the upload `describe-secret` shows a recent `LastChangedDate`.
+
+## 9. Build record
 
 | Date | Step | What was done and how it was checked |
 |---|---|---|
