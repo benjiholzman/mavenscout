@@ -183,6 +183,19 @@ model is chosen.
 
 The applied tokens per minute quota for Claude Haiku 5.5 and Claude Sonnet 5.5 is 0, so no call can succeed until it is raised. This needs an administrator and the customer's approval, and the lead time is unknown. The Claude models are no longer in the plan (Titan V2, GPT-6 Luna and GPT-6 Sol are confirmed), so this is optional and only needed for a later comparison. Use the Service Quotas console or `aws service-quotas request-service-quota-increase` with the quota codes found in Part A6, and record each request id in the inventory.
 
+### B3c. Titan invoke access for the engineers
+
+The pipeline creates the policy `mavenscout-engine-bedrock-invoke` (`bedrock:InvokeModel` on Titan V2 only). The apply role may not attach policies to roles that belong to people, so the project lead attaches it once, after the pipeline has applied it:
+
+```bash
+aws iam attach-role-policy --role-name Loop8-ReadOnly \
+  --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/mavenscout-engine-bedrock-invoke
+```
+
+Check with `aws iam list-attached-role-policies --role-name Loop8-ReadOnly`. The engineer then runs the Titan check in the `invoke-model` call of B3 with `$EMBED_MODEL_ID` set to `amazon.titan-embed-text-v2:0`. The budget deny policy also targets this role, so the 100% budget cut removes this access too.
+
+Luna and Sol are added in a separate change, with a token alarm per model.
+
 ### Later, after the Phase 1 architecture decision
 
 Engine Lambda and its IAM role, the API in front of it, its log group (created up front so it can
@@ -207,6 +220,8 @@ Every row must show the APN value. Budgets are global: check them with
 Run in reverse order of creation. Admin only.
 
 ```bash
+aws iam detach-role-policy --role-name Loop8-ReadOnly \
+  --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/mavenscout-engine-bedrock-invoke
 aws secretsmanager delete-secret --region $AWS_REGION \
   --secret-id mavenscout/dev/supabase --recovery-window-in-days 7
 aws budgets delete-budget --account-id $ACCOUNT_ID --budget-name mavenscout-poc-monthly
