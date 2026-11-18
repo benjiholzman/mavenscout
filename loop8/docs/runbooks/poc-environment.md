@@ -301,6 +301,8 @@ The security and access policies are not taggable; they are found by their `mave
 
 ## Part D: engine resources for the walking skeleton (admin, after approval)
 
+**Replaced by Terraform on 2026-11-18.** The resources of this part are created by the modules `engine-data` and `engine-api` in `loop8/infra`, through the pipeline, with names that start with `mavenscout-engine-` (the apply role can only manage that prefix). Do not run the commands below by hand. They stay as a reference of what the modules create. See `loop8/docs/planning/engine-deploy-plan.md`.
+
 Step 7 of the blueprint: the API, the api Lambda, the queue, DynamoDB, S3 and a worker with a stub engine, so the asynchronous pipeline is tested before any model spend. Run Part D only after the walking skeleton plan is approved and its open inputs (runtime, memory, concurrency, throttling, app origin) are set. The DynamoDB key schema below is a proposal for that plan to confirm.
 
 ### D1. S3 bucket for job inputs and results

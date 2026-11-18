@@ -15,8 +15,10 @@
 2. `main.tf`, `providers.tf`, `variables.tf`, `versions.tf`: the Terraform root. The root only calls modules.
 3. `modules/cost-guard/`: the alert topic, the monthly budget, the deny action and the token alarms, with an offline test.
 4. `modules/bedrock-invoke/`: the managed policy that allows `bedrock:InvokeModel` on Titan V2, Luna and Sol and the role that carries it, with an offline test. The engineers assume the role, see the runbook B3c.
-5. `scripts/`: the Checkov adapter that understands the immutable GitHub subject.
-6. `.checkov.yaml`, `.tflint.hcl`: linter settings. The pre-commit file is `loop8/.pre-commit-config.yaml`.
+5. `modules/engine-data/`: the jobs bucket, the job state table, the jobs queue with its dead letter queue and the alarm, with an offline test.
+6. `modules/engine-api/`: the api and worker Lambdas, their roles, the queue mapping and the HTTP API with throttling, with an offline test. The plan and apply jobs build `loop8/engine` first, because Terraform packages its output.
+7. `scripts/`: the Checkov adapter that understands the immutable GitHub subject.
+8. `.checkov.yaml`, `.tflint.hcl`: linter settings. The pre-commit file is `loop8/.pre-commit-config.yaml`.
 
 ## How a change reaches AWS
 
