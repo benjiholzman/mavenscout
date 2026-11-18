@@ -6,6 +6,7 @@ import { bandFor } from './config'
 import { scoreBreakdown } from './display'
 import { buildJdSignature, computeFit, tagCredit, type CandidateInput } from './fit'
 import { buildNarrative } from './narrative'
+import { createRemoteRankPool } from './remote'
 import { preferenceScoring, totalScore } from './total'
 import type { ExtractedRequirements, JdMatchResult, RankPoolFn, Requirement } from './types'
 import type { PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../../types/db'
@@ -128,7 +129,7 @@ async function loadEvidence(pool: Profile[]): Promise<CandidateInput[]> {
  * JD text and extraction once per call — plus the requirements and a pool that
  * has already passed the Must-haves. Returns results ranked best-first.
  */
-export const rankPool: RankPoolFn = async (jobDescriptionId, requirements, pool) => {
+export const placeholderRankPool: RankPoolFn = async (jobDescriptionId, requirements, pool) => {
   if (pool.length === 0) return []
   const [jdRes, catsRes, itemsRes, candidates, orgs] = await Promise.all([
     supabase.from('job_descriptions').select('raw_text, extracted').eq('id', jobDescriptionId).single(),
@@ -149,4 +150,17 @@ export const rankPool: RankPoolFn = async (jobDescriptionId, requirements, pool)
     expertise,
     orgs,
   })
+}
+
+/**
+ * The app's ranking entry point. With VITE_ENGINE_URL set it goes through the
+ * ranking engine API; unset, it runs the placeholder above exactly as before.
+ * The variable is read inside the call because the baseline harness bundles
+ * this file for Node, where import.meta.env does not exist.
+ */
+export const rankPool: RankPoolFn = (jobDescriptionId, requirements, pool) => {
+  const baseUrl = import.meta.env?.VITE_ENGINE_URL
+  return baseUrl
+    ? createRemoteRankPool({ baseUrl })(jobDescriptionId, requirements, pool)
+    : placeholderRankPool(jobDescriptionId, requirements, pool)
 }

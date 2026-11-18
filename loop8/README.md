@@ -20,6 +20,7 @@ This folder holds everything Loop8 creates in this repository. `loop8-develop` i
 | [docs/planning/PROJECT_PLAN.md](docs/planning/PROJECT_PLAN.md) | Delivery plan: phases, current state, engine direction, open questions |
 | [docs/planning/poc-start-plan.md](docs/planning/poc-start-plan.md) | Plan for starting the engine build: decisions of 2026-11-17, Terraform and a simple GitHub Actions pipeline, spending limit, acceptance criteria and ordered steps |
 | [docs/planning/test-cases-draft.md](docs/planning/test-cases-draft.md) | Draft of harder vocabulary mismatch test cases |
+| [docs/planning/walking-skeleton-plan.md](docs/planning/walking-skeleton-plan.md) | Plan for the walking skeleton: the asynchronous job pipeline with a stub engine (blueprint step 7) |
 | [docs/architecture/index.html](docs/architecture/index.html) | The engine blueprint, a bilingual web page (open it in a browser). Rules, math, architecture, request lifecycle, pipeline, technology choices, cost, risks, starting plan. Diagram sources are in `docs/architecture/diagrams/` |
 | [docs/architecture/interactive-resources.md](docs/architecture/interactive-resources.md) | Catalog of the published web page for the engine blueprint: its link, versions, companion files and how to keep it in sync |
 | [docs/client-proposal/MavenScout-AI-Ranking-Proposal.en.md](docs/client-proposal/MavenScout-AI-Ranking-Proposal.en.md) | The Flows and Costs document sent to the customer, with its [PDF](docs/client-proposal/Flows-and-Costs.pdf), flowchart and charts |
