@@ -4,10 +4,12 @@
 // text hash), and writes a loadable artifact that rankPool reads for the
 // in-memory cosine search in Variant A.
 //
-// Run (after the two prerequisites in bedrock/titan.ts are met):
-//   npx esbuild loop8/engine/index/build.ts --bundle --platform=node \
-//     --format=esm --packages=external --outfile=node_modules/.cache/index-build.mjs \
-//     && node node_modules/.cache/index-build.mjs
+// Run from the repo root (process.cwd paths), with the Titan profile. The bundle
+// goes inside the engine dir so Node resolves @aws-sdk from loop8/engine/node_modules:
+//   node_modules/.bin/esbuild loop8/engine/scripts/build-index.ts --bundle \
+//     --platform=node --format=esm --packages=external \
+//     --outfile=loop8/engine/.local-dist/build-index.mjs \
+//     && AWS_PROFILE=mavenscout-titan node loop8/engine/.local-dist/build-index.mjs
 //
 // Output: loop8/internal/index-artifact.json (gitignored). No client database
 // access and no OpenSearch; those are Part B.
@@ -16,7 +18,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { DIMENSIONS, embedText, METRIC, MODEL_VERSION } from '../src/bedrock/titan'
+import { DIMENSIONS, embedText, getEmbedStats, METRIC, MODEL_VERSION } from '../src/bedrock/titan'
 import { toFragments } from '../src/index/fragments'
 import { fromDemoSeed, type DemoProfile } from '../src/index/source'
 import type { EmbeddedFragment, Fragment, IndexArtifact } from '../src/index/types'
@@ -108,6 +110,12 @@ async function main(): Promise<void> {
   mkdirSync(OUT_DIR, { recursive: true })
   writeFileSync(OUT_FILE, JSON.stringify(artifact))
   console.log(`Wrote ${OUT_FILE} (index ${artifact.indexVersion}, ${embedded.length} vectors).`)
+
+  // Measured Titan usage for this run, so the one-time indexing cost is a real
+  // number (CLAUDE section 4.3). Only newly embedded fragments cost tokens;
+  // reused vectors are free.
+  const stats = getEmbedStats()
+  console.log(`Titan usage this run: ${stats.calls} calls, ${stats.inputTokens} input tokens.`)
 }
 
 main().catch((err) => {

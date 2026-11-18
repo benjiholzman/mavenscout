@@ -35,6 +35,19 @@ const client = new BedrockRuntimeClient({ region: REGION })
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+// Lightweight usage counters so a hand-run index build can report a measured
+// Titan cost (CLAUDE section 4.3). Titan already returns inputTextTokenCount per
+// call; we only accumulate it. This does not affect the embedding output.
+let embedCalls = 0
+let embedInputTokens = 0
+
+/** Successful embedText calls and the total input tokens Titan billed for them,
+ *  for a measured one-time indexing cost. Retries do not count until they
+ *  succeed. */
+export function getEmbedStats(): { calls: number; inputTokens: number } {
+  return { calls: embedCalls, inputTokens: embedInputTokens }
+}
+
 /** True for throttling and transient server errors worth retrying. */
 function isRetryable(err: unknown): boolean {
   const name = (err as { name?: string })?.name ?? ''
@@ -68,11 +81,16 @@ export async function embedText(text: string): Promise<number[]> {
           body,
         }),
       )
-      const parsed = JSON.parse(new TextDecoder().decode(res.body)) as { embedding?: number[] }
+      const parsed = JSON.parse(new TextDecoder().decode(res.body)) as {
+        embedding?: number[]
+        inputTextTokenCount?: number
+      }
       const vector = parsed.embedding
       if (!Array.isArray(vector) || vector.length !== DIMENSIONS) {
         throw new Error(`Titan returned ${vector?.length ?? 'no'} dims, expected ${DIMENSIONS}`)
       }
+      embedCalls++
+      embedInputTokens += parsed.inputTextTokenCount ?? 0
       return vector
     } catch (err) {
       lastErr = err
