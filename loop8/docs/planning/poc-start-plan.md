@@ -138,7 +138,7 @@ The normal case, with the collection created and deleted per session, is about $
 1. The immutable subject reported by the API on 2026-11-17 is what GitHub will present in the token. To verify with the first workflow run, which prints the subject claim before any change is applied.
 2. The two repository variables exist (created on 2026-11-18). If a variable is emptied or removed, the plan and apply steps are skipped and the other checks still run.
 3. `workflow_dispatch` is not relied on, because it may require the workflow file on the default branch, which is `main` and belongs to the customer. Teardown at decommissioning is run by the project lead with the admin profile. To verify.
-4. Embedding generation needs `bedrock:InvokeModel` on Titan. Either the project lead runs it, or it runs in a workflow under the apply role, or the earlier time limited engineer policy is kept. Open decision below.
+4. Embedding generation needs `bedrock:InvokeModel` on Titan. Decided on 2026-11-18: a managed policy `mavenscout-engine-bedrock-invoke` is created by the pipeline (module `bedrock-invoke`) and attached once to `Loop8-ReadOnly` by the project lead, because the apply role may not attach policies to roles that belong to people. It covers Titan V2 only. Luna and Sol come in a separate change with a token alarm per model, when the engine needs them.
 5. The Titan quota of 300,000 tokens per minute is unchanged. Not re-checked on 2026-11-17.
 6. The $350 limit is the project lead's decision. It is reviewed after variant A is measured, when real Luna and Sol prices are known.
 
@@ -183,7 +183,7 @@ Issue numbers for steps 3 to 11 are created with the project lead's approval bef
 ## 11. Open decisions
 
 1. Where the Terraform lives: this repository (chosen on 2026-11-17) or a separate Loop8 repository.
-2. How embeddings are generated: by the project lead, by a workflow under the apply role, or with a time limited Titan policy for the engineers.
+2. How embeddings are generated: decided on 2026-11-18, see assumption 4 of section 7. Engineers call Titan with their own role.
 
 ## 12. Build record
 
