@@ -580,6 +580,7 @@ Then re-run the tagging check: it must return no rows. Quota increases and the M
 | Lambda functions, Node 22, stub engine (api 10 s, worker 180 s and 1,024 MB) | `mavenscout-engine-api`, `mavenscout-engine-worker` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
 | Event source mapping from the jobs queue to the worker, one job per call, at most 2 at once | on `mavenscout-engine-worker` | us-east-1 | 2026-11-18, Terraform apply by the pipeline, second run | |
 | HTTP API with `POST /jobs` and `GET /jobs/{id}`, the `$default` stage with throttling (5 per second, burst 10) and the Lambda invoke permission | `mavenscout-engine-api` | us-east-1 | 2026-11-18, Terraform apply by the pipeline, second run | URL read with `aws apigatewayv2 get-apis`, not recorded here |
+| Secrets Manager secret with the Supabase values `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the anon key is the public publishable key) | `mavenscout/supabase` | us-east-1 | 2026-11-18, container by Terraform (PR 47), value uploaded by hand with `loop8/infra/scripts/put-secret.sh` | `SUPABASE_DB_URL` not set, not needed so far. Values are not recorded here |
 
 ## Change log
 
@@ -591,3 +592,4 @@ Then re-run the tagging check: it must return no rows. Quota increases and the M
 | 2026-11-18 | Project lead: bootstrap stack and first Terraform apply recorded in the inventory |
 | 2026-11-18 | Project lead: Titan role, Luna and Sol policy version 2, token alarms and alert subscription recorded in the inventory |
 | 2026-11-18 | Project lead: engine data and API resources recorded in the inventory, Part D replaced by Terraform |
+| 2026-11-18 | Project lead: Supabase secret recorded in the inventory, B2 describes the upload script |
