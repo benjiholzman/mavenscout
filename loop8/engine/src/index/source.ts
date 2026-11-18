@@ -62,9 +62,14 @@ export function fromProfile(profile: Profile, portfolio: PortfolioItem[]): Fragm
 
 // ---- POC path: the local demo seed shape ------------------------------------
 
-/** The subset of a demo profile (scripts/demo-seed/profiles/*.mjs) used here. */
+/** The subset of a demo profile (scripts/demo-seed/profiles/*.mjs) used here.
+ *  Most profiles carry a UUID `id` and a `handle`; the ToR-05 individuals seed
+ *  (t6-tor05-individuals.mjs) instead carries a `slug` and no id/handle, so both
+ *  shapes are accepted and reconciled in demoKey/demoHandle. */
 export interface DemoProfile {
-  id: string
+  id?: string
+  slug?: string
+  handle?: string
   headline?: string | null
   bio?: string | null
   city?: string | null
@@ -86,6 +91,23 @@ function demoLocation(p: DemoProfile): string | null {
   return parts.length > 0 ? parts.join(', ') : null
 }
 
+/** The stable unique key for a demo profile: its UUID id, or the slug for the
+ *  id-less ToR-05 individuals. Throws rather than emit an undefined profileId. */
+export function demoKey(p: DemoProfile): string {
+  const key = p.id ?? p.slug
+  if (key == null || key.trim() === '') {
+    throw new Error(`demo profile has neither id nor slug: ${p.headline ?? 'unknown'}`)
+  }
+  return key
+}
+
+/** The display handle used in the retrieval check and expectations.json. The
+ *  id-less individuals have no handle, and expectations reference them as
+ *  "demo-<slug>", so that convention is applied here. */
+export function demoHandle(p: DemoProfile): string {
+  return p.handle ?? (p.slug != null && p.slug.trim() !== '' ? `demo-${p.slug}` : demoKey(p))
+}
+
 export function fromDemoSeed(p: DemoProfile): FragmentSource {
   const tiers = p.tiers ?? {}
   const expertiseTags = [...(tiers.core ?? []), ...(tiers.strong ?? []), ...(tiers.working ?? [])]
@@ -97,7 +119,7 @@ export function fromDemoSeed(p: DemoProfile): FragmentSource {
     availability: { partTime: p.pt ?? null, fullTime: p.ft ?? null },
   }
   return {
-    profileId: p.id,
+    profileId: demoKey(p),
     tagline: p.headline ?? null,
     bio: p.bio ?? null,
     portfolio: (p.portfolio ?? []).map((e) => ({

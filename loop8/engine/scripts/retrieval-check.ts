@@ -4,17 +4,19 @@
 // whether the expected top profiles surface. At least one vocabulary-mismatch
 // ToR should rank an expected profile that the keyword placeholder misses.
 //
-// Needs the artifact from build.ts, so it is gated on the same AWS prerequisite.
-// Run:
-//   npx esbuild loop8/engine/index/retrieval.check.ts --bundle --platform=node \
-//     --format=esm --packages=external --outfile=node_modules/.cache/retr-check.mjs \
-//     && node node_modules/.cache/retr-check.mjs
+// Needs the artifact from build-index.ts, so it is gated on the same AWS
+// prerequisite. Run from the repo root, with the Titan profile and the bundle
+// inside the engine dir so @aws-sdk resolves from loop8/engine/node_modules:
+//   node_modules/.bin/esbuild loop8/engine/scripts/retrieval-check.ts --bundle \
+//     --platform=node --format=esm --packages=external \
+//     --outfile=loop8/engine/.local-dist/retrieval-check.mjs \
+//     && AWS_PROFILE=mavenscout-titan node loop8/engine/.local-dist/retrieval-check.mjs
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { embedText } from '../src/bedrock/titan'
-import type { DemoProfile } from '../src/index/source'
+import { demoHandle, demoKey, type DemoProfile } from '../src/index/source'
 import type { IndexArtifact } from '../src/index/types'
 
 const ROOT = process.cwd()
@@ -40,8 +42,8 @@ async function handlesById(): Promise<Map<string, string>> {
   const dir = join(ROOT, 'scripts', 'demo-seed', 'profiles')
   const map = new Map<string, string>()
   for (const f of readdirSync(dir).filter((f) => f.endsWith('.mjs'))) {
-    const mod = (await import(pathToFileURL(join(dir, f)).href)) as { default: (DemoProfile & { handle: string })[] }
-    for (const p of mod.default) map.set(p.id, p.handle)
+    const mod = (await import(pathToFileURL(join(dir, f)).href)) as { default: DemoProfile[] }
+    for (const p of mod.default) map.set(demoKey(p), demoHandle(p))
   }
   return map
 }

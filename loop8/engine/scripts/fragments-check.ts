@@ -17,7 +17,7 @@ import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { toFragments } from '../src/index/fragments'
-import { fromDemoSeed, type DemoProfile } from '../src/index/source'
+import { demoKey, fromDemoSeed, type DemoProfile } from '../src/index/source'
 import type { FragmentMetadata, FragmentSource, FragmentType } from '../src/index/types'
 
 const ALLOWED_TYPES: readonly FragmentType[] = [
@@ -110,7 +110,14 @@ function run(profiles: DemoProfile[]): void {
       assert.ok(f.text.trim() !== '', `empty fragment ${f.fragmentId}`)
       assert.ok(!ids.has(f.fragmentId), `duplicate fragment id ${f.fragmentId}`)
       ids.add(f.fragmentId)
-      assert.equal(f.profileId, demo.id, 'fragment carries the wrong profile id')
+      // profileId must be a real, non-empty id. A loose demo shape (the ToR-05
+      // individuals carry a slug, not an id) must still yield a usable key, not
+      // an undefined that only the loader would reject.
+      assert.ok(
+        typeof f.profileId === 'string' && f.profileId.trim() !== '',
+        `fragment ${f.fragmentId} has an empty profileId`,
+      )
+      assert.equal(f.profileId, demoKey(demo), 'fragment carries the wrong profile id')
       assert.ok(f.metadata, `fragment ${f.fragmentId} has no metadata`)
     }
 
