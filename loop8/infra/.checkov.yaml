@@ -1,0 +1,17 @@
+# Checkov configuration for loop8/infra. Run from the repository root.
+# CKV_AWS_18: S3 access logging is skipped for the Terraform state bucket. A log
+# bucket would need its own lifecycle, which is outside the POC.
+# CKV_AWS_144: no cross region replication for the state bucket in a POC.
+# CKV_AWS_145: the state bucket uses the default AES256 key. A customer managed
+# KMS key adds cost and key policy work the POC does not need.
+framework:
+  - terraform
+  - cloudformation
+directory:
+  - loop8/infra
+skip-check:
+  - CKV_AWS_18
+  - CKV_AWS_144
+  - CKV_AWS_145
+compact: true
+quiet: true

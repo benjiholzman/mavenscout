@@ -1,0 +1,84 @@
+# Pre-commit checks for everything Loop8 writes. The file lives in loop8/ so the
+# customer's repository root stays untouched. Install once per clone:
+#   pre-commit install -c loop8/.pre-commit-config.yaml
+# Run on everything:
+#   pre-commit run -c loop8/.pre-commit-config.yaml --all-files
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: detect-private-key
+      - id: detect-aws-credentials
+        args: [--allow-missing-credentials]
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+        files: ^(loop8/(infra|docs)/|\.github/)
+      - id: trailing-whitespace
+        files: ^(loop8/(infra|docs)/|\.github/)
+        exclude: \.(png|pdf|drawio)$
+
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.96.1
+    hooks:
+      - id: terraform_fmt
+        files: ^loop8/infra/
+
+      - id: terraform_validate
+        files: ^loop8/infra/
+        args:
+          - --init-args=-backend=false
+
+      - id: terraform_providers_lock
+        # The lock file lives in the root only. Modules take their providers from it.
+        files: ^loop8/infra/[^/]+\.tf$
+        args:
+          - --args=-platform=linux_amd64
+          - --args=-platform=darwin_amd64
+          - --args=-platform=darwin_arm64
+
+      - id: terraform_tflint
+        files: ^loop8/infra/
+        args:
+          - --args=--init
+          - --args=--config=__GIT_WORKING_DIR__/loop8/infra/.tflint.hcl
+
+  - repo: https://github.com/aws-cloudformation/cfn-lint
+    rev: v1.47.1
+    hooks:
+      - id: cfn-python-lint
+        files: ^loop8/infra/bootstrap/.*\.yaml$
+
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.48.0
+    hooks:
+      - id: markdownlint
+        files: ^loop8/.*\.md$
+        exclude: ^loop8/internal/
+        args: [--config, loop8/.markdownlint.json]
+
+  - repo: local
+    hooks:
+      # Checkov 3.3.30 rejects the immutable GitHub subject, so it is started
+      # through a small adapter used in other Loop8 infrastructure repositories.
+      - id: checkov
+        name: Checkov (loop8/infra)
+        language: python
+        additional_dependencies: ["checkov==3.3.30"]
+        entry: python loop8/infra/scripts/checkov_github_oidc.py --config-file loop8/infra/.checkov.yaml
+        files: ^loop8/infra/
+        pass_filenames: false
+
+      # The repository is public. A literal account ID in an ARN would publish it.
+      - id: no-aws-account-ids
+        name: No AWS account IDs in infrastructure files or workflows
+        language: pygrep
+        entry: 'arn:aws[a-z-]*:[a-z0-9-]*:[a-z0-9-]*:[0-9]{12}:'
+        files: ^(loop8/infra/|\.github/)
+
+      # Writing rules of loop8/CLAUDE.md section 10: no em dashes or en dashes.
+      # CLAUDE.md is left out because it names a customer file that has an em dash.
+      - id: no-long-dashes
+        name: No em dashes or en dashes in Loop8 documents and infrastructure files
+        language: pygrep
+        entry: '—|–'
+        files: ^(loop8/(docs|infra)/.*\.(md|tf|yaml|yml|hcl)|loop8/README\.md|\.github/.*\.ya?ml)$
