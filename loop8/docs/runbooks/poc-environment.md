@@ -211,6 +211,23 @@ rm titan-out.json
 
 Record the token counts and latency in the inventory notes. They are the first measured numbers for the cost per ranking.
 
+### B3c. Titan invoke access for the engineers
+
+The pipeline creates the policy `mavenscout-engine-bedrock-invoke` (`bedrock:InvokeModel` on Titan V2 only) and the role `mavenscout-engine-titan-invoke` that carries it. The role trusts only `Loop8-ReadOnly`. The policy is not attached to `Loop8-ReadOnly`, because a Loop8 guardrail denies any change to that role (found on 2026-11-18, AccessDenied with the admin role).
+
+Each engineer adds this profile once to `~/.aws/config`, with the account ID of the MavenScout account and the name of the profile they already use for `Loop8-ReadOnly`:
+
+```ini
+[profile mavenscout-titan]
+role_arn = arn:aws:iam::<account-id>:role/mavenscout-engine-titan-invoke
+source_profile = <the Loop8-ReadOnly profile>
+region = us-east-1
+```
+
+Then run the embedding script with `AWS_PROFILE=mavenscout-titan`. Check with `aws sts get-caller-identity --profile mavenscout-titan`, which must show the assumed role `mavenscout-engine-titan-invoke`. The budget deny policy also targets this role, so the 100% budget cut removes this access too.
+
+Luna and Sol are added in a separate change, with a token alarm per model.
+
 ### B4. Unblock Claude Haiku and Sonnet (optional, in parallel)
 
 The Claude models are no longer in the plan (Titan V2, GPT-6 Luna and GPT-6 Sol are confirmed), so this is optional and only needed for a later comparison. Both steps act on behalf of the customer's account, so they need the customer's agreement through the project manager.

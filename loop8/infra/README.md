@@ -14,8 +14,9 @@
 1. `bootstrap/bootstrap.yaml`: one CloudFormation template, run once by the project lead. It creates the Terraform state bucket, the GitHub OIDC provider, a read only plan role and an apply role pinned to the `loop8-develop` branch. It was run on 2026-11-18 and is recorded in the runbook inventory.
 2. `main.tf`, `providers.tf`, `variables.tf`, `versions.tf`: the Terraform root. The root only calls modules.
 3. `modules/cost-guard/`: the alert topic, the monthly budget, the deny action and the token alarms, with an offline test.
-4. `scripts/`: the Checkov adapter that understands the immutable GitHub subject.
-5. `.checkov.yaml`, `.tflint.hcl`: linter settings. The pre-commit file is `loop8/.pre-commit-config.yaml`.
+4. `modules/bedrock-invoke/`: the managed policy that allows `bedrock:InvokeModel` on Titan V2 and the role that carries it, with an offline test. The engineers assume the role, see the runbook B3c.
+5. `scripts/`: the Checkov adapter that understands the immutable GitHub subject.
+6. `.checkov.yaml`, `.tflint.hcl`: linter settings. The pre-commit file is `loop8/.pre-commit-config.yaml`.
 
 ## How a change reaches AWS
 
