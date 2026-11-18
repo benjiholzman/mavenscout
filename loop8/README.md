@@ -18,6 +18,7 @@ This folder holds everything Loop8 creates in this repository. `loop8-develop` i
 | [CLAUDE.md](CLAUDE.md) | Engagement rules: branches, approvals, AWS rules, writing rules, how to work |
 | [docs/sow/SOW-MavenScout-GenAI-POC.md](docs/sow/SOW-MavenScout-GenAI-POC.md) | Scope extract of the signed SOW |
 | [docs/planning/PROJECT_PLAN.md](docs/planning/PROJECT_PLAN.md) | Delivery plan: phases, current state, engine direction, open questions |
+| [docs/planning/poc-start-plan.md](docs/planning/poc-start-plan.md) | Plan for starting the engine build: decisions of 2026-11-17, Terraform and a simple GitHub Actions pipeline, spending limit, acceptance criteria and ordered steps |
 | [docs/planning/test-cases-draft.md](docs/planning/test-cases-draft.md) | Draft of harder vocabulary mismatch test cases |
 | [docs/architecture/index.html](docs/architecture/index.html) | The engine blueprint, a bilingual web page (open it in a browser). Rules, math, architecture, request lifecycle, pipeline, technology choices, cost, risks, starting plan. Diagram sources are in `docs/architecture/diagrams/` |
 | [docs/architecture/interactive-resources.md](docs/architecture/interactive-resources.md) | Catalog of the published web page for the engine blueprint: its link, versions, companion files and how to keep it in sync |
@@ -26,6 +27,7 @@ This folder holds everything Loop8 creates in this repository. `loop8-develop` i
 | [docs/runbooks/poc-environment.md](docs/runbooks/poc-environment.md) | AWS POC environment runbook: read-only checks and their findings, create steps, teardown, inventory |
 | [docs/handoffs/phase0-repo-setup.md](docs/handoffs/phase0-repo-setup.md) | Handoff for P0 |
 | [docs/best-practices/documentation-generation.md](docs/best-practices/documentation-generation.md) | Rules for every document Loop8 writes: language, punctuation, plans, diagrams, web pages |
+| [docs/best-practices/terraform-and-pipeline.md](docs/best-practices/terraform-and-pipeline.md) | Rules for the Terraform, the bootstrap template, the GitHub Actions pipeline and the pre-commit checks |
 
 ## Local only
 
