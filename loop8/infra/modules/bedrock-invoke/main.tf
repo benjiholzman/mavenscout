@@ -1,7 +1,9 @@
-# Lets people call named foundation models. It is only a managed policy. Nothing
-# is attached here: the apply role may not attach policies to roles that belong
-# to people, so the project lead attaches it once to the engineer role by hand
-# (see loop8/docs/runbooks/poc-environment.md).
+# Lets people call named foundation models. A managed policy and a role that
+# carries it. The role trusts only the roles in trusted_role_names. The policy is
+# not attached to those roles: a Loop8 guardrail denies any change to them, so the
+# engineers assume this role when they need the models instead.
+
+data "aws_caller_identity" "current" {}
 
 data "aws_iam_policy_document" "invoke" {
   statement {
@@ -16,4 +18,26 @@ resource "aws_iam_policy" "invoke" {
   name        = "${var.name_prefix}-bedrock-invoke"
   description = "Allows bedrock:InvokeModel on the named foundation models only"
   policy      = data.aws_iam_policy_document.invoke.json
+}
+
+data "aws_iam_policy_document" "trust" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "AWS"
+      identifiers = [for name in var.trusted_role_names : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${name}"]
+    }
+  }
+}
+
+resource "aws_iam_role" "invoke" {
+  name               = "${var.name_prefix}-titan-invoke"
+  description        = "Assumed by the engineers to call the named foundation models"
+  assume_role_policy = data.aws_iam_policy_document.trust.json
+}
+
+resource "aws_iam_role_policy_attachment" "invoke" {
+  role       = aws_iam_role.invoke.name
+  policy_arn = aws_iam_policy.invoke.arn
 }

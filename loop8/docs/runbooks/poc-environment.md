@@ -185,14 +185,18 @@ The applied tokens per minute quota for Claude Haiku 5.5 and Claude Sonnet 5.5 i
 
 ### B3c. Titan invoke access for the engineers
 
-The pipeline creates the policy `mavenscout-engine-bedrock-invoke` (`bedrock:InvokeModel` on Titan V2 only). The apply role may not attach policies to roles that belong to people, so the project lead attaches it once, after the pipeline has applied it:
+The pipeline creates the policy `mavenscout-engine-bedrock-invoke` (`bedrock:InvokeModel` on Titan V2 only) and the role `mavenscout-engine-titan-invoke` that carries it. The role trusts only `Loop8-ReadOnly`. The policy is not attached to `Loop8-ReadOnly`, because a Loop8 guardrail denies any change to that role (found on 2026-11-18, AccessDenied with the admin role).
 
-```bash
-aws iam attach-role-policy --role-name Loop8-ReadOnly \
-  --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/mavenscout-engine-bedrock-invoke
+Each engineer adds this profile once to `~/.aws/config`, with the account ID of the MavenScout account and the name of the profile they already use for `Loop8-ReadOnly`:
+
+```ini
+[profile mavenscout-titan]
+role_arn = arn:aws:iam::<account-id>:role/mavenscout-engine-titan-invoke
+source_profile = <the Loop8-ReadOnly profile>
+region = us-east-1
 ```
 
-Check with `aws iam list-attached-role-policies --role-name Loop8-ReadOnly`. The engineer then runs the Titan check in the `invoke-model` call of B3 with `$EMBED_MODEL_ID` set to `amazon.titan-embed-text-v2:0`. The budget deny policy also targets this role, so the 100% budget cut removes this access too.
+Then run the embedding script with `AWS_PROFILE=mavenscout-titan`. Check with `aws sts get-caller-identity --profile mavenscout-titan`, which must show the assumed role `mavenscout-engine-titan-invoke`. The budget deny policy also targets this role, so the 100% budget cut removes this access too.
 
 Luna and Sol are added in a separate change, with a token alarm per model.
 
@@ -220,8 +224,6 @@ Every row must show the APN value. Budgets are global: check them with
 Run in reverse order of creation. Admin only.
 
 ```bash
-aws iam detach-role-policy --role-name Loop8-ReadOnly \
-  --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/mavenscout-engine-bedrock-invoke
 aws secretsmanager delete-secret --region $AWS_REGION \
   --secret-id mavenscout/dev/supabase --recovery-window-in-days 7
 aws budgets delete-budget --account-id $ACCOUNT_ID --budget-name mavenscout-poc-monthly
