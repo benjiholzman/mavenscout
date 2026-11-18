@@ -1,11 +1,11 @@
 # bedrock-invoke
 
-A managed policy that allows `bedrock:InvokeModel` on the foundation models in `model_ids`, in one region. Nothing else.
+A managed policy that allows `bedrock:InvokeModel` on the foundation models in `model_ids`, in one region, and a role that carries it. Nothing else.
 
 ## What it does
 
-1. Creates the policy `<name_prefix>-bedrock-invoke`. The apply role can only create policies under that prefix.
-2. Does not attach it. The apply role may not attach policies to roles that belong to people, so the project lead attaches it once to `Loop8-ReadOnly` (the command is in `loop8/docs/runbooks/poc-environment.md`).
+1. Creates the policy `<name_prefix>-bedrock-invoke` and the role `<name_prefix>-titan-invoke` with that policy attached. The apply role can only manage roles and policies under that prefix.
+2. The role trusts only the roles in `trusted_role_names`. The policy is not attached to those roles, because a Loop8 guardrail denies any change to `Loop8-ReadOnly`. The engineers assume the new role with a profile (runbook B3c).
 
 ## Models
 
