@@ -13,7 +13,7 @@ export function fromProfile(profile: Profile, portfolio: PortfolioItem[]): Fragm
   const expertiseTags = profile.tiered_expertise.map((t) => t.name)
   const metadata: FragmentMetadata = {
     location: profile.location,
-    languages: profile.spoken_languages.map((l) => l.language),
+    languages: profile.spoken_languages.map((l) => l.name),
     expertiseTags,
     careerLevel: profile.career_level,
     availability: {
