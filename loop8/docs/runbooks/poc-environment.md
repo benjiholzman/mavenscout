@@ -100,6 +100,7 @@ smoke test is in Part B.
 | A8 GPT-6 models | Read-only check: GPT-6 Luna 4,000,000 tokens per minute, GPT-6 Sol and GPT-6.1 Sol 2,000,000, GPT-6.1 Terra 2,000,000, GPT-6 Astra 0. US and global profiles ACTIVE. No model invoked, no published price for Luna | 2026-11-13 |
 | A9 quota increase requests for Claude | Requests for Haiku 5.5 (10,000,000 tokens per minute) and Sonnet 5.5 (6,000,000) were filed on 2026-11-12 with the project lead's approval. Later reads show cases closed without a grant. A second set of requests may exist, since the creation times reported by two people differ. To be verified with a live query. This is the only change to the account that we know of | 2026-11-13 |
 | A10 models confirmed for the POC | Titan Text Embeddings V2, GPT-6 Luna (Fit) and GPT-6 Sol (extraction and summaries). Claude Haiku 5.5 and Sonnet 5.5 are not in the plan | 2026-11-16 |
+| A11 bootstrap pre checks | Read only, with the Loop8 admin role. The account has no GitHub OIDC provider, so the bootstrap template creates it. The name `mavenscout-poc-tfstate` is free (HeadBucket answered 404). `Loop8-ReadOnly` is a plain IAM role at path `/`, so the budget action ARN pattern applies. No role with the `mavenscout` prefix exists and no budget exists. The CloudFormation stack `Loop8-Access` already exists and is not part of this POC | 2026-11-18 |
 
 ---|---|---|
 | A1 account and role | | |
@@ -219,4 +220,8 @@ Then re-run B9: it must return no rows.
 
 | Resource | Name | Region | Created (date, by) | Removed |
 |---|---|---|---|---|
-| | | | | |
+| CloudFormation stack (bootstrap, from `loop8/infra/bootstrap/bootstrap.yaml`, created from a reviewed change set) | `mavenscout-bootstrap` | us-east-1 | 2026-11-18, project lead | |
+| S3 bucket (Terraform state, kept on stack deletion, delete by hand at teardown) | `mavenscout-poc-tfstate` | us-east-1 | 2026-11-18, bootstrap stack | |
+| IAM OIDC provider for GitHub Actions | `token.actions.githubusercontent.com` | global | 2026-11-18, bootstrap stack | |
+| IAM role, read only plan role (pull requests and `loop8-develop`) | `mavenscout-gha-plan` | global | 2026-11-18, bootstrap stack | |
+| IAM role, apply role (pinned to `loop8-develop`) | `mavenscout-gha-apply` | global | 2026-11-18, bootstrap stack | |
