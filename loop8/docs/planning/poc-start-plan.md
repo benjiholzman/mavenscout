@@ -97,7 +97,7 @@ Terraform cannot create the things it needs to start. These are created once wit
 
 ### What GitHub needs from the customer
 
-The repository belongs to a personal GitHub account (owner type User), and our role on it is write. Reading the repository variables works (the list is empty on 2026-11-17), but creating variables and secrets on a personal account repository is, according to the GitHub documentation, limited to the owner, and a personal repository has no admin role to grant to a collaborator. This was not tested by creating a variable, because that would change the customer's repository. The workflows read the role ARN from a repository variable because putting the ARN in the file would publish the account ID. The owner must therefore create two repository variables after the bootstrap, or the Terraform and workflows move to a Loop8 repository where we have admin. This is the first thing to ask for.
+The repository belongs to a personal GitHub account (owner type User), and our role on it is write. The GitHub documentation suggested that only the owner can create variables on such a repository, but on 2026-11-18 the project lead's account created both variables with the write role, so no action from the owner is needed. The workflows read the role ARN from a repository variable because putting the ARN in the file would publish the account ID. The variables are `AWS_PLAN_ROLE_ARN` and `AWS_APPLY_ROLE_ARN`. The action that signs in to AWS masks the account ID in the logs of the runs.
 
 ## 5. Spending limit
 
@@ -136,7 +136,7 @@ The normal case, with the collection created and deleted per session, is about $
 ## 7. Assumptions
 
 1. The immutable subject reported by the API on 2026-11-17 is what GitHub will present in the token. To verify with the first workflow run, which prints the subject claim before any change is applied.
-2. The repository owner can create two repository variables after the bootstrap. Granting admin is not an option on a personal account repository. If the owner cannot, the pipeline cannot run in this repository and the Terraform moves to a Loop8 repository. Until the variables exist, the steps that do not use AWS (format, validate, Checkov) still run, and the AWS steps are skipped when the variable is empty.
+2. The two repository variables exist (created on 2026-11-18). If a variable is emptied or removed, the plan and apply steps are skipped and the other checks still run.
 3. `workflow_dispatch` is not relied on, because it may require the workflow file on the default branch, which is `main` and belongs to the customer. Teardown at decommissioning is run by the project lead with the admin profile. To verify.
 4. Embedding generation needs `bedrock:InvokeModel` on Titan. Either the project lead runs it, or it runs in a workflow under the apply role, or the earlier time limited engineer policy is kept. Open decision below.
 5. The Titan quota of 300,000 tokens per minute is unchanged. Not re-checked on 2026-11-17.
@@ -166,7 +166,7 @@ The normal case, with the collection created and deleted per session, is about $
 
 | # | Step | Who | Needs approval | Proof it worked |
 |---|---|---|---|---|
-| 1 | Ask the customer, through the project manager, for the database URL and anon key, and for the owner to create two repository variables once the bootstrap has produced the role ARNs | Project lead | Yes, customer contact goes through the project manager | Values received, baseline runnable |
+| 1 | Ask the customer, through the project manager, for the database URL and anon key | Project lead | Yes, customer contact goes through the project manager | Values received, baseline runnable |
 | 2 | Run `npm run baseline` on the demo data and record the numbers | Project lead machine | No (local, review before commit) | `docs/samples/ranking-baseline.md` changes and the plan lists the numbers |
 | 3 | Update `loop8/CLAUDE.md` sections 9.1 and 9.2 and the architecture page (decisions 2, 3, 5 and 6) | Project lead | No | Files updated for review |
 | 4 | Write and review the bootstrap template and the two trust policies. Draft written on 2026-11-18 in `loop8/infra/bootstrap/bootstrap.yaml`, with the Terraform skeleton, `loop8/.pre-commit-config.yaml` and `docs/best-practices/terraform-and-pipeline.md`. The pre-commit hooks pass on these files | Project lead, with review | No until run | Trust policies read line by line against section 4 |
@@ -189,4 +189,5 @@ Issue numbers for steps 3 to 11 are created with the project lead's approval bef
 
 | Date | Step | What was done and how it was checked |
 |---|---|---|
-| 2026-11-18 | 5, bootstrap | Read only pre checks with the Loop8 admin role: no GitHub OIDC provider in the account, state bucket name free, `Loop8-ReadOnly` is a plain IAM role, no budgets. A change set was created and reviewed before running: five resources to add, and the trust policies resolved to the exact subjects of section 4. The change set was executed and the stack `mavenscout-bootstrap` reached `CREATE_COMPLETE`. Recorded in the runbook inventory. Still to verify: the subject claim in the first workflow run, and the two repository variables created by the owner |
+| 2026-11-18 | 5, bootstrap | Read only pre checks with the Loop8 admin role: no GitHub OIDC provider in the account, state bucket name free, `Loop8-ReadOnly` is a plain IAM role, no budgets. A change set was created and reviewed before running: five resources to add, and the trust policies resolved to the exact subjects of section 4. The change set was executed and the stack `mavenscout-bootstrap` reached `CREATE_COMPLETE`. Recorded in the runbook inventory. |
+| 2026-11-18 | 6, pipeline | The first pull request and the first push to `loop8-develop` ran the workflow. The subject claims were `repo:benjiholzman@270381471/mavenscout@1288851291:pull_request` and `...:ref:refs/heads/loop8-develop`, equal to the trust policies. Format, validate, the three module tests and Checkov passed. The two repository variables were then created and the plan step is now active |
