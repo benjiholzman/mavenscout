@@ -136,6 +136,7 @@ Read-only access cannot invoke a model (`bedrock:InvokeModel` is not a read acti
 | A8 profile routing Regions | Not yet run | |
 | A9 quota request history | Requests for Haiku 5.5 (10,000,000 tokens per minute) and Sonnet 5.5 (6,000,000) were filed on 2026-11-12 with the project lead's approval. Later reads show the cases closed about 19 minutes after filing, with the applied value still 0, so not granted. A second set of requests may exist, since the creation times reported by two people differ; verify with this check. This is the only change to the account that we know of | 2026-11-13 |
 | A10 models confirmed for the POC | Titan Text Embeddings V2, GPT-6 Luna (Fit) and GPT-6 Sol (extraction and summaries). Claude Haiku 5.5 and Sonnet 5.5 are not in the plan | 2026-11-16 |
+| A11 bootstrap pre checks | Read only, with the Loop8 admin role. The account has no GitHub OIDC provider, so the bootstrap template creates it. The name `mavenscout-poc-tfstate` is free (HeadBucket answered 404). `Loop8-ReadOnly` is a plain IAM role at path `/`, so the budget action ARN pattern applies. No role with the `mavenscout` prefix exists and no budget exists. The CloudFormation stack `Loop8-Access` already exists and is not part of this POC | 2026-11-18 |
 
 ---
 
@@ -518,7 +519,19 @@ Then re-run the tagging check: it must return no rows. Quota increases and the M
 
 | Resource | Name | Region | Created (date, by) | Removed |
 |---|---|---|---|---|
-| | | | | |
+| CloudFormation stack (bootstrap, from `loop8/infra/bootstrap/bootstrap.yaml`, created from a reviewed change set) | `mavenscout-bootstrap` | us-east-1 | 2026-11-18, project lead | |
+| S3 bucket (Terraform state, kept on stack deletion, delete by hand at teardown) | `mavenscout-poc-tfstate` | us-east-1 | 2026-11-18, bootstrap stack | |
+| IAM OIDC provider for GitHub Actions | `token.actions.githubusercontent.com` | global | 2026-11-18, bootstrap stack | |
+| IAM role, read only plan role (pull requests and `loop8-develop`) | `mavenscout-gha-plan` | global | 2026-11-18, bootstrap stack | |
+| IAM role, apply role (pinned to `loop8-develop`) | `mavenscout-gha-apply` | global | 2026-11-18, bootstrap stack | |
+| Terraform state object | `poc/terraform.tfstate` in `mavenscout-poc-tfstate` | us-east-1 | 2026-11-18, first apply by the pipeline | |
+| SNS topic for budget and alarm messages, no subscription yet | `mavenscout-engine-alerts` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| SNS topic policy | `mavenscout-engine-alerts` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| Monthly budget, 350 USD, alerts at 50% and 80% of actual spend and 100% of the forecast | `mavenscout-engine-monthly` | global | 2026-11-18, Terraform apply by the pipeline | |
+| Budget action at 100% of actual spend, attaches the deny policy to the engineer roles | on `mavenscout-engine-monthly` | global | 2026-11-18, Terraform apply by the pipeline | |
+| IAM policy that denies model invocation | `mavenscout-engine-bedrock-deny` | global | 2026-11-18, Terraform apply by the pipeline | |
+| IAM role and inline policy for the budget action | `mavenscout-engine-budget-action` | global | 2026-11-18, Terraform apply by the pipeline | |
+| CloudWatch alarm on Titan V2 input tokens per hour (5,000,000) | `mavenscout-engine-tokens-amazon.titan-embed-text-v2-0` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
 
 ## Change log
 
@@ -527,3 +540,4 @@ Then re-run the tagging check: it must return no rows. Quota increases and the M
 | 2026-11-09 | Part A run and findings recorded |
 | 2026-11-16 | Project lead: findings A8 to A10 added, Claude quota step marked optional |
 | 2026-11-16 | Models changed to GPT-6 Luna, GPT-6 Sol and Titan V2 for v1 (model decision of 2026-11-14); findings of 2026-11-13 added; checks A8 and A9 added; Part C (OpenSearch test) and Part D (walking skeleton resources) written from the blueprint; resource names unified under `mavenscout-dev-`; teardown extended to every resource; aligned with blueprint v4 (OpenSearch chosen, 2 to 3 jobs at once, 1 GB worker, 5 minute presigned links, optional summaries route) |
+| 2026-11-18 | Project lead: bootstrap stack and first Terraform apply recorded in the inventory |

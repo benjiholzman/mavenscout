@@ -1,0 +1,159 @@
+name: Terraform
+
+# Loop8 POC infrastructure (loop8/infra). See loop8/docs/planning/poc-start-plan.md.
+# The AWS steps run only when the repository variables exist. Format, validate,
+# Checkov and the OIDC subject check need no AWS access.
+
+on:
+  pull_request:
+    branches: [loop8-develop]
+    paths:
+      - 'loop8/infra/**'
+      - '.github/workflows/terraform.yml'
+  push:
+    branches: [loop8-develop]
+    paths:
+      - 'loop8/infra/**'
+      - '.github/workflows/terraform.yml'
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  AWS_REGION: us-east-1
+  TF_VERSION: "1.14.9"
+
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Format, validate and Checkov
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform format check
+        run: terraform fmt -check -recursive
+        working-directory: loop8/infra
+
+      - name: Terraform validate
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+        working-directory: loop8/infra
+
+      - name: Terraform tests of the modules (mocked provider, no AWS)
+        run: |
+          for dir in modules/*/; do
+            if [ -d "${dir}tests" ]; then
+              terraform -chdir="$dir" init -backend=false -input=false
+              terraform -chdir="$dir" test -no-color
+            fi
+          done
+        working-directory: loop8/infra
+
+      - name: Install Checkov
+        run: pip install checkov==3.3.30
+
+      - name: Checkov scan
+        run: python loop8/infra/scripts/checkov_github_oidc.py --config-file loop8/infra/.checkov.yaml
+
+  # Prints the subject claim GitHub puts in the token, so it can be compared with
+  # the trust policy in loop8/infra/bootstrap/bootstrap.yaml before anything is
+  # applied. The claim is not a secret. The token itself is never printed.
+  oidc-subject:
+    name: Show OIDC subject
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print the subject claim
+        run: |
+          token=$(curl -sS -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" | jq -r .value)
+          payload=$(echo "$token" | cut -d. -f2 | tr '_-' '/+')
+          while [ $(( ${#payload} % 4 )) -ne 0 ]; do payload="${payload}="; done
+          echo "$payload" | base64 -d | jq '{sub, aud, repository, repository_owner, ref, event_name}'
+
+  plan:
+    name: Plan
+    needs: validate
+    if: ${{ vars.AWS_PLAN_ROLE_ARN != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials (plan role)
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init
+        run: terraform init -input=false
+        working-directory: loop8/infra
+
+      - name: Terraform plan
+        run: terraform plan -input=false -no-color -out=tfplan
+        working-directory: loop8/infra
+
+      - name: Render the plan
+        if: github.event_name == 'pull_request'
+        run: terraform show -no-color tfplan > plan.txt
+        working-directory: loop8/infra
+
+      - name: Comment the plan on the pull request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            let plan = fs.readFileSync('loop8/infra/plan.txt', 'utf8');
+            if (plan.length > 60000) plan = plan.slice(0, 60000) + '\n... plan truncated, see the workflow log';
+            const body = '#### Terraform plan\n```\n' + plan + '\n```';
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+  apply:
+    name: Apply
+    needs: plan
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/loop8-develop' && vars.AWS_APPLY_ROLE_ARN != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials (apply role)
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init
+        run: terraform init -input=false
+        working-directory: loop8/infra
+
+      - name: Terraform apply
+        run: terraform apply -input=false -auto-approve
+        working-directory: loop8/infra
