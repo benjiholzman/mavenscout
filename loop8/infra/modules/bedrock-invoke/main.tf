@@ -14,10 +14,41 @@ data "aws_iam_policy_document" "invoke" {
   }
 }
 
+data "aws_iam_policy_document" "combined" {
+  source_policy_documents = [
+    data.aws_iam_policy_document.invoke.json,
+    data.aws_iam_policy_document.invoke_profiles.json,
+  ]
+}
+
+# Models called through a cross region inference profile. The call needs the
+# profile and the foundation model in every region the profile routes to.
+locals {
+  profile_resources = flatten([
+    for id in var.profile_model_ids : concat(
+      ["arn:aws:bedrock:${var.region}:${data.aws_caller_identity.current.account_id}:inference-profile/${var.profile_prefix}.${id}"],
+      [for r in var.profile_regions : "arn:aws:bedrock:${r}::foundation-model/${id}"],
+    )
+  ])
+}
+
+data "aws_iam_policy_document" "invoke_profiles" {
+  dynamic "statement" {
+    for_each = length(local.profile_resources) > 0 ? [1] : []
+
+    content {
+      sid       = "InvokeNamedModelsThroughProfile"
+      actions   = ["bedrock:InvokeModel"]
+      resources = local.profile_resources
+      effect    = "Allow"
+    }
+  }
+}
+
 resource "aws_iam_policy" "invoke" {
   name        = "${var.name_prefix}-bedrock-invoke"
   description = "Allows bedrock:InvokeModel on the named foundation models only"
-  policy      = data.aws_iam_policy_document.invoke.json
+  policy      = data.aws_iam_policy_document.combined.json
 }
 
 data "aws_iam_policy_document" "trust" {

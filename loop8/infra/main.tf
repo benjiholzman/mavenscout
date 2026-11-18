@@ -17,5 +17,9 @@ module "bedrock_invoke" {
   region      = var.aws_region
   model_ids   = var.invoke_model_ids
 
+  profile_model_ids = var.invoke_profile_model_ids
+  profile_prefix    = "us"
+  profile_regions   = var.invoke_profile_regions
+
   trusted_role_names = var.engineer_role_names
 }

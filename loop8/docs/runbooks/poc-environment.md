@@ -226,7 +226,22 @@ region = us-east-1
 
 Then run the embedding script with `AWS_PROFILE=mavenscout-titan`. Check with `aws sts get-caller-identity --profile mavenscout-titan`, which must show the assumed role `mavenscout-engine-titan-invoke`. The budget deny policy also targets this role, so the 100% budget cut removes this access too.
 
-Luna and Sol are added in a separate change, with a token alarm per model.
+Models the role can call (read from the account on 2026-11-18):
+
+1. Titan Text Embeddings V2. Model id `amazon.titan-embed-text-v2:0`, called directly.
+2. GPT-6 Luna, for Fit. Call it with the profile id `us.openai.gpt-6-luna` (model id `openai.gpt-6-luna`).
+3. GPT-6 Sol, for extraction and summaries. Call it with the profile id `us.openai.gpt-6-sol` (model id `openai.gpt-6-sol`).
+
+Call Luna and Sol with the profile id, never with the model id alone. The profile routes to us-east-1, us-east-2 and us-west-2, and the policy allows the profile and the model in all three. The Converse API needs the same permission as `InvokeModel`. The role cannot call any other model. A token alarm exists for each model, with estimated thresholds that are reviewed after the first measured run.
+
+Check each model with a small call before building on it:
+
+```bash
+aws bedrock-runtime converse --region us-east-1 --profile mavenscout-titan \
+  --model-id us.openai.gpt-6-luna \
+  --messages '[{"role":"user","content":[{"text":"Reply with OK"}]}]' \
+  --query 'output.message.content[0].text'
+```
 
 ### B4. Unblock Claude Haiku and Sonnet (optional, in parallel)
 

@@ -9,7 +9,7 @@ A managed policy that allows `bedrock:InvokeModel` on the foundation models in `
 
 ## Models
 
-Titan Text Embeddings V2 only. Luna and Sol are added in a separate change, when the engine needs them, together with their token alarms.
+Titan Text Embeddings V2 is called directly (`model_ids`). GPT-6 Luna and GPT-6 Sol are called through the US inference profile (`profile_model_ids`). For those the policy allows the profile ARN and the foundation model in each region the profile routes to (`profile_regions`). The token alarms are in the `cost-guard` module.
 
 ## Test
 
