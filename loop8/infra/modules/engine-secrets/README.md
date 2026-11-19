@@ -6,6 +6,7 @@ Empty Secrets Manager secrets for the engine. Terraform creates the container an
 
 1. Creates one secret per name in `secret_names`, called `<name_prefix>/<name>`. The apply role can only manage secrets that start with `mavenscout/`.
 2. Sets a recovery window of 7 days, so a destroy at the end of the POC frees the name quickly.
+3. When `reader_role_names` is not empty, creates the policy `<name_prefix>-engine-secrets-read` with the single action `secretsmanager:GetSecretValue` on the ARNs of the secrets of this module, and attaches it to each listed role. Each role must be named `mavenscout-engine-...`, because the apply role can only attach policies to roles with that prefix. The root passes the role the engineers assume, because `Loop8-ReadOnly` cannot be changed.
 
 ## How the value gets in
 
