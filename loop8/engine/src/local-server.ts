@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { handleApi } from './api/app'
+import { createSolComplete } from './bedrock/sol'
 import { loadSettings } from './core/settings'
 import { createStubEngine, stubOptionsFromEnv } from './engine/stub'
+import { extractFromJd } from './extract/extract'
 import { DEFAULT_LIMITS } from './shared/limits'
 import { log } from './shared/log'
 import { createMemoryStore } from './shared/memory-store'
@@ -38,7 +40,19 @@ export function createLocalServer(env: Record<string, string | undefined>): { se
       })
     },
   }
-  const api = { store, queue, settings, limits: DEFAULT_LIMITS, now: Date.now, newId: () => randomUUID() }
+  // Extraction calls Sol when AWS credentials are present; without them the call
+  // fails and extractFromJd degrades to the deterministic floor, so the local
+  // server still answers /extract offline.
+  const complete = createSolComplete(settings.extractModel)
+  const api = {
+    store,
+    queue,
+    settings,
+    limits: DEFAULT_LIMITS,
+    now: Date.now,
+    newId: () => randomUUID(),
+    extract: (jdText: string, ctx: Parameters<typeof extractFromJd>[1]) => extractFromJd(jdText, ctx, { complete }),
+  }
 
   const cors = {
     'access-control-allow-origin': env.LOCAL_ALLOW_ORIGIN || 'http://localhost:5173',
