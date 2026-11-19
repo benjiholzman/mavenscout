@@ -188,6 +188,13 @@ aws secretsmanager describe-secret --region $AWS_REGION --secret-id mavenscout/s
   --query '[Name,LastChangedDate]'
 ```
 
+Who can read it: the engineers, through the role `mavenscout-engine-titan-invoke` (profile `mavenscout-titan`, see B3c). The pipeline attaches the policy `mavenscout-engine-secrets-read`, which allows only `secretsmanager:GetSecretValue` on the secrets of the module `engine-secrets`. `Loop8-ReadOnly` itself cannot read the secret and cannot be changed. To use the values without printing them, load them into the shell and show only the key names:
+
+```bash
+aws secretsmanager get-secret-value --profile mavenscout-titan --region $AWS_REGION \
+  --secret-id mavenscout/supabase --query SecretString --output text | jq 'keys'
+```
+
 ### B3. Bedrock smoke test
 
 One call to each chosen model, recording tokens and latency. This is step 5 of the blueprint. Luna and Sol are third-party models sold through AWS Marketplace, so the first call from the account may create the Marketplace subscription. Run it with the admin role for that reason.
@@ -226,7 +233,7 @@ source_profile = <the Loop8-ReadOnly profile>
 region = us-east-1
 ```
 
-Then run the embedding script with `AWS_PROFILE=mavenscout-titan`. Check with `aws sts get-caller-identity --profile mavenscout-titan`, which must show the assumed role `mavenscout-engine-titan-invoke`. The budget deny policy also targets this role, so the 100% budget cut removes this access too.
+Then run the embedding script with `AWS_PROFILE=mavenscout-titan`. Check with `aws sts get-caller-identity --profile mavenscout-titan`, which must show the assumed role `mavenscout-engine-titan-invoke`. The budget deny policy also targets this role, so the 100% budget cut removes the model access too. The role also reads the secret `mavenscout/supabase` since the policy `mavenscout-engine-secrets-read` was added (B2). The name `titan-invoke` is narrower than what the role does, and it is kept because every engineer has a profile that points to it.
 
 Models the role can call (read from the account on 2026-11-18):
 
@@ -581,6 +588,7 @@ Then re-run the tagging check: it must return no rows. Quota increases and the M
 | Event source mapping from the jobs queue to the worker, one job per call, at most 2 at once | on `mavenscout-engine-worker` | us-east-1 | 2026-11-18, Terraform apply by the pipeline, second run | |
 | HTTP API with `POST /jobs` and `GET /jobs/{id}`, the `$default` stage with throttling (5 per second, burst 10) and the Lambda invoke permission | `mavenscout-engine-api` | us-east-1 | 2026-11-18, Terraform apply by the pipeline, second run | URL read with `aws apigatewayv2 get-apis`, not recorded here |
 | Secrets Manager secret with the Supabase values `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the anon key is the public publishable key) | `mavenscout/supabase` | us-east-1 | 2026-11-18, container by Terraform (PR 47), value uploaded by hand with `loop8/infra/scripts/put-secret.sh` | `SUPABASE_DB_URL` not set, not needed so far. Values are not recorded here |
+| IAM policy that allows `secretsmanager:GetSecretValue` on `mavenscout/supabase` only, attached to `mavenscout-engine-titan-invoke` | `mavenscout-engine-secrets-read` | global | Not yet applied, planned in `loop8/docs/planning/engine-secret-read-plan.md` | Not attached to `Loop8-ReadOnly`, see B2 |
 
 ## Change log
 
@@ -593,3 +601,4 @@ Then re-run the tagging check: it must return no rows. Quota increases and the M
 | 2026-11-18 | Project lead: Titan role, Luna and Sol policy version 2, token alarms and alert subscription recorded in the inventory |
 | 2026-11-18 | Project lead: engine data and API resources recorded in the inventory, Part D replaced by Terraform |
 | 2026-11-18 | Project lead: Supabase secret recorded in the inventory, B2 describes the upload script |
+| 2026-11-19 | Project lead: B2 and B3c describe how the engineers read the Supabase secret through the role, inventory row added (not yet applied) |
