@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Approved on 2026-11-19, local change done, not committed or applied |
+| Status | Applied on 2026-11-19. The read by an engineer and the baseline run are pending |
 | Phase | P2 (engine wiring, access) |
 | Task | Allow the engineers to read the secret `mavenscout/supabase` through the role they already assume, with Terraform and the pipeline |
 | Owner | Guillermo Sandoval |
@@ -73,3 +73,6 @@ Nothing else changes. The role keeps its name `mavenscout-engine-titan-invoke`, 
 | Date | Step | What was done and how it was checked |
 |---|---|---|
 | 2026-11-19 | 2, local change | The module `engine-secrets` got the input `reader_role_names`, the policy `mavenscout-engine-secrets-read`, the attachment and the output `read_policy_arn`. The root passes the role of the module `bedrock_invoke`. `terraform fmt -check` is clean, `terraform validate` passes in the module and in the root, and `terraform test` passes 5 of 5 runs in the module (2 existing, 3 new). Nothing is committed, pushed or applied |
+| 2026-11-19 | 3 and 4, pull request and apply | Issue 51 and pull request 52 merged (merge commit 615cac5). The plan on the pull request showed 2 to add, 0 to change, 0 to destroy. The apply of the merge ran and finished with 2 added, 0 changed, 0 destroyed, so the guardrail did not deny the policy or the attachment |
+| 2026-11-19 | 5, simulation | `aws iam simulate-principal-policy` for `mavenscout-engine-titan-invoke` returned `allowed` for `secretsmanager:GetSecretValue` on `mavenscout/supabase` and `implicitDeny` for a secret with another name. The policy `mavenscout-engine-secrets-read` is listed next to `mavenscout-engine-bedrock-invoke` on the role. Acceptance criterion 2 is met |
+| 2026-11-19 | 6, pending | Criteria 3 and 4 are not confirmed yet. An engineer has to read the key names with `AWS_PROFILE=mavenscout-titan` and run `npm run baseline`. This record is updated when the engineer answers |
