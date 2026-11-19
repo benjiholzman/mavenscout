@@ -58,4 +58,7 @@ module "engine_secrets" {
 
   name_prefix  = "mavenscout"
   secret_names = ["supabase"]
+
+  # The engineers assume this role, so they read the secrets through it
+  reader_role_names = [module.bedrock_invoke.role_name]
 }
