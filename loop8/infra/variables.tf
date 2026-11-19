@@ -56,3 +56,33 @@ variable "invoke_profile_regions" {
   type        = list(string)
   default     = ["us-east-1", "us-east-2", "us-west-2"]
 }
+
+variable "app_origins" {
+  description = "Origins of the app that may call the API and read results. Add the deployed app URL when the customer gives it"
+  type        = list(string)
+  default     = ["http://localhost:5173"]
+}
+
+variable "api_rate_limit" {
+  description = "API route throttling in requests per second. Estimate, adjust after the first runs"
+  type        = number
+  default     = 5
+}
+
+variable "api_burst_limit" {
+  description = "API route throttling burst. Estimate, adjust after the first runs"
+  type        = number
+  default     = 10
+}
+
+variable "max_jobs_at_once" {
+  description = "Most jobs the worker runs at once. Protects the model quotas. AWS allows a minimum of 2"
+  type        = number
+  default     = 2
+}
+
+variable "worker_memory_mb" {
+  description = "Memory of the worker Lambda in MB, from the walking skeleton plan"
+  type        = number
+  default     = 1024
+}

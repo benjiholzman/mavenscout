@@ -191,6 +191,10 @@ Resources:
   ApplyRole:
     Type: AWS::IAM::Role
     Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - W3037
       checkov:
         skip:
           - id: CKV_AWS_111
@@ -281,6 +285,10 @@ Resources:
                   - lambda:GetEventSourceMapping
                   - lambda:UpdateEventSourceMapping
                   - lambda:ListEventSourceMappings
+                  # Tagging a mapping needs these. Found at the first apply of the engine.
+                  - lambda:TagResource
+                  - lambda:UntagResource
+                  - lambda:ListTags
                 Resource: "*"
 
               - Sid: EngineQueues
@@ -321,6 +329,10 @@ Resources:
                   - apigateway:PUT
                   - apigateway:PATCH
                   - apigateway:DELETE
+                  # The API evaluates these when a stage is created with tags. Found
+                  # at the first apply of the engine. cfn-lint does not know them yet.
+                  - apigateway:TagResource
+                  - apigateway:UntagResource
                 Resource:
                   - "arn:aws:apigateway:*::/apis"
                   - "arn:aws:apigateway:*::/apis/*"

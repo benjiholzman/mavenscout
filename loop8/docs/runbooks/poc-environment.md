@@ -173,17 +173,26 @@ aws budgets create-budget --account-id $ACCOUNT_ID \
 
 ### B2. Secret for the Supabase connection
 
-Created empty. The worker and the profile indexer read profiles from Supabase Postgres through the shared pooler in transaction mode (port 6543), as the blueprint describes. The value is a JSON object with the key `SUPABASE_DB_URL`, added later by whoever holds it, from a local file that is deleted afterwards. It is never pasted into chat, tickets or this repo.
+Created empty by Terraform (module `engine-secrets`), named `mavenscout/supabase`. The apply role can only manage secrets that start with `mavenscout/`. The worker and the profile indexer read profiles from Supabase through the shared pooler in transaction mode (port 6543), as the blueprint describes. The value is one JSON object, for example `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_DB_URL`, added by whoever holds it. It is never pasted into chat, tickets or this repo, and never goes through Terraform, the plan or the state.
+
+The person who holds the values runs the script with the MavenScout session active. It shows the role and the last four digits of the account, asks for a typed yes, asks for each value with the typing hidden (empty skips a key), writes a temporary file only that user can read, uploads it and deletes it:
 
 ```bash
-aws secretsmanager create-secret --region $AWS_REGION \
-  --name mavenscout-dev/supabase \
-  --description "Supabase pooler connection for the MavenScout ranking engine POC" \
-  --tags "$TAGS_KV_JSON"
+loop8/infra/scripts/put-secret.sh mavenscout/supabase SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_DB_URL
+```
 
-# Later, by the key holder:
-# aws secretsmanager put-secret-value --region $AWS_REGION \
-#   --secret-id mavenscout-dev/supabase --secret-string file://supabase-secret.json
+Check without showing the value:
+
+```bash
+aws secretsmanager describe-secret --region $AWS_REGION --secret-id mavenscout/supabase \
+  --query '[Name,LastChangedDate]'
+```
+
+Who can read it: the engineers, through the role `mavenscout-engine-titan-invoke` (profile `mavenscout-titan`, see B3c). The pipeline attaches the policy `mavenscout-engine-secrets-read`, which allows only `secretsmanager:GetSecretValue` on the secrets of the module `engine-secrets`. `Loop8-ReadOnly` itself cannot read the secret and cannot be changed. To use the values without printing them, load them into the shell and show only the key names:
+
+```bash
+aws secretsmanager get-secret-value --profile mavenscout-titan --region $AWS_REGION \
+  --secret-id mavenscout/supabase --query SecretString --output text | jq 'keys'
 ```
 
 ### B3. Bedrock smoke test
@@ -224,7 +233,7 @@ source_profile = <the Loop8-ReadOnly profile>
 region = us-east-1
 ```
 
-Then run the embedding script with `AWS_PROFILE=mavenscout-titan`. Check with `aws sts get-caller-identity --profile mavenscout-titan`, which must show the assumed role `mavenscout-engine-titan-invoke`. The budget deny policy also targets this role, so the 100% budget cut removes this access too.
+Then run the embedding script with `AWS_PROFILE=mavenscout-titan`. Check with `aws sts get-caller-identity --profile mavenscout-titan`, which must show the assumed role `mavenscout-engine-titan-invoke`. The budget deny policy also targets this role, so the 100% budget cut removes the model access too. The role also reads the secret `mavenscout/supabase` since the policy `mavenscout-engine-secrets-read` was added (B2). The name `titan-invoke` is narrower than what the role does, and it is kept because every engineer has a profile that points to it.
 
 Models the role can call (read from the account on 2026-11-18):
 
@@ -300,6 +309,8 @@ The security and access policies are not taggable; they are found by their `mave
 ---
 
 ## Part D: engine resources for the walking skeleton (admin, after approval)
+
+**Replaced by Terraform on 2026-11-18.** The resources of this part are created by the modules `engine-data` and `engine-api` in `loop8/infra`, through the pipeline, with names that start with `mavenscout-engine-` (the apply role can only manage that prefix). Do not run the commands below by hand. They stay as a reference of what the modules create. See `loop8/docs/planning/engine-deploy-plan.md`.
 
 Step 7 of the blueprint: the API, the api Lambda, the queue, DynamoDB, S3 and a worker with a stub engine, so the asynchronous pipeline is tested before any model spend. Run Part D only after the walking skeleton plan is approved and its open inputs (runtime, memory, concurrency, throttling, app origin) are set. The DynamoDB key schema below is a proposal for that plan to confirm.
 
@@ -567,6 +578,17 @@ Then re-run the tagging check: it must return no rows. Quota increases and the M
 | IAM policy that allows `bedrock:InvokeModel` on Titan V2 (version 1), and from 2026-11-18 on Luna and Sol through the US inference profiles (version 2) | `mavenscout-engine-bedrock-invoke` | global | 2026-11-18, Terraform apply by the pipeline | Not attached to `Loop8-ReadOnly`, see B3c |
 | IAM role the engineers assume to call the models, trusts only `Loop8-ReadOnly` | `mavenscout-engine-titan-invoke` | global | 2026-11-18, Terraform apply by the pipeline | The budget deny also targets it |
 | CloudWatch alarms on Luna and Sol input tokens per hour (20,000,000 and 5,000,000, estimates), one for the profile id and one for the model id | `mavenscout-engine-tokens-us.openai.gpt-6-luna`, `...-openai.gpt-6-luna`, `...-us.openai.gpt-6-sol`, `...-openai.gpt-6-sol` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | The alarm whose dimension receives data is kept after the first calls |
+| S3 bucket for job inputs and results (private, encrypted, objects expire after 7 days) | `mavenscout-engine-jobs-<account id>` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| DynamoDB table for job state (on demand, TTL on `expires_at`) | `mavenscout-engine-jobs` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| SQS jobs queue (visibility timeout 1,080 s, 5 receives) and its dead letter queue | `mavenscout-engine-jobs`, `mavenscout-engine-jobs-dlq` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| CloudWatch alarm on the dead letter queue, notifies the alert topic | `mavenscout-engine-jobs-dlq-not-empty` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| IAM roles of the api and worker Lambdas, each with one inline policy. Neither has model access | `mavenscout-engine-api-role`, `mavenscout-engine-worker-role` | global | 2026-11-18, Terraform apply by the pipeline | |
+| CloudWatch log groups of the Lambdas, 14 days of retention | `/aws/lambda/mavenscout-engine-api`, `/aws/lambda/mavenscout-engine-worker` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| Lambda functions, Node 22, stub engine (api 10 s, worker 180 s and 1,024 MB) | `mavenscout-engine-api`, `mavenscout-engine-worker` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
+| Event source mapping from the jobs queue to the worker, one job per call, at most 2 at once | on `mavenscout-engine-worker` | us-east-1 | 2026-11-18, Terraform apply by the pipeline, second run | |
+| HTTP API with `POST /jobs` and `GET /jobs/{id}`, the `$default` stage with throttling (5 per second, burst 10) and the Lambda invoke permission | `mavenscout-engine-api` | us-east-1 | 2026-11-18, Terraform apply by the pipeline, second run | URL read with `aws apigatewayv2 get-apis`, not recorded here |
+| Secrets Manager secret with the Supabase values `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the anon key is the public publishable key) | `mavenscout/supabase` | us-east-1 | 2026-11-18, container by Terraform (PR 47), value uploaded by hand with `loop8/infra/scripts/put-secret.sh` | `SUPABASE_DB_URL` not set, not needed so far. Values are not recorded here |
+| IAM policy that allows `secretsmanager:GetSecretValue` on `mavenscout/supabase` only, attached to `mavenscout-engine-titan-invoke` | `mavenscout-engine-secrets-read` | global | Not yet applied, planned in `loop8/docs/planning/engine-secret-read-plan.md` | Not attached to `Loop8-ReadOnly`, see B2 |
 
 ## Change log
 
@@ -577,3 +599,6 @@ Then re-run the tagging check: it must return no rows. Quota increases and the M
 | 2026-11-16 | Models changed to GPT-6 Luna, GPT-6 Sol and Titan V2 for v1 (model decision of 2026-11-14); findings of 2026-11-13 added; checks A8 and A9 added; Part C (OpenSearch test) and Part D (walking skeleton resources) written from the blueprint; resource names unified under `mavenscout-dev-`; teardown extended to every resource; aligned with blueprint v4 (OpenSearch chosen, 2 to 3 jobs at once, 1 GB worker, 5 minute presigned links, optional summaries route) |
 | 2026-11-18 | Project lead: bootstrap stack and first Terraform apply recorded in the inventory |
 | 2026-11-18 | Project lead: Titan role, Luna and Sol policy version 2, token alarms and alert subscription recorded in the inventory |
+| 2026-11-18 | Project lead: engine data and API resources recorded in the inventory, Part D replaced by Terraform |
+| 2026-11-18 | Project lead: Supabase secret recorded in the inventory, B2 describes the upload script |
+| 2026-11-19 | Project lead: B2 and B3c describe how the engineers read the Supabase secret through the role, inventory row added (not yet applied) |

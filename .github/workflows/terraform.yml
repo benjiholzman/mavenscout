@@ -1,6 +1,8 @@
 name: Terraform
 
 # Loop8 POC infrastructure (loop8/infra). See loop8/docs/planning/poc-start-plan.md.
+# The plan and apply jobs also build loop8/engine, because Terraform packages its output.
+# The account ID is replaced in the plan comment, the repository is public.
 # The AWS steps run only when the repository variables exist. Format, validate,
 # Checkov and the OIDC subject check need no AWS access.
 
@@ -9,11 +11,13 @@ on:
     branches: [loop8-develop]
     paths:
       - 'loop8/infra/**'
+      - 'loop8/engine/**'
       - '.github/workflows/terraform.yml'
   push:
     branches: [loop8-develop]
     paths:
       - 'loop8/infra/**'
+      - 'loop8/engine/**'
       - '.github/workflows/terraform.yml'
 
 permissions:
@@ -96,6 +100,17 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build the engine Lambda code
+        run: |
+          npm ci
+          npm run build
+        working-directory: loop8/engine
+
       - name: Configure AWS credentials (plan role)
         uses: aws-actions/configure-aws-credentials@v5
         with:
@@ -112,7 +127,9 @@ jobs:
 
       - name: Render the plan
         if: github.event_name == 'pull_request'
-        run: terraform show -no-color tfplan > plan.txt
+        run: |
+          account=$(aws sts get-caller-identity --query Account --output text)
+          terraform show -no-color tfplan | sed "s/${account}/<account-id>/g" > plan.txt
         working-directory: loop8/infra
 
       - name: Comment the plan on the pull request
@@ -143,6 +160,17 @@ jobs:
         uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build the engine Lambda code
+        run: |
+          npm ci
+          npm run build
+        working-directory: loop8/engine
 
       - name: Configure AWS credentials (apply role)
         uses: aws-actions/configure-aws-credentials@v5
