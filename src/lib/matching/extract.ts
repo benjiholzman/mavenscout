@@ -1,5 +1,6 @@
 import { buildExpertiseIndex, type ExpertiseItem } from '../expertise'
 import { EXTRACTION_STRONG_MIN_OCCURRENCES, MAX_TAG_ROWS } from './config'
+import { createRemoteExtract } from './remote'
 import { countTerm as countOccurrences, escapeRe, isAcronym, normalizeText as normalize } from './text'
 import type { ExtractedRequirements, ExtractedTag, ExtractedValue, ExtractRequirementsFn } from './types'
 
@@ -62,7 +63,9 @@ function itemMentions(rawJd: string, normalizedJd: string, item: ExpertiseItem):
   return count
 }
 
-export const extractRequirements: ExtractRequirementsFn = async (jdText, ctx) => {
+/** The deterministic keyword baseline. Kept as the local fallback when no engine
+ *  is configured, and reused by Loop8's engine as a recall floor. */
+export const placeholderExtract: ExtractRequirementsFn = async (jdText, ctx) => {
   const text = normalize(jdText)
 
   // Expertise items, counted in the JD.
@@ -105,4 +108,16 @@ export const extractRequirements: ExtractRequirementsFn = async (jdText, ctx) =>
     hiring_organization: null,
   }
   return out
+}
+
+/**
+ * The app's extraction entry point. With VITE_ENGINE_URL set it reads the job
+ * description through Loop8's engine (Sol maps paraphrases onto the expertise
+ * list); unset, it runs the deterministic placeholder above exactly as before.
+ * The variable is read inside the call because the baseline harness bundles this
+ * file for Node, where import.meta.env does not exist.
+ */
+export const extractRequirements: ExtractRequirementsFn = (jdText, ctx) => {
+  const baseUrl = import.meta.env?.VITE_ENGINE_URL
+  return baseUrl ? createRemoteExtract({ baseUrl })(jdText, ctx) : placeholderExtract(jdText, ctx)
 }

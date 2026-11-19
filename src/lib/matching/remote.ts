@@ -1,4 +1,11 @@
-import type { JdMatchResult, RankPoolFn, Requirement } from './types'
+import type {
+  ExtractedRequirements,
+  ExtractionContext,
+  ExtractRequirementsFn,
+  JdMatchResult,
+  RankPoolFn,
+  Requirement,
+} from './types'
 
 // ============================================================================
 // Client for the ranking engine API (loop8/engine). The app calls rankPool as
@@ -185,5 +192,70 @@ export function createRemoteRankPool(opts: RemoteOptions): RankPoolFn {
       await pause()
     }
     throw timedOut()
+  }
+}
+
+// ============================================================================
+// Extraction client. Unlike ranking, extraction is synchronous: the manager
+// pastes a job description and expects suggestion chips at once, so this posts
+// the text to the engine's /extract route and returns the result in one call.
+// The engine reads the job description once and never per candidate.
+// ============================================================================
+
+export interface RemoteExtractOptions {
+  baseUrl: string
+  fetch?: typeof fetch
+  sleep?: (ms: number) => Promise<void>
+  now?: () => number
+}
+
+/** Hard ceiling for the whole extraction, matching the 60s rule (decision D-02). */
+const EXTRACT_BUDGET_MS = 60000
+
+export function createRemoteExtract(opts: RemoteExtractOptions): ExtractRequirementsFn {
+  const base = opts.baseUrl.replace(/\/+$/, '')
+
+  return async (jdText: string, ctx: ExtractionContext): Promise<ExtractedRequirements> => {
+    const doFetch = opts.fetch ?? globalThis.fetch.bind(globalThis)
+    const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
+    const now = opts.now ?? Date.now
+    const deadline = now() + EXTRACT_BUDGET_MS
+    const timedOut = () => new Error('The engine did not read the job description in time')
+
+    // Retries network errors with backoff inside the budget.
+    const send = async (url: string, init?: RequestInit) => {
+      let backoff = START_INTERVAL_MS
+      for (;;) {
+        try {
+          return await doFetch(url, init)
+        } catch (err) {
+          if (now() >= deadline) throw err instanceof Error ? err : timedOut()
+          await sleep(backoff)
+          backoff = Math.min(backoff * GROWTH, MAX_INTERVAL_MS)
+        }
+      }
+    }
+
+    let interval = START_INTERVAL_MS
+    for (;;) {
+      const res = await send(`${base}/extract`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jdText, ctx }),
+      })
+      if (res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { extracted?: ExtractedRequirements }
+        if (!body.extracted) throw new Error('Engine returned no extraction')
+        return body.extracted
+      }
+      // A client error other than 429 will not fix itself.
+      if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+        throw new Error(`Engine rejected extraction: ${body.error ?? res.status} ${body.message ?? ''}`.trim())
+      }
+      if (now() >= deadline) throw timedOut()
+      await sleep(interval)
+      interval = Math.min(interval * GROWTH, MAX_INTERVAL_MS)
+    }
   }
 }
