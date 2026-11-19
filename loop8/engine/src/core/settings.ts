@@ -24,6 +24,9 @@ export function loadSettings(env: Record<string, string | undefined>): Settings 
     variant: str('ENGINE_VARIANT', 'A'),
     fitModel: str('FIT_MODEL', 'us.openai.gpt-6-luna'),
     textModel: str('TEXT_MODEL', 'us.openai.gpt-6-luna'),
+    // Extraction (the ingestion module) runs on Sol, the Sonnet class role (D-06).
+    // Kept separate from textModel, which defaults to Luna for summaries.
+    extractModel: str('EXTRACT_MODEL', 'us.openai.gpt-6-sol'),
     embedModel: str('EMBED_MODEL', 'amazon.titan-embed-text-v2:0'),
     summaryCount: int(env, 'SUMMARY_COUNT', 5),
     parallelCalls: int(env, 'PARALLEL_CALLS', 16),

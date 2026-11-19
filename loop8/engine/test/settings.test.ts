@@ -4,14 +4,14 @@ import { DEFAULT_FIT_CAP, loadSettings } from '../src/core/settings'
 
 test('defaults are variant A on Luna', () => {
   const s = loadSettings({})
-  assert.deepEqual(s, { variant: 'A', fitModel: 'us.openai.gpt-6-luna', textModel: 'us.openai.gpt-6-luna', embedModel: 'amazon.titan-embed-text-v2:0', summaryCount: 5, parallelCalls: 16, threshold: null, promptVersion: 'v0', fitCap: 200 })
+  assert.deepEqual(s, { variant: 'A', fitModel: 'us.openai.gpt-6-luna', textModel: 'us.openai.gpt-6-luna', extractModel: 'us.openai.gpt-6-sol', embedModel: 'amazon.titan-embed-text-v2:0', summaryCount: 5, parallelCalls: 16, threshold: null, promptVersion: 'v0', fitCap: 200 })
 })
 test('the Fit cap default is 200, equal to the stage 1 cap', () => {
   assert.equal(DEFAULT_FIT_CAP, 200)
 })
 test('overrides are parsed', () => {
-  const s = loadSettings({ ENGINE_VARIANT: 'C', TEXT_MODEL: 'x.sol', SUMMARY_COUNT: '10', THRESHOLD: '0.42' })
-  assert.equal(s.variant, 'C'); assert.equal(s.textModel, 'x.sol'); assert.equal(s.summaryCount, 10); assert.equal(s.threshold, 0.42)
+  const s = loadSettings({ ENGINE_VARIANT: 'C', TEXT_MODEL: 'x.sol', EXTRACT_MODEL: 'x.extract', SUMMARY_COUNT: '10', THRESHOLD: '0.42' })
+  assert.equal(s.variant, 'C'); assert.equal(s.textModel, 'x.sol'); assert.equal(s.extractModel, 'x.extract'); assert.equal(s.summaryCount, 10); assert.equal(s.threshold, 0.42)
 })
 test('a bad number throws', () => {
   assert.throws(() => loadSettings({ SUMMARY_COUNT: 'five' }), /Invalid setting SUMMARY_COUNT/)

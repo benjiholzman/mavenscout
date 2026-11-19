@@ -8,6 +8,7 @@ export interface Settings {
   variant: string
   fitModel: string
   textModel: string
+  extractModel: string
   embedModel: string
   summaryCount: number
   parallelCalls: number
