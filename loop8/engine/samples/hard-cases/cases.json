@@ -1,0 +1,77 @@
+{
+  "_about": "Hard ranking cases 1 to 5 of loop8/docs/planning/test-cases-draft.md, run in memory against the sample ToRs in docs/samples. Every profile is fictional test data. A vocabulary_mismatch profile shows the work of its target items without naming them or their aliases (forbiddenTerms: the names, aliases and absorbed old names from supabase/011_unified_expertise.sql, the draft's words to avoid, and close variants), and tags only unrelated items, so keyword matching misses it. The decoy stuffs requiredTerms in its headline and bio and tags its targetItems at Working knowledge, with no work behind them. Every organization in the fixtures is invented and marked (fictional). Loaded by src/eval/hard-cases.ts.",
+  "cases": [
+    {
+      "id": "hard-1",
+      "tor": "tor-01",
+      "handle": "hard-achieng-odhiambo",
+      "expect": "top10",
+      "why": "Led four rounds of a longitudinal household panel measuring child height and weight for a maternal health programme, trained enumerators and ran the anthropometric quality checks; never says nutrition or survey.",
+      "checkType": "vocabulary_mismatch",
+      "targetItems": ["Nutrition", "Survey Design", "Impact Evaluation"],
+      "forbiddenTerms": [
+        "Nutrition", "Survey Design", "household surveys", "fieldwork", "sampling",
+        "Impact Evaluation", "RCTs", "quasi-experimental",
+        "household survey", "RCT", "malnutrition", "nutritional", "survey", "surveys"
+      ],
+      "requiredTerms": []
+    },
+    {
+      "id": "hard-2",
+      "tor": "tor-01",
+      "handle": "hard-mutale-chisenga",
+      "expect": "top10",
+      "why": "Designed the eligibility scoring and targeting of a government poverty-targeted transfer scheme, then measured its effect on child growth with a comparison group; never names the sector or the method.",
+      "checkType": "vocabulary_mismatch",
+      "targetItems": ["Social Protection", "Impact Evaluation", "Nutrition"],
+      "forbiddenTerms": [
+        "Social Protection", "safety nets", "social insurance", "cash transfers",
+        "Impact Evaluation", "RCTs", "quasi-experimental", "Nutrition",
+        "RCT", "safety net", "cash transfer", "malnutrition", "nutritional"
+      ],
+      "requiredTerms": []
+    },
+    {
+      "id": "hard-3",
+      "tor": "tor-03",
+      "handle": "hard-nour-obeidat",
+      "expect": "top10",
+      "why": "Ran a coaching and productive asset programme for families who fled the war in Syria and settled in Jordanian towns, then studied which home businesses lasted; never names the population or the programme type.",
+      "checkType": "vocabulary_mismatch",
+      "targetItems": ["Refugees & Forced Displacement", "Economic Inclusion & Livelihoods", "SME Development"],
+      "forbiddenTerms": [
+        "Refugees & Forced Displacement", "refugees", "IDPs", "forced displacement", "Refugee Support",
+        "Economic Inclusion & Livelihoods", "livelihoods", "graduation approach",
+        "SME Development", "MSME", "SME support",
+        "refugee", "livelihood", "IDP", "displaced", "displacement", "graduation", "SME", "SMEs", "MSMEs"
+      ],
+      "requiredTerms": []
+    },
+    {
+      "id": "hard-4",
+      "tor": "tor-05",
+      "handle": "hard-komlan-adjovi",
+      "expect": "top10",
+      "why": "Moved a finance ministry's tendering online: bidder registration, electronic bid opening and publishing contract awards; never names the sector.",
+      "checkType": "vocabulary_mismatch",
+      "targetItems": ["Public Procurement", "Digital Governance"],
+      "forbiddenTerms": [
+        "Public Procurement", "procurement", "e-procurement",
+        "Digital Governance", "e-government", "digital public services", "GovTech",
+        "eprocurement", "e-tendering"
+      ],
+      "requiredTerms": []
+    },
+    {
+      "id": "hard-5",
+      "tor": "tor-01",
+      "handle": "hard-daniel-boateng",
+      "expect": "not_top10",
+      "why": "Early career profile whose headline and bio list nutrition, impact evaluation, survey design and statistical analysis as interests, with no work that shows them.",
+      "checkType": "decoy",
+      "targetItems": ["Nutrition", "Impact Evaluation", "Survey Design", "Statistical Analysis"],
+      "forbiddenTerms": [],
+      "requiredTerms": ["nutrition", "impact evaluation", "survey design", "statistical analysis"]
+    }
+  ]
+}

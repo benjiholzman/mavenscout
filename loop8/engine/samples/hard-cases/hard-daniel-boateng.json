@@ -1,0 +1,67 @@
+{
+  "note": "Fictional test data for hard ranking case hard-5 (keyword stuffing decoy). Not a real person; never part of the customer demo seed.",
+  "handle": "hard-daniel-boateng",
+  "id": "aa8e9714-db3d-428a-98be-e836f206443c",
+  "name": "Daniel Asante Boateng",
+  "gender": "M",
+  "level": "early_career",
+  "headline": "Early Career Professional | Nutrition, Impact Evaluation, Survey Design and Statistical Analysis",
+  "city": "Accra",
+  "country": "Ghana",
+  "languages": [["English", "fluent"], ["Twi", "fluent"]],
+  "work": ["Remote"],
+  "pt": { "status": "available_now", "from": null, "until": null },
+  "ft": { "status": "available_now", "from": null, "until": null },
+  "updatedAt": "2026-11-01T00:00:00+00:00",
+  "featured": false,
+  "eligibility": "Ghanaian citizen; contracts as an individual consultant.",
+  "bio": "Daniel Boateng is an early career professional. His interests include nutrition, impact evaluation, survey design and statistical analysis, and he hopes to work on maternal and child nutrition programmes one day. So far he has worked as an office administrator and an events coordinator, organising conference logistics, booking travel, keeping filing systems in order and answering the office phone.",
+  "tiers": {
+    "core": ["Youth Development"],
+    "strong": [],
+    "working": ["Strategic Communications", "Nutrition", "Impact Evaluation", "Survey Design", "Statistical Analysis"]
+  },
+  "accreditations": [],
+  "history": [
+    {
+      "role": "Office Administrator",
+      "organization": "Accra Events and Conferences Ltd (fictional)",
+      "start_year": 2024,
+      "end_year": null,
+      "logo_url": null,
+      "description": "Runs the front office, bookings and filing for a small events company."
+    }
+  ],
+  "education": [
+    {
+      "institution": "Accra College of Social Sciences (fictional)",
+      "degree_or_course": "BA Sociology",
+      "start_year": 2020,
+      "end_year": 2024,
+      "logo_url": null
+    }
+  ],
+  "additional": [],
+  "portfolio": [
+    {
+      "name": "Annual Partners Conference Logistics",
+      "org": "Accra Events and Conferences Ltd (fictional)",
+      "years": [2025, 2025],
+      "role": "Events Coordinator",
+      "desc": "Booked the venue, catering and travel for a two day conference of 150 guests and managed registration on the day.",
+      "results": "The event was delivered on budget.",
+      "images": [],
+      "links": []
+    },
+    {
+      "name": "Office Filing System Upgrade",
+      "org": "Accra Events and Conferences Ltd (fictional)",
+      "years": [2024, 2025],
+      "role": "Office Administrator",
+      "desc": "Moved paper files into a shared drive with a simple naming system and showed colleagues how to use it.",
+      "results": "Staff find documents faster.",
+      "images": [],
+      "links": []
+    }
+  ]
+}

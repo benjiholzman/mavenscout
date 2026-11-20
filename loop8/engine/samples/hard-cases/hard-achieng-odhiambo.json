@@ -1,0 +1,85 @@
+{
+  "note": "Fictional test data for hard ranking case hard-1. Not a real person; never part of the customer demo seed.",
+  "handle": "hard-achieng-odhiambo",
+  "id": "626b446c-cacb-49a0-9e78-c269c10c92b1",
+  "name": "Achieng Mwikali Odhiambo",
+  "gender": "F",
+  "level": "senior",
+  "headline": "Longitudinal Child Growth Studies | Maternal Health Programmes | East Africa",
+  "city": "Kisumu",
+  "country": "Kenya",
+  "languages": [["English", "fluent"], ["Swahili", "fluent"]],
+  "work": ["Remote", "On-site"],
+  "pt": { "status": "available_now", "from": null, "until": null },
+  "ft": { "status": "available_now", "from": null, "until": null },
+  "updatedAt": "2026-11-01T00:00:00+00:00",
+  "featured": false,
+  "eligibility": "Kenyan citizen; contracts as an individual consultant. Available for travel across East Africa.",
+  "bio": "Achieng Odhiambo is a Kenyan researcher with eleven years of experience running longitudinal studies of mothers and young children. For a county maternal health programme she led four rounds of a household panel that measured the height and weight of children under five, the length of infants and the mid upper arm circumference of young children. She recruited and trained teams of enumerators, wrote the measurement protocols, ran the anthropometric quality checks such as standardisation exercises and reviews of digit preference, and analysed growth trajectories against international child growth reference standards, comparing programme and non programme sub counties over time. She has written the endline reports for the programme and presented the findings on child height for age and weight for height to county health departments and the national ministry.",
+  "tiers": {
+    "core": ["Community Health"],
+    "strong": ["Project Management"],
+    "working": ["Data Visualization"]
+  },
+  "accreditations": [],
+  "history": [
+    {
+      "role": "Senior Research Officer",
+      "organization": "Lake Region Maternal Health Programme (fictional)",
+      "start_year": 2018,
+      "end_year": null,
+      "logo_url": null,
+      "description": "Leads the longitudinal panel of mothers and children and the measurement of child growth across four rounds."
+    },
+    {
+      "role": "Research Officer",
+      "organization": "Western Kenya Child Health Study (fictional)",
+      "start_year": 2015,
+      "end_year": 2018,
+      "logo_url": null,
+      "description": "Supervised enumerator teams measuring children at home and in clinics, and cleaned the growth data."
+    }
+  ],
+  "education": [
+    {
+      "institution": "Lakeside College of Health Sciences (fictional)",
+      "degree_or_course": "MSc Epidemiology",
+      "start_year": 2012,
+      "end_year": 2014,
+      "logo_url": null
+    }
+  ],
+  "additional": [],
+  "portfolio": [
+    {
+      "name": "Mother and Child Panel Study, Kisumu and Siaya",
+      "org": "Lake Region Maternal Health Programme (fictional)",
+      "years": [2019, 2025],
+      "role": "Panel Study Lead",
+      "desc": "Led four annual rounds of a longitudinal panel of 2,400 homes enrolled in a maternal health programme and in comparison sub counties, measuring child height, length and weight and tracking pregnancy outcomes. Selected the panel homes with a two stage cluster design, set up tablet questionnaires for mothers and supervised twelve enumerator teams.",
+      "results": "Panel retention stayed above 90 percent across four rounds; the endline showed a fall in the share of children with low height for age in programme sub counties against comparison ones.",
+      "images": [],
+      "links": []
+    },
+    {
+      "name": "Measurement Quality Assurance for Child Growth Data",
+      "org": "Lake Region Maternal Health Programme (fictional)",
+      "years": [2019, 2025],
+      "role": "Quality Lead",
+      "desc": "Designed the anthropometric quality checks for the panel: standardisation sessions for measurers, repeat measurements on one in ten children, and weekly reviews of digit preference, flagged values and z score distributions by team.",
+      "results": "Technical error of measurement fell within accepted limits for every team by the second round.",
+      "images": [],
+      "links": []
+    },
+    {
+      "name": "Enumerator Training for Home Visits to Mothers",
+      "org": "Western Kenya Child Health Study (fictional)",
+      "years": [2016, 2018],
+      "role": "Training Coordinator",
+      "desc": "Wrote the training curriculum and led two week trainings for 60 enumerators on informed consent, interviewing mothers about infant feeding and illness, and measuring children with height boards, length mats and digital scales.",
+      "results": "Trained teams passed the standardisation test before every round of home visits.",
+      "images": [],
+      "links": []
+    }
+  ]
+}

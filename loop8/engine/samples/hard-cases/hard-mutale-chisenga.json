@@ -1,0 +1,85 @@
+{
+  "note": "Fictional test data for hard ranking case hard-2. Not a real person; never part of the customer demo seed.",
+  "handle": "hard-mutale-chisenga",
+  "id": "3bbcf9da-7e9d-47a3-ab36-468dcace3452",
+  "name": "Mutale Banda Chisenga",
+  "gender": "F",
+  "level": "senior",
+  "headline": "Poverty Targeting and Programme Effects on Child Growth | Southern Africa",
+  "city": "Lusaka",
+  "country": "Zambia",
+  "languages": [["English", "fluent"], ["Bemba", "fluent"]],
+  "work": ["Remote", "Hybrid"],
+  "pt": { "status": "available_now", "from": null, "until": null },
+  "ft": { "status": "available_now", "from": null, "until": null },
+  "updatedAt": "2026-11-01T00:00:00+00:00",
+  "featured": false,
+  "eligibility": "Zambian citizen; contracts as an individual consultant.",
+  "bio": "Mutale Chisenga is a Zambian economist who designs who gets help from government anti poverty schemes and then measures what that help changes for children. For a national poverty-targeted transfer scheme she built the eligibility scoring, a proxy means test calibrated on national living conditions data, and the community validation step that lets villages challenge wrong exclusions. She then led the study of the scheme's effect on children: a comparison group design that matched districts enrolled early with districts enrolled later and followed child height for age, weight for height and diet diversity over three years. She analyses large household datasets in R, writes for ministries of community development and finance, and has advised two neighbouring governments on how to choose which households qualify for regular payments.",
+  "tiers": {
+    "core": ["Poverty & Inequality Analysis"],
+    "strong": ["Econometrics"],
+    "working": ["Public Financial Management"]
+  },
+  "accreditations": [],
+  "history": [
+    {
+      "role": "Senior Economist",
+      "organization": "Ministry of Community Welfare (fictional)",
+      "start_year": 2016,
+      "end_year": 2022,
+      "logo_url": null,
+      "description": "Led the design of eligibility scoring for the national transfer scheme and its effect study on children."
+    },
+    {
+      "role": "Research Fellow",
+      "organization": "Lusaka Institute for Policy Research (fictional)",
+      "start_year": 2022,
+      "end_year": null,
+      "logo_url": null,
+      "description": "Research on how regular payments to poor households change child growth and household spending on food."
+    }
+  ],
+  "education": [
+    {
+      "institution": "Cape Southern University (fictional)",
+      "degree_or_course": "PhD Development Economics",
+      "start_year": 2011,
+      "end_year": 2015,
+      "logo_url": null
+    }
+  ],
+  "additional": [],
+  "portfolio": [
+    {
+      "name": "Eligibility Scoring for a National Poverty-Targeted Transfer Scheme",
+      "org": "Ministry of Community Welfare (fictional)",
+      "years": [2016, 2018],
+      "role": "Targeting Lead",
+      "desc": "Designed the proxy means test that ranks households for monthly payments from the government scheme, chose the weights from national living conditions data, and set the cut off so the poorest fifth of households qualified. Added a community review step and an appeals channel for households wrongly left out.",
+      "results": "Exclusion errors fell by a third against the previous categorical targeting, and the formula was adopted for the national roll out.",
+      "images": [],
+      "links": []
+    },
+    {
+      "name": "Effect of Monthly Payments on Child Growth",
+      "org": "Lusaka Institute for Policy Research (fictional)",
+      "years": [2018, 2022],
+      "role": "Principal Investigator",
+      "desc": "Led a three year study comparing young children in districts that joined the scheme early with children in matched districts that joined later, using difference in differences on height for age, weight for height and diet diversity, with measurements taken by trained enumerators in every round.",
+      "results": "Children in early districts gained in height for age by year three; the findings shaped the decision to add a top up for households with children under two.",
+      "images": [],
+      "links": []
+    },
+    {
+      "name": "Payment Delivery Review",
+      "org": "Ministry of Community Welfare (fictional)",
+      "years": [2021, 2022],
+      "role": "Lead Analyst",
+      "desc": "Reviewed how payments reached households through mobile money and pay points, and how late payments changed what households spent on food for young children.",
+      "results": "Moved two provinces to mobile payment and cut average delays from seven weeks to two.",
+      "images": [],
+      "links": []
+    }
+  ]
+}
