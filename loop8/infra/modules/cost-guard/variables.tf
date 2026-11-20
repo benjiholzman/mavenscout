@@ -17,3 +17,15 @@ variable "bedrock_alarm_models" {
   description = "Model id mapped to the input token count per hour that raises an alarm"
   type        = map(number)
 }
+
+variable "worker_role_names" {
+  description = "Names of the service roles that get an explicit deny on model invocation when the budget reaches 150 percent of actual spend. Empty creates no action"
+  type        = list(string)
+  default     = []
+}
+
+variable "bedrock_throttle_alarm_models" {
+  description = "Model ids whose Bedrock invocation throttles raise an alarm. List the profile id and the model id, since the dimension CloudWatch uses for profile calls is checked after the first call"
+  type        = list(string)
+  default     = []
+}

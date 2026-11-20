@@ -9,9 +9,8 @@ Spending limits for the POC account: an alert topic, a monthly budget with alert
 3. At 100% of actual spend, attaches the deny policy to the roles in `engineer_role_names`. Billing data lags by hours, so this is not an instant cap.
 4. Creates an alarm on `InputTokenCount` per hour for each model in `bedrock_alarm_models`. This reacts in minutes.
 
-## Not here yet
-
-The second cut at 150% for the worker role is added with the worker Lambda, because that role does not exist yet.
+5. At 150% of actual spend, attaches the same deny policy to the roles in `worker_role_names`. The worker is the service that spends, so it is cut later than the engineers. Empty creates no action.
+6. Creates an alarm on `InvocationThrottles` for each model id in `bedrock_throttle_alarm_models`. It says the quota is the limit and the rankings are slower or fall back to estimates.
 
 ## Test
 

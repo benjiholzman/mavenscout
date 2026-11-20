@@ -75,8 +75,9 @@ resource "aws_budgets_budget" "monthly" {
 # ---------------------------------------------------------------------------
 # Cut at 100% of actual spend: attach an explicit deny on model invocation to
 # the engineer roles. Billing data lags by hours, so this is not an instant
-# cap. The second cut at 150%, for the worker role, is added together with the
-# worker Lambda, because that role does not exist yet.
+# cap. The second cut at 150%, for the worker role, runs a later action on the
+# same budget: the worker is the service that spends, so it is given more room
+# than the engineers before it is cut.
 # ---------------------------------------------------------------------------
 
 data "aws_iam_policy_document" "bedrock_deny" {
@@ -127,6 +128,22 @@ data "aws_iam_policy_document" "budget_action_permissions" {
       values   = [aws_iam_policy.bedrock_deny.arn]
     }
   }
+
+  dynamic "statement" {
+    for_each = length(var.worker_role_names) > 0 ? [1] : []
+
+    content {
+      sid       = "AttachDenyToWorkerRoles"
+      actions   = ["iam:AttachRolePolicy", "iam:DetachRolePolicy"]
+      resources = [for name in var.worker_role_names : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${name}"]
+
+      condition {
+        test     = "ArnEquals"
+        variable = "iam:PolicyARN"
+        values   = [aws_iam_policy.bedrock_deny.arn]
+      }
+    }
+  }
 }
 
 resource "aws_iam_role" "budget_action" {
@@ -165,6 +182,33 @@ resource "aws_budgets_budget_action" "deny_engineers" {
   }
 }
 
+resource "aws_budgets_budget_action" "deny_workers" {
+  count = length(var.worker_role_names) > 0 ? 1 : 0
+
+  budget_name        = aws_budgets_budget.monthly.name
+  action_type        = "APPLY_IAM_POLICY"
+  approval_model     = "AUTOMATIC"
+  notification_type  = "ACTUAL"
+  execution_role_arn = aws_iam_role.budget_action.arn
+
+  action_threshold {
+    action_threshold_type  = "PERCENTAGE"
+    action_threshold_value = 150
+  }
+
+  definition {
+    iam_action_definition {
+      policy_arn = aws_iam_policy.bedrock_deny.arn
+      roles      = var.worker_role_names
+    }
+  }
+
+  subscriber {
+    subscription_type = "SNS"
+    address           = aws_sns_topic.alerts.arn
+  }
+}
+
 # ---------------------------------------------------------------------------
 # Alarm on model input tokens per hour, one per model id. This reacts in
 # minutes, which the budget cannot. Luna and Sol are added to the map when
@@ -183,6 +227,29 @@ resource "aws_cloudwatch_metric_alarm" "bedrock_input_tokens" {
   period              = 3600
   evaluation_periods  = 1
   threshold           = each.value
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+}
+
+# ---------------------------------------------------------------------------
+# Alarm on Bedrock invocation throttles. A throttled call is retried by the
+# engine, so this alarm says the quota is the limit and the rankings are slower
+# or fall back to estimates.
+# ---------------------------------------------------------------------------
+
+resource "aws_cloudwatch_metric_alarm" "bedrock_throttles" {
+  for_each = toset(var.bedrock_throttle_alarm_models)
+
+  alarm_name          = "${var.name_prefix}-throttles-${replace(each.key, ":", "-")}"
+  alarm_description   = "Bedrock throttled calls to ${each.key} in the last 5 minutes"
+  namespace           = "AWS/Bedrock"
+  metric_name         = "InvocationThrottles"
+  dimensions          = { ModelId = each.key }
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 0
   comparison_operator = "GreaterThanThreshold"
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alerts.arn]

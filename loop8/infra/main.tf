@@ -8,6 +8,9 @@ module "cost_guard" {
   monthly_budget_usd   = var.monthly_budget_usd
   engineer_role_names  = concat(var.engineer_role_names, [module.bedrock_invoke.role_name])
   bedrock_alarm_models = var.bedrock_alarm_models
+
+  worker_role_names             = [module.engine_api.worker_role_name]
+  bedrock_throttle_alarm_models = var.bedrock_throttle_alarm_models
 }
 
 module "bedrock_invoke" {
@@ -51,6 +54,22 @@ module "engine_api" {
   api_burst_limit  = var.api_burst_limit
   max_jobs_at_once = var.max_jobs_at_once
   worker_memory_mb = var.worker_memory_mb
+
+  alerts_topic_arn = module.cost_guard.alerts_topic_arn
+
+  # The worker role may call these models and read this secret and nothing else
+  worker_model_ids         = var.worker_model_ids
+  worker_profile_model_ids = var.worker_profile_model_ids
+  profile_prefix           = "us"
+  profile_regions          = var.invoke_profile_regions
+  secret_arns              = [module.engine_secrets.secret_arns["supabase"]]
+  supabase_secret_id       = module.engine_secrets.secret_ids["supabase"]
+  index_artifact_key       = var.index_artifact_key
+
+  # Settings the API gives to every job
+  fit_model   = var.engine_fit_model
+  text_model  = var.engine_text_model
+  embed_model = var.engine_embed_model
 }
 
 module "engine_secrets" {

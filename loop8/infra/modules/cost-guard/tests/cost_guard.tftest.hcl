@@ -73,3 +73,36 @@ run "three_alerts_and_one_action_at_100_percent" {
     error_message = "The deny action must fire at 100 percent"
   }
 }
+
+run "no_worker_action_without_worker_roles" {
+  command = plan
+
+  assert {
+    condition     = length(aws_budgets_budget_action.deny_workers) == 0 && length(aws_cloudwatch_metric_alarm.bedrock_throttles) == 0
+    error_message = "Without worker roles and throttle models nothing extra is created"
+  }
+}
+
+run "worker_role_is_cut_at_150_percent_and_the_engineers_stay_at_100" {
+  command = plan
+
+  variables {
+    worker_role_names             = ["mavenscout-engine-worker-role"]
+    bedrock_throttle_alarm_models = ["us.model-a:0", "model-a:0"]
+  }
+
+  assert {
+    condition     = aws_budgets_budget_action.deny_workers[0].action_threshold[0].action_threshold_value == 150 && aws_budgets_budget_action.deny_engineers.action_threshold[0].action_threshold_value == 100
+    error_message = "The worker is cut at 150 percent and the engineers at 100 percent"
+  }
+
+  assert {
+    condition     = contains([for s in data.aws_iam_policy_document.budget_action_permissions.statement : s.sid], "AttachDenyToWorkerRoles")
+    error_message = "The action role must be allowed to attach the deny to the worker role"
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_metric_alarm.bedrock_throttles) == 2
+    error_message = "There must be one throttle alarm per listed model id"
+  }
+}
