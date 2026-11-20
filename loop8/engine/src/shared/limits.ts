@@ -6,6 +6,7 @@ export interface Limits {
   dailyJobCap: number
   leaseMs: number
   maxAttempts: number
+  retryDelaySeconds: number
 }
 
 export const DEFAULT_LIMITS: Limits = {
@@ -19,4 +20,7 @@ export const DEFAULT_LIMITS: Limits = {
   // A visibility timeout shorter than the lease redelivers the message before the lease can expire.
   leaseMs: 200000,
   maxAttempts: 5,
+  // After a caught retryable error the worker releases its lease and makes the message visible again
+  // after this delay, instead of the full visibility timeout. Each retry still counts as a receive.
+  retryDelaySeconds: 10,
 }

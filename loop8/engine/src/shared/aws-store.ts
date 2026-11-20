@@ -3,7 +3,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs'
+import { ChangeMessageVisibilityCommand, SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs'
 import type { JdMatchResult } from '../core/types'
 import type { FinishUpdate, JobItem, JobQueue, JobStore } from './store'
 
@@ -131,6 +131,20 @@ export function createAwsStore(
       )
     },
 
+    async releaseLease(jobId, owner) {
+      // The job stays RUNNING with an expired lease, so acquireLease accepts the next delivery at once.
+      return conditional(
+        new UpdateCommand({
+          TableName,
+          Key: metaKey(jobId),
+          UpdateExpression: 'SET #leaseUntil = :zero',
+          ConditionExpression: 'attribute_exists(pk) AND #state = :running AND #leaseOwner = :owner',
+          ExpressionAttributeNames: { '#state': 'state', '#leaseOwner': 'leaseOwner', '#leaseUntil': 'leaseUntil' },
+          ExpressionAttributeValues: { ':zero': 0, ':running': 'RUNNING', ':owner': owner },
+        }),
+      )
+    },
+
     async saveCheckpoint(jobId, result) {
       await ddb.send(
         new PutCommand({
@@ -234,5 +248,18 @@ export function createAwsQueue(cfg: { queueUrl: string; region: string }, client
     async send(jobId) {
       await sqs.send(new SendMessageCommand({ QueueUrl: cfg.queueUrl, MessageBody: jobId }))
     },
+  }
+}
+
+// Makes a received message visible again after delaySeconds instead of the full visibility timeout.
+export function createAwsRetry(
+  cfg: { queueUrl: string; region: string },
+  client?: Sendable,
+): (receiptHandle: string, delaySeconds: number) => Promise<void> {
+  const sqs: Sendable = client ?? new SQSClient({ region: cfg.region })
+  return async (receiptHandle, delaySeconds) => {
+    await sqs.send(
+      new ChangeMessageVisibilityCommand({ QueueUrl: cfg.queueUrl, ReceiptHandle: receiptHandle, VisibilityTimeout: delaySeconds }),
+    )
   }
 }

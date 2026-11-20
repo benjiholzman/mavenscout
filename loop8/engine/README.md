@@ -27,6 +27,10 @@ Run these from this folder.
 2. Settings, read when a job is created and saved with the job: `ENGINE_VARIANT`, `FIT_MODEL`, `TEXT_MODEL`, `EMBED_MODEL`, `SUMMARY_COUNT`, `PARALLEL_CALLS`, `THRESHOLD` and `PROMPT_VERSION`. Each has a default, so none is required.
 3. Stub engine controls: `STUB_DELAY_MS` adds a delay in milliseconds for each profile, `STUB_FAILURE_RATE` is the share of profiles (0 to 1) that fall back, and `STUB_CRASH=true` makes the engine throw. All are off when unset. They apply to the worker and to `npm run local`.
 
+## Retries
+
+When the worker catches an error that a retry might fix, it releases its lease on the job and makes the SQS message visible again after 10 seconds (`retryDelaySeconds` in `src/shared/limits.ts`), instead of waiting for the full visibility timeout of 1,080 seconds. It shortens the wait only if the lease was released, because a worker that finds the lease still held skips the message and SQS then deletes it. A crash the worker cannot catch, such as a Lambda timeout, still waits the full visibility timeout. Each retry counts as a receive, so after the fifth receive the job is failed and the message goes to the dead letter queue as before. A `TerminalError` fails the job at once and is never retried. The worker role needs `sqs:ChangeMessageVisibility`, which runbook Part D already grants. The worker takes the queue URL from `JOBS_QUEUE_URL` when it is set and otherwise builds it from the `eventSourceARN` of the SQS record (`aws` and `aws-us-gov` partitions only); if neither gives a URL, no fast retry is requested and the message waits for its visibility timeout.
+
 ## Smoke test
 
 The smoke test runs against a deployed API, not against your machine. Set `ENGINE_URL` to the API base URL and run:
@@ -46,3 +50,9 @@ To connect the app, set `VITE_ENGINE_URL=http://127.0.0.1:8787` in the app's `.e
 This works with `npm run dev`, with the app on `http://localhost:5173`, which is the origin the server allows by default. `npm run dev:lan` is not supported, because it serves the app over HTTPS and a browser blocks an HTTPS page from calling this HTTP server. If Vite starts on another port, for example 5174 because 5173 is busy, set `LOCAL_ALLOW_ORIGIN` to that origin, such as `LOCAL_ALLOW_ORIGIN=http://localhost:5174`.
 
 The stub options work here too. `STUB_DELAY_MS` adds a delay in milliseconds for each profile, `STUB_FAILURE_RATE` is the share of profiles (0 to 1) that fall back, and `STUB_CRASH=true` makes the engine throw so the job ends as failed.
+
+## Organization name check
+
+An employer name in embedded text would reward that employer in Fit, so no fragment text may contain an organization name. `npm run check-artifact -- <artifact.json>` loads an index artifact and reports every fragment that contains one. Terms come from Supabase when `SUPABASE_URL` and `SUPABASE_ANON_KEY` are both set, otherwise from `--orgs <file.json>`, a JSON object `{ "names": string[], "aliases": string[] }`. Names and aliases follow one case rule, the same one the query builder uses: a term with a capital after the first letter of any of its words, such as `UN`, `PATH` or `CoST`, matches only in that case, and any other term, such as `World Bank` or `Pact`, matches without regard to case. A name like `Pact` can therefore still hit the ordinary word "pact". Matching is by whole phrase, and any run of whitespace between words counts.
+
+The output is `fragments <n>`, `terms <n>` and one line per hit as `fragmentId profileId type term`. It never prints fragment text. Exit 0 means no hits, 1 means hits, 2 means a usage or load error.

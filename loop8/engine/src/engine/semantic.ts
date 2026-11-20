@@ -6,7 +6,7 @@ import type { Engine, EngineContext, JdMatchResult, RankJob } from '../core/type
 import type { IndexArtifact } from '../search/artifact'
 import { searchPool } from '../search/cosine'
 import type { Candidate, EmbedText } from '../search/cosine'
-import { buildQueryText } from '../search/query'
+import { buildQueryText, exclusionsFromRequirements, mergeExclusions } from '../search/query'
 import type { QueryExclusions } from '../search/query'
 
 export interface SemanticEngineOptions {
@@ -47,7 +47,7 @@ export function createSemanticEngine(opts: SemanticEngineOptions): Engine {
       if (opts.embedModelId !== undefined && opts.embedModelId !== artifact.modelVersion) {
         throw new TerminalError('embedding_model_mismatch')
       }
-      const queryText = buildQueryText(job.jdText, exclude)
+      const queryText = buildQueryText(job.jdText, mergeExclusions(exclude, exclusionsFromRequirements(job.requirements)))
       const embedStart = Date.now()
       const vector = await embed(queryText)
       ctx.record('embed_query', { durationMs: Date.now() - embedStart })

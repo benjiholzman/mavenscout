@@ -6,6 +6,7 @@ import { log } from '../shared/log'
 import type { JobStore } from '../shared/store'
 import { TERMINAL } from '../shared/store'
 import type { RankRequest } from '../shared/validate'
+import { JD_MAX_CHARS } from '../../../../src/lib/matching/config'
 
 export interface WorkerDeps {
   store: JobStore
@@ -13,6 +14,28 @@ export interface WorkerDeps {
   limits: Limits
   now(): number
   workerId: string
+  // Asks the queue to deliver this message again soon. Called only after the lease was released.
+  retrySoon?(): Promise<void>
+  // Finds the job description text when the request did not carry it. An error is retried like any other.
+  jobText?: (jobDescriptionId: string) => Promise<string | null>
+}
+
+function message(e: unknown): string {
+  return e instanceof Error ? e.message : String(e)
+}
+
+// Decision 5 of the start plan: release the lease, then shorten the wait. If the lease is still held when
+// the message comes back, the next worker skips it and SQS deletes it, so the order matters.
+async function releaseForRetry(jobId: string, deps: WorkerDeps): Promise<void> {
+  try {
+    if (!(await deps.store.releaseLease(jobId, deps.workerId))) return
+    if (deps.retrySoon) {
+      await deps.retrySoon()
+      log('job_retry_scheduled', { jobId })
+    }
+  } catch (e) {
+    log('job_retry_release_failed', { jobId, message: message(e) })
+  }
 }
 
 export type ProcessResult = 'done' | 'skipped' | 'failed'
@@ -41,6 +64,21 @@ export async function processJob(jobId: string, attempt: number, deps: WorkerDep
     const request = JSON.parse(raw) as RankRequest
     parsing = false
     const rankJob: RankJob = { jobId, ...request }
+
+    const hasText = (t: unknown): t is string => typeof t === 'string' && t.trim() !== ''
+    let jdSource: 'request' | 'lookup' | 'none' = hasText(rankJob.jdText) ? 'request' : 'none'
+    if (jdSource === 'none') {
+      delete rankJob.jdText
+      if (deps.jobText) {
+        const found = await deps.jobText(rankJob.jobDescriptionId)
+        if (hasText(found)) {
+          if (found.length > JD_MAX_CHARS) throw new TerminalError('jd_text_too_long')
+          rankJob.jdText = found
+          jdSource = 'lookup'
+        }
+      }
+    }
+    log('job_jd_resolved', { jobId, jdSource })
 
     const existing = await store.listCheckpoints(jobId)
     const checkpointed = new Set(existing.map((r) => r.profile_id))
@@ -111,6 +149,8 @@ export async function processJob(jobId: string, attempt: number, deps: WorkerDep
           message: failError instanceof Error ? failError.message : String(failError),
         })
       }
+    } else {
+      await releaseForRetry(jobId, deps)
     }
     throw e
   }

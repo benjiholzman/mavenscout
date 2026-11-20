@@ -47,6 +47,12 @@ export function createMemoryStore(): JobStore & { objects: Map<string, string> }
       if (j.startedAt === undefined) j.startedAt = now
       return true
     },
+    async releaseLease(jobId, owner) {
+      const j = jobs.get(jobId)
+      if (!j || j.state !== 'RUNNING' || j.leaseOwner !== owner) return false
+      j.leaseUntil = 0
+      return true
+    },
     async saveCheckpoint(jobId, result) {
       let m = checkpoints.get(jobId)
       if (!m) {

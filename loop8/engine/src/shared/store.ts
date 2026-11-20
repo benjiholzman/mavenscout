@@ -40,6 +40,7 @@ export interface JobStore {
   createJob(job: JobItem): Promise<void>
   getJob(jobId: string): Promise<JobItem | null>
   acquireLease(jobId: string, owner: string, now: number, leaseMs: number): Promise<boolean>
+  releaseLease(jobId: string, owner: string): Promise<boolean> // false unless owner holds a RUNNING lease
   saveCheckpoint(jobId: string, result: JdMatchResult): Promise<void>
   listCheckpoints(jobId: string): Promise<JdMatchResult[]>
   setProgress(jobId: string, done: number): Promise<void>

@@ -191,3 +191,23 @@ test('with a threshold, an above-threshold candidate cut by the cap gets the lim
   const c = out.results.find((r) => r.profile_id === 'c') as JdMatchResult
   assert.match(c.narrative, /below the similarity threshold/)
 })
+
+test('query drops the exclusions of the options and of the requirements', async () => {
+  const seen: string[] = []
+  const e = createSemanticEngine({
+    artifact,
+    embed: async (t) => { seen.push(t); return [1, 0] },
+    exclude: { orgNames: ['UNICEF'] },
+  })
+  const requirements = [
+    { id: 'r1', kind: 'location', level: 'must', source: 'manual', value: { values: ['Nairobi, Kenya'] } },
+    { id: 'r2', kind: 'language', level: 'strong', source: 'manual', value: { values: ['French'] } },
+    { id: 'r3', kind: 'org_history', level: 'slight', source: 'manual', value: { org: 'World Bank', scope: 'ever', peers: ['ADB'] } },
+  ] as unknown as RankJob['requirements']
+  await runEngine(
+    { ...job, requirements, jdText: 'Water expert in Nairobi for UNICEF, World Bank, ADB, speaks French, Kenya' },
+    e,
+    makeIO(null),
+  )
+  assert.deepEqual(seen, ['Water expert in for , , , speaks ,'])
+})
