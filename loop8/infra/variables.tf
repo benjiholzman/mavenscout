@@ -96,3 +96,45 @@ variable "worker_memory_mb" {
   type        = number
   default     = 1024
 }
+
+variable "worker_model_ids" {
+  description = "Foundation models the worker may call directly. Titan V2 for embeddings"
+  type        = list(string)
+  default     = ["amazon.titan-embed-text-v2:0"]
+}
+
+variable "worker_profile_model_ids" {
+  description = "Foundation models the worker may call through the US inference profile. Nova Lite is the temporary single model of variant A while GPT-6 Luna and Sol are blocked for this account (2026-11-20). A subset of invoke_profile_model_ids"
+  type        = list(string)
+  default     = ["amazon.nova-lite-v1:0"]
+}
+
+variable "engine_fit_model" {
+  description = "Model id the API gives to every job for Fit. Variant A uses one model for everything. The code default is still GPT-6 Luna, so this must be set"
+  type        = string
+  default     = "us.amazon.nova-lite-v1:0"
+}
+
+variable "engine_text_model" {
+  description = "Model id the API gives to every job for extraction and summaries. Same single model as Fit in variant A"
+  type        = string
+  default     = "us.amazon.nova-lite-v1:0"
+}
+
+variable "engine_embed_model" {
+  description = "Model id the API gives to every job for embeddings. The index artifact must have been built with the same model"
+  type        = string
+  default     = "amazon.titan-embed-text-v2:0"
+}
+
+variable "index_artifact_key" {
+  description = "Key of the gzipped index artifact in the jobs bucket. Empty until the engineers upload it, and the worker stays on the stub meanwhile"
+  type        = string
+  default     = ""
+}
+
+variable "bedrock_throttle_alarm_models" {
+  description = "Model ids whose Bedrock invocation throttles raise an alarm. The profile id and the model id of Nova Lite, as for the token alarms"
+  type        = list(string)
+  default     = ["us.amazon.nova-lite-v1:0", "amazon.nova-lite-v1:0"]
+}

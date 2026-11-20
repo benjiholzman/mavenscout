@@ -1,7 +1,7 @@
-# Compute and front door of the engine walking skeleton: the two Lambdas, their
-# roles, the queue to worker mapping and the HTTP API. The worker runs the stub
-# engine, so it has no model, secret or vector database permission yet. Those
-# are added in the change that connects Luna (loop8/docs/planning/engine-deploy-plan.md).
+# Compute and front door of the engine: the two Lambdas, their roles, the queue
+# to worker mapping and the HTTP API. The worker role may call the named models
+# and read the named secrets, and nothing else. The engine stays on the stub
+# until ENGINE is set in a later change (loop8/docs/planning/worker-engine-connect-plan.md).
 
 data "aws_caller_identity" "current" {}
 
@@ -41,8 +41,8 @@ resource "aws_cloudwatch_log_group" "worker" {
 }
 
 # ---------------------------------------------------------------------------
-# Roles. The api role cannot call any model. The worker role is added to the
-# budget actions when it gets model access.
+# Roles. The api role cannot call any model. The worker role is cut by the
+# budget action at 150% (module cost-guard).
 # ---------------------------------------------------------------------------
 
 data "aws_iam_policy_document" "lambda_trust" {
@@ -82,11 +82,47 @@ data "aws_iam_policy_document" "api" {
   }
 }
 
+# Models called directly, and models called through a cross region inference
+# profile. A profile call needs the profile and the foundation model in every
+# region the profile routes to. The Converse API needs the same permission as
+# InvokeModel.
+locals {
+  worker_model_resources = concat(
+    [for id in var.worker_model_ids : "arn:aws:bedrock:${var.region}::foundation-model/${id}"],
+    flatten([
+      for id in var.worker_profile_model_ids : concat(
+        ["arn:aws:bedrock:${var.region}:${data.aws_caller_identity.current.account_id}:inference-profile/${var.profile_prefix}.${id}"],
+        [for r in var.profile_regions : "arn:aws:bedrock:${r}::foundation-model/${id}"],
+      )
+    ]),
+  )
+}
+
 data "aws_iam_policy_document" "worker" {
   statement {
     sid       = "Logs"
     actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
     resources = ["${aws_cloudwatch_log_group.worker.arn}:*"]
+  }
+
+  dynamic "statement" {
+    for_each = length(local.worker_model_resources) > 0 ? [1] : []
+
+    content {
+      sid       = "InvokeEngineModels"
+      actions   = ["bedrock:InvokeModel"]
+      resources = local.worker_model_resources
+    }
+  }
+
+  dynamic "statement" {
+    for_each = length(var.secret_arns) > 0 ? [1] : []
+
+    content {
+      sid       = "ReadEngineSecrets"
+      actions   = ["secretsmanager:GetSecretValue"]
+      resources = var.secret_arns
+    }
   }
 
   statement {
@@ -163,12 +199,16 @@ resource "aws_lambda_function" "api" {
   timeout          = 10
 
   environment {
-    variables = {
+    variables = merge({
       JOBS_TABLE     = var.table_name
       JOBS_BUCKET    = var.bucket_name
       JOBS_QUEUE_URL = var.queue_url
       ENGINE_VARIANT = "A"
-    }
+      },
+      var.fit_model != "" ? { FIT_MODEL = var.fit_model } : {},
+      var.text_model != "" ? { TEXT_MODEL = var.text_model } : {},
+      var.embed_model != "" ? { EMBED_MODEL = var.embed_model } : {},
+    )
   }
 
   depends_on = [aws_cloudwatch_log_group.api, aws_iam_role_policy.api]
@@ -191,11 +231,14 @@ resource "aws_lambda_function" "worker" {
   memory_size      = var.worker_memory_mb
 
   environment {
-    variables = {
+    variables = merge({
       JOBS_TABLE     = var.table_name
       JOBS_BUCKET    = var.bucket_name
       ENGINE_VARIANT = "A"
-    }
+      },
+      var.supabase_secret_id != "" ? { SUPABASE_SECRET_ID = var.supabase_secret_id } : {},
+      var.index_artifact_key != "" ? { INDEX_ARTIFACT_S3_KEY = var.index_artifact_key } : {},
+    )
   }
 
   depends_on = [aws_cloudwatch_log_group.worker, aws_iam_role_policy.worker]
@@ -267,4 +310,55 @@ resource "aws_lambda_permission" "api_gateway" {
   function_name = aws_lambda_function.api.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.engine.execution_arn}/*/*/jobs*"
+}
+
+# ---------------------------------------------------------------------------
+# Failure alarms of the worker. They notify the alerts topic. A model call that
+# fails is retried inside the engine, so an error here means a job failed or
+# was cut, and a duration close to the timeout means a run is about to be lost.
+# ---------------------------------------------------------------------------
+
+resource "aws_cloudwatch_metric_alarm" "worker_errors" {
+  alarm_name          = "${var.name_prefix}-worker-errors"
+  alarm_description   = "The worker Lambda returned an error in the last 5 minutes"
+  namespace           = "AWS/Lambda"
+  metric_name         = "Errors"
+  dimensions          = { FunctionName = aws_lambda_function.worker.function_name }
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [var.alerts_topic_arn]
+}
+
+resource "aws_cloudwatch_metric_alarm" "worker_throttles" {
+  alarm_name          = "${var.name_prefix}-worker-throttles"
+  alarm_description   = "The worker Lambda was throttled in the last 5 minutes"
+  namespace           = "AWS/Lambda"
+  metric_name         = "Throttles"
+  dimensions          = { FunctionName = aws_lambda_function.worker.function_name }
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [var.alerts_topic_arn]
+}
+
+resource "aws_cloudwatch_metric_alarm" "worker_duration" {
+  alarm_name          = "${var.name_prefix}-worker-duration"
+  alarm_description   = "A worker run took more than ${var.worker_error_alarm_seconds} seconds, close to the ${aws_lambda_function.worker.timeout} second timeout"
+  namespace           = "AWS/Lambda"
+  metric_name         = "Duration"
+  dimensions          = { FunctionName = aws_lambda_function.worker.function_name }
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = var.worker_error_alarm_seconds * 1000
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [var.alerts_topic_arn]
 }
