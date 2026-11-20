@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { extractFromJd } from '../src/extract/extract'
 import { parseExtraction } from '../src/bedrock/sol'
 import type { CompleteFn } from '../src/bedrock/sol'
+import { MAX_TAG_ROWS } from '../../../src/lib/matching/config'
 import type { ExtractionContext } from '../../../src/lib/matching/types'
 import type { TaxonomyCategory, TaxonomyItem } from '../../../src/types/db'
 
@@ -77,6 +78,35 @@ test('extraction never marks a must have and never guesses the hiring organizati
   })
   assert.equal(out.hiring_organization, null)
   for (const e of out.expertise) assert.ok(e.suggested === 'slight' || e.suggested === 'strong')
+})
+
+test('the deterministic floor is never evicted when the model fills the capped list', async () => {
+  // The floor is the recall guarantee: a model-only suggestion must never push a
+  // deterministic hit out of the MAX_TAG_ROWS list. Build MAX_TAG_ROWS + 1 items,
+  // write every one but the first (taxonomy order 0) literally into the JD so the
+  // floor fills the cap exactly, then have the model return the missing first item
+  // (the lowest order). Before the fix it sorted ahead and dropped a floor hit.
+  const n = MAX_TAG_ROWS + 1
+  const names = Array.from({ length: n }, (_, i) => `Zylphodon${String(i).padStart(2, '0')}`)
+  const bigCategories: TaxonomyCategory[] = [{ id: 'c1', type: 'expertise', name: 'Big', sort_order: 1 }]
+  const bigItems: TaxonomyItem[] = names.map((name, i) => ({
+    id: `b${i}`, category_id: 'c1', name, sort_order: i + 1, kind: 'sector', aliases: [], legacy_names: [],
+  }))
+  const bigCtx: ExtractionContext = {
+    taxonomy: { categories: bigCategories, items: bigItems },
+    locationOptions: [], languageOptions: [],
+  }
+  // JD names items 1..n-1 (floor finds exactly MAX_TAG_ROWS); item 0 is omitted.
+  const jd = `This role covers ${names.slice(1).join(', ')}.`
+  const out = await extractFromJd(jd, bigCtx, {
+    complete: fakeComplete(JSON.stringify({ expertise: [names[0]], locations: [], languages: [] })),
+  })
+  const got = out.expertise.map((e) => e.name)
+  assert.equal(got.length, MAX_TAG_ROWS, 'stays within the row cap')
+  for (const floorName of names.slice(1)) {
+    assert.ok(got.includes(floorName), `floor hit ${floorName} is retained`)
+  }
+  assert.ok(!got.includes(names[0]), 'the model-only item yields to the full floor rather than evicting it')
 })
 
 test('parseExtraction tolerates a fenced reply and fills missing keys', () => {

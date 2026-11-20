@@ -87,15 +87,22 @@ export async function extractFromJd(
     if (canonical) modelExpertise.add(canonical)
   }
 
-  // Union expertise: the floor's tags, plus model-only names at one mention.
+  // Union expertise: keep every floor tag, then fill the remaining rows with
+  // model-only names. The floor is the recall guarantee, so a model suggestion
+  // must never push a deterministic hit out of the capped list. Because the
+  // floor is already capped at MAX_TAG_ROWS, retaining all of it and topping up
+  // to the cap never evicts a floor tag.
   const order = new Map(index.items.map((it, i) => [it.name, i]))
-  const byName = new Map<string, ExtractedTag>(floor.expertise.map((t) => [t.name, { ...t }]))
-  for (const name of modelExpertise) {
-    if (!byName.has(name)) byName.set(name, { name, mentions: 1, suggested: 'slight' })
-  }
-  const expertise = [...byName.values()]
-    .sort((a, b) => b.mentions - a.mentions || (order.get(a.name) ?? 0) - (order.get(b.name) ?? 0))
-    .slice(0, MAX_TAG_ROWS)
+  const floorTags = floor.expertise.map((t) => ({ ...t }))
+  const floorNames = new Set(floorTags.map((t) => t.name))
+  const modelOnly = [...modelExpertise]
+    .filter((name) => !floorNames.has(name))
+    .map((name): ExtractedTag => ({ name, mentions: 1, suggested: 'slight' }))
+    .sort((a, b) => (order.get(a.name) ?? 0) - (order.get(b.name) ?? 0))
+  const remaining = Math.max(0, MAX_TAG_ROWS - floorTags.length)
+  const expertise = [...floorTags, ...modelOnly.slice(0, remaining)].sort(
+    (a, b) => b.mentions - a.mentions || (order.get(a.name) ?? 0) - (order.get(b.name) ?? 0),
+  )
 
   // Validate locations and languages against the known option lists.
   const locationCanon = canonicalMap(ctx.locationOptions)
