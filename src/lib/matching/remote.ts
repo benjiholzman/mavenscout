@@ -248,8 +248,10 @@ export function createRemoteExtract(opts: RemoteExtractOptions): ExtractRequirem
         if (!body.extracted) throw new Error('Engine returned no extraction')
         return body.extracted
       }
-      // A client error other than 429 will not fix itself.
-      if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+      // A client error other than 429, or a 501 (the engine build has no
+      // extraction route), will not fix itself: surface it now rather than
+      // retrying a permanent failure for the whole 60s budget.
+      if ((res.status >= 400 && res.status < 500 && res.status !== 429) || res.status === 501) {
         const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
         throw new Error(`Engine rejected extraction: ${body.error ?? res.status} ${body.message ?? ''}`.trim())
       }
