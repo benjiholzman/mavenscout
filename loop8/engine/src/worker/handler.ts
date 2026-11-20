@@ -3,10 +3,16 @@ import { createStubEngine, stubOptionsFromEnv } from '../engine/stub'
 import { createAwsRetry, createAwsStore } from '../shared/aws-store'
 import { DEFAULT_LIMITS } from '../shared/limits'
 import { processJob } from './app'
+import { buildRetrySoon } from './queue-url'
 
 const region = process.env.AWS_REGION ?? 'us-east-1'
 const store = createAwsStore({ table: process.env.JOBS_TABLE ?? '', bucket: process.env.JOBS_BUCKET ?? '', region })
-const retry = createAwsRetry({ queueUrl: process.env.JOBS_QUEUE_URL ?? '', region })
+const retryByUrl = new Map<string, ReturnType<typeof createAwsRetry>>()
+const makeRetry = (queueUrl: string) => {
+  let retry = retryByUrl.get(queueUrl)
+  if (!retry) retryByUrl.set(queueUrl, (retry = createAwsRetry({ queueUrl, region })))
+  return retry
+}
 const engine = createStubEngine(stubOptionsFromEnv(process.env))
 
 // Batch size is 1. An error propagates so SQS redelivers the message.
@@ -18,7 +24,13 @@ export async function handler(event: SQSEvent, context: Context): Promise<void> 
       limits: DEFAULT_LIMITS,
       now: Date.now,
       workerId: context.awsRequestId,
-      retrySoon: () => retry(record.receiptHandle, DEFAULT_LIMITS.retryDelaySeconds),
+      retrySoon: buildRetrySoon({
+        envUrl: process.env.JOBS_QUEUE_URL,
+        eventSourceArn: record.eventSourceARN,
+        receiptHandle: record.receiptHandle,
+        delaySeconds: DEFAULT_LIMITS.retryDelaySeconds,
+        makeRetry,
+      }),
     })
   }
 }
