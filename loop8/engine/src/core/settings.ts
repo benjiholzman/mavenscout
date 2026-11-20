@@ -1,6 +1,6 @@
 import type { Settings } from './types'
 
-export const DEFAULT_FIT_CAP = 20
+export const DEFAULT_FIT_CAP = 200
 
 function int(env: Record<string, string | undefined>, key: string, fallback: number): number {
   const raw = env[key]

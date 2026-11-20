@@ -36,6 +36,8 @@ export interface Usage {
   /** Model calls made in the phase, and how many of them fell back. */
   calls?: number
   fallbacks?: number
+  /** On a fit_cap_hit record: shortlisted candidates beyond the Fit cap. Not a call count. */
+  beyondCap?: number
 }
 
 export interface PhaseRecord extends Usage {

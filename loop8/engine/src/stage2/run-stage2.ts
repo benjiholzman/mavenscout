@@ -113,6 +113,12 @@ interface Scored {
 
 export async function runStage2(items: Stage2Item[], ctx: EngineContext, o: Stage2Options): Promise<void> {
   const { settings } = ctx
+  const cap = fitCapOf(settings.fitCap)
+  const beyondCap = items.filter((i) => i.shortlisted).length - cap
+  if (beyondCap > 0) {
+    ctx.record('fit_cap_hit', { durationMs: 0, beyondCap })
+    log('fit_cap_hit', { jobId: o.jobId, cap, beyondCap })
+  }
   const todo = items.filter((i) => !ctx.isDone(i.candidate.profileId))
   if (todo.length === 0) return
   // Done candidates are a rank order prefix written summarized first, so each
@@ -130,7 +136,7 @@ export async function runStage2(items: Stage2Item[], ctx: EngineContext, o: Stag
   // Fit, for the first fitCap of the full shortlist in search order. Done and
   // missing candidates are skipped but keep their place, so every run of a job
   // assesses the same set and makes at most fitCap calls.
-  const inCap = new Set(items.filter((i) => i.shortlisted).slice(0, fitCapOf(settings.fitCap)).map((i) => i.candidate.profileId))
+  const inCap = new Set(items.filter((i) => i.shortlisted).slice(0, cap).map((i) => i.candidate.profileId))
   const targets = present.filter((i) => inCap.has(i.candidate.profileId))
   const fits = new Map<string, { fit: number; reason: string }>()
   const failed = new Set<string>()

@@ -41,7 +41,7 @@ Run these from this folder.
 Read the live numbers with these two facts in mind:
 
 1. The live artifact is built by `scripts/build-index.ts`, which drops the history entries written as tuples (and tuple education and accreditation entries). Seven demo profiles have tuple history, so for those seven the AI side sees less text than the manual side does (the fake mode index is built from the normalized profiles and does not have this gap).
-2. In live and fake mode the AI side asks Fit only for the top `FIT_CAP` candidates by similarity (20 by default). Everyone else keeps a capped similarity estimate, so a candidate that retrieval ranks low cannot be lifted by Fit.
+2. In live and fake mode the AI side asks Fit for the first `FIT_CAP` shortlisted candidates in similarity order (200 by default, the same as the stage 1 cap, so it normally does not bind). If the shortlist is longer, the rest keep a capped similarity estimate, and the job records and logs `fit_cap_hit` with the cap and the number of candidates beyond it.
 
 ## Packaging
 

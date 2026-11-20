@@ -1,10 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { loadSettings } from '../src/core/settings'
+import { DEFAULT_FIT_CAP, loadSettings } from '../src/core/settings'
 
 test('defaults are variant A on Luna', () => {
   const s = loadSettings({})
-  assert.deepEqual(s, { variant: 'A', fitModel: 'us.openai.gpt-6-luna', textModel: 'us.openai.gpt-6-luna', embedModel: 'amazon.titan-embed-text-v2:0', summaryCount: 5, parallelCalls: 16, threshold: null, promptVersion: 'v0', fitCap: 20 })
+  assert.deepEqual(s, { variant: 'A', fitModel: 'us.openai.gpt-6-luna', textModel: 'us.openai.gpt-6-luna', embedModel: 'amazon.titan-embed-text-v2:0', summaryCount: 5, parallelCalls: 16, threshold: null, promptVersion: 'v0', fitCap: 200 })
+})
+test('the Fit cap default is 200, equal to the stage 1 cap', () => {
+  assert.equal(DEFAULT_FIT_CAP, 200)
 })
 test('overrides are parsed', () => {
   const s = loadSettings({ ENGINE_VARIANT: 'C', TEXT_MODEL: 'x.sol', SUMMARY_COUNT: '10', THRESHOLD: '0.42' })

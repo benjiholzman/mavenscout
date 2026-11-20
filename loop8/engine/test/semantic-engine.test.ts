@@ -344,6 +344,40 @@ test('stage 2: Fit calls never exceed fitCap, the rest keep a flagged estimate c
   assert.equal(out.state, 'DONE')
 })
 
+test('stage 2: fit_cap_hit is recorded and logged with the count beyond the cap when the shortlist exceeds fitCap', async () => {
+  const lines: string[] = []
+  const orig = console.log
+  console.log = (s: string) => { lines.push(s) }
+  let out
+  try {
+    out = await runEngine(job5, stage2(fakeModel()), io5({ fitCap: 2 }))
+  } finally {
+    console.log = orig
+  }
+  const hits = out.record.filter((p) => p.phase === 'fit_cap_hit')
+  assert.equal(hits.length, 1)
+  assert.equal(hits[0].durationMs, 0)
+  assert.equal(hits[0].beyondCap, 3)
+  assert.equal(hits[0].calls, undefined)
+  const logged = lines.map((l) => JSON.parse(l)).find((l) => l.event === 'fit_cap_hit')
+  assert.ok(logged)
+  assert.deepEqual({ jobId: logged.jobId, cap: logged.cap, beyondCap: logged.beyondCap }, { jobId: job5.jobId, cap: 2, beyondCap: 3 })
+})
+
+test('stage 2: fit_cap_hit is not recorded when the shortlist fits in fitCap', async () => {
+  const lines: string[] = []
+  const orig = console.log
+  console.log = (s: string) => { lines.push(s) }
+  let out
+  try {
+    out = await runEngine(job5, stage2(fakeModel()), io5({ fitCap: 5 }))
+  } finally {
+    console.log = orig
+  }
+  assert.equal(out.record.some((p) => p.phase === 'fit_cap_hit'), false)
+  assert.equal(lines.some((l) => l.includes('fit_cap_hit')), false)
+})
+
 test('stage 2: unassessed candidates beyond fitCap never outrank an assessed one with Fit at least 50', async () => {
   const m = fakeModel()
   const out = await runEngine({ ...job5, requirements: [] }, stage2(m), io5({ fitCap: 2 }))
