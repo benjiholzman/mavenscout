@@ -1,5 +1,7 @@
 import type { Settings } from './types'
 
+export const DEFAULT_FIT_CAP = 20
+
 function int(env: Record<string, string | undefined>, key: string, fallback: number): number {
   const raw = env[key]
   if (raw === undefined || raw === '') return fallback
@@ -27,5 +29,6 @@ export function loadSettings(env: Record<string, string | undefined>): Settings 
     parallelCalls: int(env, 'PARALLEL_CALLS', 16),
     threshold: threshold(env),
     promptVersion: str('PROMPT_VERSION', 'v0'),
+    fitCap: int(env, 'FIT_CAP', DEFAULT_FIT_CAP),
   }
 }

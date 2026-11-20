@@ -13,9 +13,35 @@ Run these from this folder.
 | `npm run typecheck` | Type checks the source, tests and scripts. |
 | `npm run local` | Runs one job end to end on this machine and prints the ranking. |
 | `npm run local -- path/to/job.json` | Same, with your own job file instead of `samples/sample-job.json`. |
+| `npm run compare` | Ranks the sample ToRs and the hard cases with the placeholder and the semantic engine (fake models) and prints the comparison. |
+| `npm run make-sample-index` | Rewrites `samples/sample-index.json` (fake data for the offline semantic run). |
 | `npm run build` | Writes `dist/api.zip` and `dist/worker.zip`. |
 
 `npm run local` uses an in-memory store and queue and the stub engine. It prints rank, profile id, Fit and band for each profile, then the variant settings, the job phases and the end-to-end time in milliseconds. Set `LOCAL_VERBOSE=true` to also see the JSON log lines.
+
+## Manual against AI comparison
+
+`npm run compare` ranks every case twice: once with the app's placeholder `scorePool` (the manual side, mirroring the fixed requirements run of `scripts/ranking-baseline.ts`) and once with the variant A semantic engine through `runEngine` (the AI side). Logic is in `src/eval/compare.ts`.
+
+1. Cases: the five ToRs in `docs/samples/expectations.json` (their `expected_top` handles, and their `not_top10` checks as decoys) and the hard cases in `samples/hard-cases/cases.json`.
+2. Pools: the two sets are ranked in separate runs. The customer ToR set ranks the demo seed profiles in `scripts/demo-seed/profiles` that pass the app's listing rule, and nothing else, which is the baseline harness's pool. Every ToR that has a hard case is then ranked again in its own run over those demo profiles plus every hard-case fixture, and each hard case is measured on that run. In each run, Required rows are applied once with the app's `applyMustHaves`, so both rankers get the same survivors.
+3. Taxonomy and organizations are read through the Supabase reader, read only, with the values named `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the repo root `.env` (or `SUPABASE_URL` and `SUPABASE_ANON_KEY` in the environment). No profile row is read.
+4. Measures per case and ranker: the status of each handle (`ranked`, `filtered` by a Required row, `fallback` when the engine could not score it, or `not_in_pool`), its rank, hits in the top 5 and top 10, and whether each decoy stays outside the top 10. Only a ranked handle can be a hit. A decoy passes only when it is ranked outside the top 10 or filtered; a fallback or a handle not in the pool never passes. The mean reciprocal rank counts a handle that was not ranked as 0. A handle named by a case but missing from its set's pool is warned on stderr. The runs table also gives, per run and per ranker, the number of tied adjacent pairs (same total) in the top 10, counted as the baseline harness counts them.
+5. Two summaries, never combined: the customer ToR set (the five ToRs of `expectations.json`, the primary measure) and the Loop8 hard set (our fixtures, built to defeat keyword matching). The hard set table shows the placeholder's result on each case: `fails`, `passes`, or the fixture's status when it was not ranked.
+6. Both sides get the same extraction. The extraction the manual side computes for a ToR (`extractRequirements` over its text) is also the stored extraction the AI side reads, as the app passes the stored one in production, so its location and language values are removed from the AI query and from the text sent to Fit.
+7. The positive `top10` checks of `expectations.json` (`untagged_text_evidence`, `wrong_location_strong_fit`, `top10`) are measured only where the handle is also an expected handle. Today that is one check, `demo-nusrat-jahan-chowdhury` in tor-01. The other five are not measured, though they are the cases where semantic retrieval should help.
+8. Profile dates are fixed. Every date in the pool comes from one constant, `REFERENCE_DATE` in `src/eval/compare.ts` (2026-11-18, the run date of `docs/samples/ranking-baseline.md`): demo profiles are dated their `updated` days before it, and every fixture is dated on it, replacing the date in its file. After total and Fit, the placeholder breaks ties on that date, so the tie order no longer changes with the day of the run. A fixture is therefore at least as fresh as any demo profile, so on the placeholder it wins a tie on total and Fit unless the demo profile was also updated on that date (then the id decides).
+9. Baseline check: the run reads `docs/samples/ranking-baseline.md`, takes its fixed requirements top 5 and top 10 counts from the summary line, and prints whether the manual side's customer ToR counts are the same (`match` or `mismatch`). The baseline reads its profiles from the database and this command reads the seed files, so a mismatch can come from either side.
+10. Output: a markdown table on stdout and in `loop8/internal/compare-<timestamp>.md` (gitignored). Handles, ranks and scores only.
+
+`--models=fake` is the default: the embedder and the text model are deterministic fakes and the index is built in memory, so the AI column proves the plumbing only.
+
+`npm run compare -- --models=live` without `--confirm-live` makes no read and no call. It counts the planned calls from the files on disk, prints them and exits 0. `npm run compare -- --models=live --confirm-live` uses Titan and the Bedrock text model with the job settings' model ids (`FIT_MODEL`, `TEXT_MODEL`), the prebuilt `loop8/internal/index-artifact.json` for the demo profiles and on-the-fly embedding of the fixtures only. It checks the artifact's model and dimensions, prints the planned number of calls, then makes them. Live calls are paid by the customer. The text call count is an upper bound that does not count throttling retries, and a run that fails part way writes no report for the calls already made.
+
+Read the live numbers with these two facts in mind:
+
+1. The live artifact is built by `scripts/build-index.ts`, which drops the history entries written as tuples (and tuple education and accreditation entries). Seven demo profiles have tuple history, so for those seven the AI side sees less text than the manual side does (the fake mode index is built from the normalized profiles and does not have this gap).
+2. In live and fake mode the AI side asks Fit only for the top `FIT_CAP` candidates by similarity (20 by default). Everyone else keeps a capped similarity estimate, so a candidate that retrieval ranks low cannot be lifted by Fit.
 
 ## Packaging
 
@@ -24,8 +50,37 @@ Run these from this folder.
 ## Environment variables
 
 1. Infrastructure: `JOBS_TABLE`, `JOBS_BUCKET`, `JOBS_QUEUE_URL` and `AWS_REGION`.
-2. Settings, read when a job is created and saved with the job: `ENGINE_VARIANT`, `FIT_MODEL`, `TEXT_MODEL`, `EMBED_MODEL`, `SUMMARY_COUNT`, `PARALLEL_CALLS`, `THRESHOLD` and `PROMPT_VERSION`. Each has a default, so none is required.
+2. Job settings: `ENGINE_VARIANT`, `FIT_MODEL`, `TEXT_MODEL`, `EMBED_MODEL`, `FIT_CAP`, `SUMMARY_COUNT`, `PARALLEL_CALLS`, `THRESHOLD` and `PROMPT_VERSION`. The API function reads them when a job is created and saves them with the job, and the worker runs the job with those saved values. Set them on the API function. Setting them on the worker changes nothing about the calls a job makes. Each has a default, so none is required.
 3. Stub engine controls: `STUB_DELAY_MS` adds a delay in milliseconds for each profile, `STUB_FAILURE_RATE` is the share of profiles (0 to 1) that fall back, and `STUB_CRASH=true` makes the engine throw. All are off when unset. They apply to the worker and to `npm run local`.
+
+## Choosing the engine
+
+`ENGINE` selects the engine in the worker and in `npm run local`. Unset, empty or `stub` runs the stub engine, exactly as before. `semantic` runs the semantic engine with stage 2 (Fit, scoring, summaries). Any other value fails the job with `invalid_engine_setting`.
+
+The worker builds the engine on the first job, not at module load. A missing variable then fails that job with the code `missing_env_<NAME>`, and the job is recorded as FAILED at once, instead of the container crashing on every start and burning the five receives. The code names the variable and never shows its value. A bad or missing index file fails with `index_artifact_missing` or `index_artifact_invalid`. A transient error, such as an S3 outage, is retried like any other.
+
+Worker variables for `ENGINE=semantic`, names only. The worker reads these itself, when it builds the engine on its first job:
+
+1. `ENGINE`, as above.
+2. The index: `INDEX_ARTIFACT_PATH` (a local file) or `INDEX_ARTIFACT_S3_KEY` (a key in the `JOBS_BUCKET` bucket). The path wins if both are set. The S3 object is read with the same helper as the job results, so it must be stored gzip compressed.
+3. The job description, profile and reference list reads need the Supabase URL and anon key. Deployed, set `SUPABASE_SECRET_ID` to the id of the secret (`mavenscout/supabase`, a JSON string with the keys `SUPABASE_URL` and `SUPABASE_ANON_KEY`). The worker reads it once, when it builds the engine, and its role needs `secretsmanager:GetSecretValue` on that secret. Locally, set `SUPABASE_URL` and `SUPABASE_ANON_KEY` as plain variables. If both are set they win and the secret is not read. If neither way is set the job fails with `missing_env_SUPABASE_SECRET_ID`, and a secret that is not valid JSON or lacks a key fails with `supabase_secret_invalid`. A failed read (access denied, throttling, network) is retried and its error shows only the error name. At the same build as the index, the worker reads the canonical organization names and aliases and the language names once, and removes them from every job description before it is embedded and sent to Fit. Place names are removed per job, from the requirements and the stored extraction.
+4. The embedding model: `TITAN_MODEL_ID`, which defaults to `amazon.titan-embed-text-v2:0`. This is the id the query embedding really calls, so it must equal the `modelVersion` of the index, or the job fails with `embedding_model_mismatch`. `EMBED_MODEL` is only a job setting kept with the job for the record. It plays no part in this check.
+
+The model ids written with a job's result and job record are the ids the job's calls used: the Fit and text models from the job's saved settings, the embedding model of the index (checked against `TITAN_MODEL_ID` as above), and the index version.
+
+When every Fit call of a run fails, the job does not finish as DONE. If any of the failures is a configuration problem (access denied, a validation error, a model that does not exist or is "not available for this account"), or every reply was cut off at the token limit, the job fails at once with `fit_model_unavailable`. Otherwise the run throws `fit_all_failed`, and the job is retried like any other transient error. When only some Fit calls fail, those candidates keep a flagged similarity estimate and the job continues. Each failed Fit call writes one `fit_call_failed` log line with the job id and the error name, never the error message.
+
+Offline run: `ENGINE=semantic LOCAL_FAKE_MODELS=true npm run local` runs the whole stage 2 path with no network. A fake embedder, a fake text model and fake profile, extraction, reference list and job text data replace Bedrock and Supabase, and the index defaults to `samples/sample-index.json`. That file is fake data for the ten ids in `samples/sample-job.json`, made by `npm run make-sample-index` from the fake embedder. The scores it prints mean nothing. Only `npm run local` accepts `LOCAL_FAKE_MODELS`. The deployed worker fails every semantic job with `fake_models_not_allowed` when the variable is set to any value.
+
+## Limitations of the semantic engine
+
+These are known and accepted for the proof of concept. All call counts below are worst case figures worked out from the code, not measurements.
+
+1. The `FIT_CAP` bound applies to one run of a job, not to the job as a whole. A run makes its Fit calls and summary calls before it saves any result. If it crashes after the Fit calls and before the results are saved, for example on a Lambda timeout, the next receive makes those calls again for every candidate not yet saved. Each such crash can therefore repeat up to `FIT_CAP` Fit calls plus `SUMMARY_COUNT` summary calls, and a job has up to five receives. The customer pays for every one of these calls.
+2. A resumed run can judge a candidate's Fit differently. Candidates saved by an earlier run keep their scores, and the candidates that were not saved are judged again. A language model does not always give the same Fit twice, so a candidate judged again can end up above candidates that were saved earlier. The summaries are then not exactly the top `SUMMARY_COUNT` by total, and a fallback (`profile_missing`, `score_failed` or `not_indexed`) recorded in both runs can be listed twice.
+3. Some wording reaches Fit and is kept out of the score only by the instruction in the Fit prompt. The job description can still say things about availability, seniority or work arrangement, because only organization, language and place names are removed from it. The free text of the profile fragments (bio, tagline, descriptions) can still contain the candidate's name, a city or an employer, unless `npm run check-artifact` was run on the index and passed. The prompt tells the model to ignore all of these, but nothing in the code removes them. The manual review of AI output should check for this.
+4. Organization and language names are removed with the case rule described under "Organization name check" below. A name such as `Pact` matches in any case, so the ordinary word "pact" is also removed from the job description. A name with a capital after its first letter, such as `UN Women`, is removed only when written in exactly that case, so "UN WOMEN" or "Un Women" stays in the text.
+5. An index stored in S3 must be gzip compressed. A plain JSON object fails to read, and the job fails with `engine_error` after five receives instead of `index_artifact_invalid`.
 
 ## Retries
 

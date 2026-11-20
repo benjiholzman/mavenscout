@@ -4,7 +4,7 @@ import { loadSettings } from '../src/core/settings'
 
 test('defaults are variant A on Luna', () => {
   const s = loadSettings({})
-  assert.deepEqual(s, { variant: 'A', fitModel: 'us.openai.gpt-6-luna', textModel: 'us.openai.gpt-6-luna', embedModel: 'amazon.titan-embed-text-v2:0', summaryCount: 5, parallelCalls: 16, threshold: null, promptVersion: 'v0' })
+  assert.deepEqual(s, { variant: 'A', fitModel: 'us.openai.gpt-6-luna', textModel: 'us.openai.gpt-6-luna', embedModel: 'amazon.titan-embed-text-v2:0', summaryCount: 5, parallelCalls: 16, threshold: null, promptVersion: 'v0', fitCap: 20 })
 })
 test('overrides are parsed', () => {
   const s = loadSettings({ ENGINE_VARIANT: 'C', TEXT_MODEL: 'x.sol', SUMMARY_COUNT: '10', THRESHOLD: '0.42' })
@@ -20,4 +20,9 @@ test('THRESHOLD must be between 0 and 1', () => {
   assert.throws(() => loadSettings({ THRESHOLD: '1.5' }), /Invalid setting THRESHOLD/)
   assert.equal(loadSettings({ THRESHOLD: '1' }).threshold, 1)
   assert.equal(loadSettings({ THRESHOLD: '0' }).threshold, 0)
+})
+test('FIT_CAP is parsed and validated', () => {
+  assert.equal(loadSettings({ FIT_CAP: '7' }).fitCap, 7)
+  assert.equal(loadSettings({ FIT_CAP: '0' }).fitCap, 0)
+  assert.throws(() => loadSettings({ FIT_CAP: 'x' }), /Invalid setting FIT_CAP/)
 })
