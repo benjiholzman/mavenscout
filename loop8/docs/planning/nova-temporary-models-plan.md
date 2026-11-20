@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Issue 56 and its pull request are open. Not applied to the account yet |
+| Status | Nova Lite and Nova Pro applied on 2026-11-20 (pull request 57). Nova 2 Lite is added for comparison by issue 58. The calls by the engineers and the baseline are pending |
 | Phase | P2 (engine wiring, models) |
 | Task | Use Amazon Nova Lite and Nova Pro temporarily so the work is not blocked while GPT-6 Luna, GPT-6 Sol, Claude Haiku 5.5 and Claude Sonnet 5.5 are unavailable in the account, and let the engineers call them through the role they already assume |
 | Owner | Guillermo Sandoval |
@@ -36,7 +36,7 @@ Temporary mapping, valid until GPT-6 is unblocked and measured.
 | Fit, one call per candidate | GPT-6 Luna | Amazon Nova Lite | `us.amazon.nova-lite-v1:0` |
 | Extraction of requirements and summaries | GPT-6 Sol | Amazon Nova Pro | `us.amazon.nova-pro-v1:0` |
 
-Nova 2 Lite, Nova Micro and Nova Premier are not added. Nova 2 Lite spends reasoning tokens (53 tokens for a one word answer), Nova Micro is text only and the weakest, and Nova Premier is retired. If a comparison needs Nova 2 Lite, it is added in a later change.
+Nova 2 Lite is a newer generation than Nova Lite and is added by issue 58 as a comparison model for Fit, so the engineers can run the baseline with both. On 2026-11-20 the same Fit style prompt gave a fit of 95 on Nova Lite, Nova Pro and Nova 2 Lite, with latencies of 0.5 s, 1.2 s and 0.7 s. Nova 2 Lite used 161 input tokens against 121 for the same text and showed no reasoning tokens. One easy case does not separate the models, and the baseline decides. Nova 2 Lite allows 200 requests per minute, half of Nova Lite, and that limit is not adjustable. Nova Micro is text only and the weakest, and Nova Premier is retired, so neither is added. Nova 2 Pro does not exist in the account, only its Preview quota is listed.
 
 | Part | What |
 |---|---|
@@ -66,7 +66,7 @@ Nova 2 Lite, Nova Micro and Nova Premier are not added. Nova 2 Lite spends reaso
 ## 6. Acceptance criteria
 
 1. The plan on the pull request shows only IAM policy and alarm changes: the policy `mavenscout-engine-bedrock-invoke` changed in place and 4 alarms added, with 0 destroys. The apply succeeds.
-2. `aws iam simulate-principal-policy` for the role `mavenscout-engine-titan-invoke` returns `allowed` for `bedrock:InvokeModel` on the Nova Lite and Nova Pro profiles and on their foundation models in the three regions, and `implicitDeny` for Nova 2 Lite. This is a read only check.
+2. `aws iam simulate-principal-policy` for the role `mavenscout-engine-titan-invoke` returns `allowed` for `bedrock:InvokeModel` on the Nova Lite and Nova Pro profiles and on their foundation models in the three regions, and, after issue 58, on the Nova 2 Lite profile in the same regions. This is a read only check.
 3. An engineer calls Nova Lite and Nova Pro with `AWS_PROFILE=mavenscout-titan` through the `us.` profiles and gets an answer. The tokens used are recorded.
 4. A call that asks Nova Pro for JSON from a real job description returns valid JSON, and a Fit style call on Nova Lite returns a score the worker can parse.
 5. `npm run baseline` runs with Nova Lite in the Fit role and records the model names in its output.
@@ -90,4 +90,8 @@ Nova 2 Lite, Nova Micro and Nova Premier are not added. Nova 2 Lite spends reaso
 
 | Date | Step | What was done and how it was checked |
 |---|---|---|
-| 2026-11-20 | 2, local change | `invoke_profile_model_ids` and `bedrock_alarm_models` in `variables.tf` got Nova Lite and Nova Pro. `terraform fmt -check` is clean, `terraform validate` passes in the root and `terraform test` passes 5 of 5 runs in the module `bedrock-invoke`. Committed on the branch `feature/56-nova-temporary-models`, not applied |
+| 2026-11-20 | 2, local change | `invoke_profile_model_ids` and `bedrock_alarm_models` in `variables.tf` got Nova Lite and Nova Pro. `terraform fmt -check` is clean, `terraform validate` passes in the root and `terraform test` passes 5 of 5 runs in the module `bedrock-invoke`. Committed on the branch `feature/56-nova-temporary-models` |
+| 2026-11-20 | 3 and 4, pull request and apply | Issue 56 and pull request 57 merged (merge commit 3f9456f). The plan on the pull request showed 4 to add, 1 to change, 0 to destroy. The apply finished with 4 added, 1 changed, 0 destroyed |
+| 2026-11-20 | 5, simulation | `aws iam simulate-principal-policy` for `mavenscout-engine-titan-invoke` returned `allowed` for `bedrock:InvokeModel` on the Nova Lite and Nova Pro profiles and on their foundation models in us-east-1, us-east-2 and us-west-2, and `implicitDeny` for Nova 2 Lite. Acceptance criterion 2 is met for these two models |
+| 2026-11-20 | 6, pending | An engineer has not called the models with `AWS_PROFILE=mavenscout-titan` yet. Criteria 3, 4 and 5 are open. This record is updated when the engineers answer |
+| 2026-11-20 | Nova 2 Lite, local change | Issue 58 adds `amazon.nova-2-lite-v1:0` to `invoke_profile_model_ids` and two token alarms (profile id and model id, 20,000,000 input tokens per hour, estimate) to `bedrock_alarm_models`. Not applied until its pull request is merged |

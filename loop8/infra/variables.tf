@@ -17,7 +17,7 @@ variable "engineer_role_names" {
 }
 
 variable "bedrock_alarm_models" {
-  description = "Model id mapped to the input token count per hour that raises an alarm. Titan V2 is bounded by its quota, so its value is a wide safety margin. Luna and Sol were added on 2026-11-18, Nova Lite and Nova Pro on 2026-11-20"
+  description = "Model id mapped to the input token count per hour that raises an alarm. Titan V2 is bounded by its quota, so its value is a wide safety margin. Luna and Sol were added on 2026-11-18, Nova Lite, Nova Pro and Nova 2 Lite on 2026-11-20"
   type        = map(number)
   default = {
     "amazon.titan-embed-text-v2:0" = 5000000
@@ -35,6 +35,9 @@ variable "bedrock_alarm_models" {
     "amazon.nova-lite-v1:0"    = 20000000
     "us.amazon.nova-pro-v1:0"  = 5000000
     "amazon.nova-pro-v1:0"     = 5000000
+    # Nova 2 Lite is a comparison model for Fit, so its value follows Nova Lite.
+    "us.amazon.nova-2-lite-v1:0" = 20000000
+    "amazon.nova-2-lite-v1:0"    = 20000000
   }
 }
 
@@ -53,9 +56,9 @@ variable "invoke_model_ids" {
 }
 
 variable "invoke_profile_model_ids" {
-  description = "Foundation models that engineers may invoke through the US inference profile. GPT-6 Luna for Fit and GPT-6 Sol for extraction and summaries, confirmed on 2026-11-16. Nova Lite and Nova Pro were added on 2026-11-20 as temporary models while Luna and Sol are blocked for this account"
+  description = "Foundation models that engineers may invoke through the US inference profile. GPT-6 Luna for Fit and GPT-6 Sol for extraction and summaries, confirmed on 2026-11-16. Nova Lite and Nova Pro were added on 2026-11-20 as temporary models while Luna and Sol are blocked for this account, and Nova 2 Lite the same day as a comparison model for Fit"
   type        = list(string)
-  default     = ["openai.gpt-6-luna", "openai.gpt-6-sol", "amazon.nova-lite-v1:0", "amazon.nova-pro-v1:0"]
+  default     = ["openai.gpt-6-luna", "openai.gpt-6-sol", "amazon.nova-lite-v1:0", "amazon.nova-pro-v1:0", "amazon.nova-2-lite-v1:0"]
 }
 
 variable "invoke_profile_regions" {
