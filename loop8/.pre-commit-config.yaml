@@ -77,9 +77,11 @@ repos:
         files: ^(loop8/infra/|\.github/)
 
       # Writing rules of loop8/CLAUDE.md section 10: no em dashes or en dashes.
-      # CLAUDE.md is left out because it names a customer file that has an em dash.
+      # CLAUDE.md and PROJECT_PLAN.md are left out because they name a customer file
+      # that has an em dash.
       - id: no-long-dashes
         name: No em dashes or en dashes in Loop8 documents and infrastructure files
         language: pygrep
         entry: '—|–'
         files: ^(loop8/(docs|infra)/.*\.(md|tf|yaml|yml|hcl)|loop8/README\.md|\.github/.*\.ya?ml)$
+        exclude: ^loop8/docs/planning/PROJECT_PLAN\.md$
