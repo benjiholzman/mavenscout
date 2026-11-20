@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Draft, local change written, not committed |
+| Status | Issue 56 and its pull request are open. Not applied to the account yet |
 | Phase | P2 (engine wiring, models) |
 | Task | Use Amazon Nova Lite and Nova Pro temporarily so the work is not blocked while GPT-6 Luna, GPT-6 Sol, Claude Haiku 5.5 and Claude Sonnet 5.5 are unavailable in the account, and let the engineers call them through the role they already assume |
 | Owner | Guillermo Sandoval |
@@ -90,4 +90,4 @@ Nova 2 Lite, Nova Micro and Nova Premier are not added. Nova 2 Lite spends reaso
 
 | Date | Step | What was done and how it was checked |
 |---|---|---|
-| 2026-11-20 | 2, local change | `invoke_profile_model_ids` and `bedrock_alarm_models` in `variables.tf` got Nova Lite and Nova Pro. `terraform fmt -check` is clean, `terraform validate` passes in the root and `terraform test` passes 5 of 5 runs in the module `bedrock-invoke`. Nothing is committed, pushed or applied |
+| 2026-11-20 | 2, local change | `invoke_profile_model_ids` and `bedrock_alarm_models` in `variables.tf` got Nova Lite and Nova Pro. `terraform fmt -check` is clean, `terraform validate` passes in the root and `terraform test` passes 5 of 5 runs in the module `bedrock-invoke`. Committed on the branch `feature/56-nova-temporary-models`, not applied |
