@@ -34,7 +34,7 @@ Temporary mapping, valid until GPT-6 is unblocked and measured.
 |---|---|---|---|
 | Embeddings | Titan Text Embeddings V2 | Titan Text Embeddings V2, no change | not used |
 | Fit, one call per candidate | GPT-6 Luna | Amazon Nova Lite | `us.amazon.nova-lite-v1:0` |
-| Extraction of requirements and summaries | GPT-6 Sol | Amazon Nova Pro | `us.amazon.nova-pro-v1:0` |
+| Extraction of requirements and summaries | GPT-6 Sol | Amazon Nova Pro, or Nova Lite in variant A | `us.amazon.nova-pro-v1:0`, or `us.amazon.nova-lite-v1:0` in variant A |
 
 Nova 2 Lite is a newer generation than Nova Lite and is added by issue 58 as a comparison model for Fit, so the engineers can run the baseline with both. On 2026-11-20 the same Fit style prompt gave a fit of 95 on Nova Lite, Nova Pro and Nova 2 Lite, with latencies of 0.5 s, 1.2 s and 0.7 s. Nova 2 Lite used 161 input tokens against 121 for the same text and showed no reasoning tokens. One easy case does not separate the models, and the baseline decides. Nova 2 Lite allows 200 requests per minute, half of Nova Lite, and that limit is not adjustable. Nova Micro is text only and the weakest, and Nova Premier is retired, so neither is added. Nova 2 Pro does not exist in the account, only its Preview quota is listed.
 
