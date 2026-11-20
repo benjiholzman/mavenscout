@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Local change written for issue 61, tests pass. Not applied |
+| Status | Applied on 2026-11-20 (pull request 62) and checked. The engine is not turned on yet, that is a separate change |
 | Phase | P2 (engine wiring, deploy) |
 | Task | Give the worker and API Lambdas what the semantic engine (variant A) needs to run in the customer account: model access, the Supabase secret, the index artifact and the settings, and cut the worker role at 150% of the budget |
 | Owner | Guillermo Sandoval |
@@ -121,3 +121,6 @@ Checks. Tests in the modules `engine-api` and `cost-guard` show the alarms exist
 |---|---|---|
 | 2026-11-20 | 1, plan written | This plan was written from pull requests 55 and 60 and the current Terraform. Nothing is built or applied. Pull request 55 shows 0 to add, 2 to change, 0 to destroy (both Lambda functions updated in place) |
 | 2026-11-20 | 4, local change | Issue 61. The module `engine-api` got the worker model and secret statements, the optional settings of the functions and three failure alarms. The module `cost-guard` got the 150% action for the worker role and the Bedrock throttle alarms. The module `engine-secrets` got the outputs `secret_arns` and `secret_ids`. The root passes Titan V2 and Nova Lite to the worker, the Nova Lite ids to the api and the worker role to the budget cut. `terraform fmt` and `terraform validate` pass, and `terraform test` passes offline in `engine-api` (8 of 8 runs), `cost-guard` (5 of 5) and `engine-secrets` (5 of 5). Nothing is applied. The apply plan on the pull request decides whether the guardrail allows these permissions for a role named `mavenscout-engine-*` |
+| 2026-11-20 | 5 and 6, pull request and apply | Issue 61 and pull request 62 merged (merge commit 81167e3). The plan showed 6 to add, 4 to change, 0 to destroy and the apply finished with 6 added, 4 changed, 0 destroyed, so the guardrail did not deny the permissions for a role named `mavenscout-engine-*` |
+| 2026-11-20 | 7, simulation and checks | The worker role returned `allowed` for Titan V2, for the Nova Lite profile and its models in us-east-1, us-east-2 and us-west-2, and for `GetSecretValue` on `mavenscout/supabase`, and `implicitDeny` for Nova Pro, Luna and another secret name. The api role returned `implicitDeny` for a model and for the secret. The api function has `FIT_MODEL` and `TEXT_MODEL` set to the Nova Lite profile and `EMBED_MODEL` to Titan V2. The worker has `SUPABASE_SECRET_ID` and no `ENGINE` or `INDEX_ARTIFACT_S3_KEY`. Both budget actions (100 percent for the engineer role, 150 percent for the worker role) are in standby, and the five alarms exist in state OK or INSUFFICIENT_DATA. A job with the stub engine finished DONE in 1.4 seconds with 3 of 3 candidates. Acceptance criteria 1, 2, 3, 4, 6 and 7 are met |
+| 2026-11-20 | 8 and 9, pending | Criterion 5 is open: the gzipped index in the jobs bucket, the engine pull request 60 with the error handling changes, and the separate change that sets `ENGINE=semantic` and the index key. The customer is told about the temporary models through the project manager |

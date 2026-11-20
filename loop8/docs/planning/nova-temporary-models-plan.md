@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Nova Lite and Nova Pro applied on 2026-11-20 (pull request 57). Nova 2 Lite is added for comparison by issue 58. The calls by the engineers and the baseline are pending |
+| Status | Nova Lite and Nova Pro applied on 2026-11-20 (pull request 57) and Nova 2 Lite for comparison (pull request 59). An engineer confirmed the calls. The baseline with the models is pending |
 | Phase | P2 (engine wiring, models) |
 | Task | Use Amazon Nova Lite and Nova Pro temporarily so the work is not blocked while GPT-6 Luna, GPT-6 Sol, Claude Haiku 5.5 and Claude Sonnet 5.5 are unavailable in the account, and let the engineers call them through the role they already assume |
 | Owner | Guillermo Sandoval |
@@ -94,4 +94,6 @@ Nova 2 Lite is a newer generation than Nova Lite and is added by issue 58 as a c
 | 2026-11-20 | 3 and 4, pull request and apply | Issue 56 and pull request 57 merged (merge commit 3f9456f). The plan on the pull request showed 4 to add, 1 to change, 0 to destroy. The apply finished with 4 added, 1 changed, 0 destroyed |
 | 2026-11-20 | 5, simulation | `aws iam simulate-principal-policy` for `mavenscout-engine-titan-invoke` returned `allowed` for `bedrock:InvokeModel` on the Nova Lite and Nova Pro profiles and on their foundation models in us-east-1, us-east-2 and us-west-2, and `implicitDeny` for Nova 2 Lite. Acceptance criterion 2 is met for these two models |
 | 2026-11-20 | 6, pending | An engineer has not called the models with `AWS_PROFILE=mavenscout-titan` yet. Criteria 3, 4 and 5 are open. This record is updated when the engineers answer |
-| 2026-11-20 | Nova 2 Lite, local change | Issue 58 adds `amazon.nova-2-lite-v1:0` to `invoke_profile_model_ids` and two token alarms (profile id and model id, 20,000,000 input tokens per hour, estimate) to `bedrock_alarm_models`. Not applied until its pull request is merged |
+| 2026-11-20 | Nova 2 Lite, local change | Issue 58 adds `amazon.nova-2-lite-v1:0` to `invoke_profile_model_ids` and two token alarms (profile id and model id, 20,000,000 input tokens per hour, estimate) to `bedrock_alarm_models`. Applied by pull request 59 |
+| 2026-11-20 | Nova 2 Lite, apply and simulation | Issue 58 and pull request 59 merged (merge commit be83d9a). The plan showed 2 to add, 1 to change, 0 to destroy and the apply finished with 2 added, 1 changed, 0 destroyed. The simulation for `mavenscout-engine-titan-invoke` returned `allowed` for Nova Lite, Nova Pro and Nova 2 Lite on the profile and in us-east-1, us-east-2 and us-west-2, and `implicitDeny` for Nova Micro |
+| 2026-11-20 | 6, calls by an engineer | Reported by an engineer, not measured by the project lead: Nova Lite, Nova 2 Lite and Nova Pro answer with the profile `mavenscout-titan`. One real Fit call through the engine code on the nutrition ToR, a case the keyword scorer ranks 40th, gave 90 on Nova Lite and 85 on Nova 2 Lite, and 10 and 0 for a keyword stuffed decoy, with valid JSON every time. Criterion 3 is met. Criteria 4 and 5, the Nova Pro JSON on a real job description and the baseline with Nova Lite and Nova 2 Lite, are open |
