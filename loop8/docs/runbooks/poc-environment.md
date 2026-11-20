@@ -235,13 +235,17 @@ region = us-east-1
 
 Then run the embedding script with `AWS_PROFILE=mavenscout-titan`. Check with `aws sts get-caller-identity --profile mavenscout-titan`, which must show the assumed role `mavenscout-engine-titan-invoke`. The budget deny policy also targets this role, so the 100% budget cut removes the model access too. The role also reads the secret `mavenscout/supabase` since the policy `mavenscout-engine-secrets-read` was added (B2). The name `titan-invoke` is narrower than what the role does, and it is kept because every engineer has a profile that points to it.
 
-Models the role can call (read from the account on 2026-11-18):
+Models the role can call (read from the account on 2026-11-18, Nova added on 2026-11-20):
 
 1. Titan Text Embeddings V2. Model id `amazon.titan-embed-text-v2:0`, called directly.
 2. GPT-6 Luna, for Fit. Call it with the profile id `us.openai.gpt-6-luna` (model id `openai.gpt-6-luna`).
 3. GPT-6 Sol, for extraction and summaries. Call it with the profile id `us.openai.gpt-6-sol` (model id `openai.gpt-6-sol`).
+4. Amazon Nova Lite, temporary Fit model while Luna is blocked. Call it with the profile id `us.amazon.nova-lite-v1:0` (model id `amazon.nova-lite-v1:0`).
+5. Amazon Nova Pro, temporary model for extraction and summaries while Sol is blocked. Call it with the profile id `us.amazon.nova-pro-v1:0` (model id `amazon.nova-pro-v1:0`).
 
-Call Luna and Sol with the profile id, never with the model id alone. The profile routes to us-east-1, us-east-2 and us-west-2, and the policy allows the profile and the model in all three. The Converse API needs the same permission as `InvokeModel`. The role cannot call any other model. A token alarm exists for each model, with estimated thresholds that are reviewed after the first measured run.
+Luna and Sol are rejected with `not available for this account` since 2026-11-19, and the sales request that AWS support asked for is open. Nova needs no Marketplace subscription or sales enablement. The plan is in [nova-temporary-models-plan.md](../planning/nova-temporary-models-plan.md). Items 4 and 5 are in the role once the pipeline applies that change, and this section is updated with the date of the apply.
+
+Call Luna, Sol and Nova with the profile id, never with the model id alone. The profile routes to us-east-1, us-east-2 and us-west-2, and the policy allows the profile and the model in all three. The Converse API needs the same permission as `InvokeModel`. The role cannot call any other model. A token alarm exists for each model, with estimated thresholds that are reviewed after the first measured run.
 
 Check each model with a small call before building on it:
 
@@ -575,9 +579,9 @@ Then re-run the tagging check: it must return no rows. Quota increases and the M
 | IAM policy that denies model invocation | `mavenscout-engine-bedrock-deny` | global | 2026-11-18, Terraform apply by the pipeline | |
 | IAM role and inline policy for the budget action | `mavenscout-engine-budget-action` | global | 2026-11-18, Terraform apply by the pipeline | |
 | CloudWatch alarm on Titan V2 input tokens per hour (5,000,000) | `mavenscout-engine-tokens-amazon.titan-embed-text-v2-0` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
-| IAM policy that allows `bedrock:InvokeModel` on Titan V2 (version 1), and from 2026-11-18 on Luna and Sol through the US inference profiles (version 2) | `mavenscout-engine-bedrock-invoke` | global | 2026-11-18, Terraform apply by the pipeline | Not attached to `Loop8-ReadOnly`, see B3c |
+| IAM policy that allows `bedrock:InvokeModel` on Titan V2 (version 1), and from 2026-11-18 on Luna and Sol through the US inference profiles (version 2), and Nova Lite and Nova Pro (version 3, pending apply of the change of 2026-11-20) | `mavenscout-engine-bedrock-invoke` | global | 2026-11-18, Terraform apply by the pipeline | Not attached to `Loop8-ReadOnly`, see B3c |
 | IAM role the engineers assume to call the models, trusts only `Loop8-ReadOnly` | `mavenscout-engine-titan-invoke` | global | 2026-11-18, Terraform apply by the pipeline | The budget deny also targets it |
-| CloudWatch alarms on Luna and Sol input tokens per hour (20,000,000 and 5,000,000, estimates), one for the profile id and one for the model id | `mavenscout-engine-tokens-us.openai.gpt-6-luna`, `...-openai.gpt-6-luna`, `...-us.openai.gpt-6-sol`, `...-openai.gpt-6-sol` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | The alarm whose dimension receives data is kept after the first calls |
+| CloudWatch alarms on Luna and Sol input tokens per hour (20,000,000 and 5,000,000, estimates), one for the profile id and one for the model id. Four more for Nova Lite (20,000,000) and Nova Pro (5,000,000), pending apply of the change of 2026-11-20 | `mavenscout-engine-tokens-us.openai.gpt-6-luna`, `...-openai.gpt-6-luna`, `...-us.openai.gpt-6-sol`, `...-openai.gpt-6-sol` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | The alarm whose dimension receives data is kept after the first calls |
 | S3 bucket for job inputs and results (private, encrypted, objects expire after 7 days) | `mavenscout-engine-jobs-<account id>` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
 | DynamoDB table for job state (on demand, TTL on `expires_at`) | `mavenscout-engine-jobs` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
 | SQS jobs queue (visibility timeout 1,080 s, 5 receives) and its dead letter queue | `mavenscout-engine-jobs`, `mavenscout-engine-jobs-dlq` | us-east-1 | 2026-11-18, Terraform apply by the pipeline | |
@@ -602,3 +606,4 @@ Then re-run the tagging check: it must return no rows. Quota increases and the M
 | 2026-11-18 | Project lead: engine data and API resources recorded in the inventory, Part D replaced by Terraform |
 | 2026-11-18 | Project lead: Supabase secret recorded in the inventory, B2 describes the upload script |
 | 2026-11-19 | Project lead: B2 and B3c describe how the engineers read the Supabase secret through the role, inventory row added, applied by the pipeline (pull request 52) |
+| 2026-11-20 | Project lead: B3c and the inventory list Nova Lite and Nova Pro as temporary models while Luna, Sol, Haiku 5.5 and Sonnet 5.5 are blocked, pending apply by the pipeline |
