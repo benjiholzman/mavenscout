@@ -1,3 +1,11 @@
+import { buildExpertiseIndex } from '../../../../src/lib/expertise'
+import type { ExpertiseIndex } from '../../../../src/lib/expertise'
+import type { CandidateInput } from '../../../../src/lib/matching/fit'
+import type { ExtractedRequirements } from '../../../../src/lib/matching/types'
+import { buildOrgIndex } from '../../../../src/lib/organizations'
+import type { OrgIndex } from '../../../../src/lib/organizations'
+import type { Organization, PortfolioItem, Profile, TaxonomyCategory, TaxonomyItem } from '../../../../src/types/db'
+
 export type FetchLike = (
   url: string,
   init: { method: string; headers: Record<string, string> },
@@ -11,10 +19,26 @@ export interface ReferenceLists {
   languages: string[]
 }
 
+export interface ScoringData {
+  candidates: CandidateInput[]
+  expertise: ExpertiseIndex
+  orgs: OrgIndex
+  missing: string[]
+}
+
+export interface Extraction {
+  extracted: ExtractedRequirements | null
+  hiringOrganization: string | null
+}
+
 export interface SupabaseReader {
   getJobDescriptionText(id: string): Promise<string | null>
   getReferenceLists(): Promise<ReferenceLists>
+  getScoringData(profileIds: string[]): Promise<ScoringData>
+  getExtraction(jobDescriptionId: string): Promise<Extraction>
 }
+
+const CHUNK = 100
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -74,6 +98,58 @@ export function createSupabaseReader(cfg: SupabaseConfig): SupabaseReader {
       const aliases = clean(orgs.flatMap((o) => (Array.isArray(o.aliases) ? o.aliases : [])))
       const organizations = clean(orgs.flatMap((o) => [o.name, ...(Array.isArray(o.aliases) ? o.aliases : [])]))
       return { organizations, organizationTerms: { names, aliases }, languages: clean(langs.map((l) => l.name)) }
+    },
+
+    // Mirrors the app: useDirectoryData (profiles select, taxonomy), loadEvidence in
+    // lib/matching/score.ts (portfolio items), loadOrgIndex (organizations). The directory's
+    // approved and active filters are not applied: the pool already passed them.
+    async getScoringData(profileIds) {
+      const valid = [...new Set(profileIds.filter((id) => UUID.test(id)))]
+      const chunks: string[][] = []
+      for (let i = 0; i < valid.length; i += CHUNK) chunks.push(valid.slice(i, i + CHUNK))
+      const [profileChunks, portfolioChunks, cats, items, orgRows] = await Promise.all([
+        Promise.all(chunks.map((c) => rows('profiles', `select=*&id=in.(${c.join(',')})`))),
+        Promise.all(chunks.map((c) => rows('portfolio_items', `select=*&profile_id=in.(${c.join(',')})&order=sort_order`))),
+        rows('taxonomy_categories', 'select=*&order=sort_order'),
+        rows('taxonomy_items', 'select=*&order=sort_order'),
+        rows('organizations', 'select=*&order=name'),
+      ])
+      const profileBy = new Map<string, Profile>()
+      for (const p of profileChunks.flat() as unknown as Profile[]) profileBy.set(p.id, p)
+      const portfolioBy = new Map<string, PortfolioItem[]>()
+      for (const item of portfolioChunks.flat() as unknown as PortfolioItem[])
+        portfolioBy.set(item.profile_id, [...(portfolioBy.get(item.profile_id) ?? []), item])
+      const candidates: CandidateInput[] = []
+      const found = new Set<string>()
+      for (const id of valid) {
+        const profile = profileBy.get(id)
+        if (!profile) continue
+        found.add(id)
+        candidates.push({ profile, portfolio: portfolioBy.get(id) ?? [] })
+      }
+      return {
+        candidates,
+        expertise: buildExpertiseIndex(cats as unknown as TaxonomyCategory[], items as unknown as TaxonomyItem[]),
+        orgs: buildOrgIndex(orgRows as unknown as Organization[]),
+        missing: profileIds.filter((id) => !found.has(id)),
+      }
+    },
+
+    async getExtraction(jobDescriptionId) {
+      const none = { extracted: null, hiringOrganization: null }
+      if (!UUID.test(jobDescriptionId)) return none
+      const found = await rows(
+        'job_descriptions',
+        `select=extracted,hiring_organization&id=eq.${encodeURIComponent(jobDescriptionId)}&limit=1`,
+      )
+      const row = found[0]
+      if (!row) return none
+      const ex = row.extracted
+      const org = row.hiring_organization
+      return {
+        extracted: ex && typeof ex === 'object' && !Array.isArray(ex) ? (ex as unknown as ExtractedRequirements) : null,
+        hiringOrganization: typeof org === 'string' && org.trim() ? org : null,
+      }
     },
   }
 }

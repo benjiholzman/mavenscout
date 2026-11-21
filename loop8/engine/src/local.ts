@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { handleApi } from './api/app'
 import { loadSettings } from './core/settings'
 import type { JdMatchResult, JobState, PhaseRecord, Settings } from './core/types'
-import { createStubEngine, stubOptionsFromEnv } from './engine/stub'
+import { createEngineFromEnv } from './engine/factory'
+import { realEngineDeps } from './engine/real-deps'
 import { DEFAULT_LIMITS } from './shared/limits'
 import { createMemoryQueue, createMemoryStore } from './shared/memory-store'
 import type { RankRequest } from './shared/validate'
@@ -17,11 +18,14 @@ export interface LocalRun {
   record: PhaseRecord[]
 }
 
-/** Runs the real API and worker code in memory, with the stub engine. */
+/** Runs the real API and worker code in memory. The engine comes from ENGINE: the stub by default. */
 export async function runLocal(job: RankRequest, env: Record<string, string | undefined>): Promise<LocalRun> {
   const store = createMemoryStore()
   const queue = createMemoryQueue()
   const settings = loadSettings(env)
+  // Local runs read the index from INDEX_ARTIFACT_PATH only. There is no bucket here. This is the only
+  // caller that allows LOCAL_FAKE_MODELS.
+  const setup = await createEngineFromEnv(env, realEngineDeps(async () => null), { allowFake: true })
   const api = { store, queue, settings, limits: DEFAULT_LIMITS, now: Date.now, newId: () => randomUUID() }
 
   // The pipeline logs one JSON line per event. Hide them unless asked for.
@@ -37,7 +41,8 @@ export async function runLocal(job: RankRequest, env: Record<string, string | un
 
     const worker = {
       store,
-      engine: createStubEngine(stubOptionsFromEnv(env)),
+      engine: setup.engine,
+      jobText: setup.jobText,
       limits: DEFAULT_LIMITS,
       now: Date.now,
       workerId: 'local',

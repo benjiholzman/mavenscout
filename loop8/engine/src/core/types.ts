@@ -13,6 +13,8 @@ export interface Settings {
   parallelCalls: number
   threshold: number | null
   promptVersion: string
+  /** How many shortlisted candidates get the Fit call; the rest keep the similarity estimate. */
+  fitCap: number
 }
 
 export interface RankJob {
@@ -31,6 +33,11 @@ export interface Usage {
   throttles?: number
   retries?: number
   estimatedCostUsd?: number
+  /** Model calls made in the phase, and how many of them fell back. */
+  calls?: number
+  fallbacks?: number
+  /** On a fit_cap_hit record: shortlisted candidates beyond the Fit cap. Not a call count. */
+  beyondCap?: number
 }
 
 export interface PhaseRecord extends Usage {

@@ -1,0 +1,85 @@
+{
+  "note": "Fictional test data for hard ranking case hard-3. Not a real person; never part of the customer demo seed.",
+  "handle": "hard-nour-obeidat",
+  "id": "2afde68c-651b-424c-8030-895654a85a15",
+  "name": "Nour Saleh Obeidat",
+  "gender": "F",
+  "level": "mid_career",
+  "headline": "Coaching and Asset Transfer Programmes for Families Who Fled Conflict | Jordan and Lebanon",
+  "city": "Irbid",
+  "country": "Jordan",
+  "languages": [["Arabic", "fluent"], ["English", "fluent"]],
+  "work": ["On-site", "Hybrid"],
+  "pt": { "status": "available_now", "from": null, "until": null },
+  "ft": { "status": "available_now", "from": null, "until": null },
+  "updatedAt": "2026-11-01T00:00:00+00:00",
+  "featured": false,
+  "eligibility": "Jordanian citizen; contracts as an individual consultant. Travels to Lebanon for assignments.",
+  "bio": "Nour Obeidat has spent nine years designing and running programmes that help families who fled the war in Syria earn a stable income in the Jordanian towns that took them in. She managed a coaching and productive asset programme in northern Jordan that combined a monthly consumption stipend, a small asset grant, savings groups and weekly home visits by coaches, and she later studied which home businesses were still trading two years on. She has worked with municipalities on home business licences and work permits, with local lenders on small loans for women running food, tailoring and hairdressing businesses from home, and with Jordanian neighbours on joint savings groups that ease tension over jobs and rent.",
+  "tiers": {
+    "core": ["Capacity Building"],
+    "strong": ["Gender Mainstreaming"],
+    "working": ["Project Management"]
+  },
+  "accreditations": [],
+  "history": [
+    {
+      "role": "Programme Manager",
+      "organization": "Northern Jordan Family Income Initiative (fictional)",
+      "start_year": 2019,
+      "end_year": null,
+      "logo_url": null,
+      "description": "Runs a coaching and asset transfer programme for Syrian and Jordanian families in Ramtha and Jerash."
+    },
+    {
+      "role": "Coaching Coordinator",
+      "organization": "Hauran Community Association (fictional)",
+      "start_year": 2016,
+      "end_year": 2019,
+      "logo_url": null,
+      "description": "Trained and supervised home visit coaches for women starting businesses from home."
+    }
+  ],
+  "education": [
+    {
+      "institution": "Northern Jordan Institute of Social Studies (fictional)",
+      "degree_or_course": "MA Development Studies",
+      "start_year": 2013,
+      "end_year": 2015,
+      "logo_url": null
+    }
+  ],
+  "additional": [],
+  "portfolio": [
+    {
+      "name": "Coaching and Productive Asset Programme, Ramtha and Jerash",
+      "org": "Northern Jordan Family Income Initiative (fictional)",
+      "years": [2019, 2022],
+      "role": "Programme Manager",
+      "desc": "Managed a two year programme for 1,200 Syrian families who fled the conflict and Jordanian families in Ramtha and Jerash: selection of the poorest households, a monthly stipend, an asset grant for a home business, savings groups, and weekly coaching visits. Recruited and supervised 40 coaches and agreed the exit criteria with the donor.",
+      "results": "Seventy percent of families met the exit criteria for income and savings; women ran most of the new home businesses.",
+      "images": [],
+      "links": []
+    },
+    {
+      "name": "Two Year Follow Up of Home Businesses",
+      "org": "Northern Jordan Family Income Initiative (fictional)",
+      "years": [2022, 2024],
+      "role": "Study Lead",
+      "desc": "Tracked 600 home businesses started under the programme, and ran interviews and focus groups with owners and neighbours to learn which businesses were still trading after two years and why. Compared business type, the owner's earlier skills, access to customers, debt and the legal status of the business.",
+      "results": "Food and tailoring businesses with a registered home licence were most likely to last; the findings changed how asset grants are matched to families.",
+      "images": [],
+      "links": []
+    },
+    {
+      "name": "Home Business Licensing Support, Northern Jordan",
+      "org": "Hauran Community Association (fictional)",
+      "years": [2017, 2019],
+      "role": "Coordinator",
+      "desc": "Worked with three municipalities to simplify home business licences for Syrian and Jordanian women, and explained to families which trades are open to non Jordanian workers and how to obtain work permits.",
+      "results": "Licence approvals for women working from home doubled in the three municipalities.",
+      "images": [],
+      "links": []
+    }
+  ]
+}

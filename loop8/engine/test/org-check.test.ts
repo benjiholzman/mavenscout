@@ -81,7 +81,7 @@ function setup(files: Record<string, string>, reader?: () => Promise<unknown>) {
     },
     createReader: (cfg) => {
       cfgs.push(cfg)
-      return { getJobDescriptionText: async () => null, getReferenceLists: (reader ?? (async () => ({
+      return { getJobDescriptionText: async () => null, getScoringData: async () => { throw new Error('unused') }, getExtraction: async () => { throw new Error('unused') }, getReferenceLists: (reader ?? (async () => ({
         organizations: [], organizationTerms: { names: ['Acme Corp'], aliases: ['AC'] }, languages: [],
       }))) as never }
     },

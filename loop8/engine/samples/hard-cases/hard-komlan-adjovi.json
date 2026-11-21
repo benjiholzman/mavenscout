@@ -1,0 +1,85 @@
+{
+  "note": "Fictional test data for hard ranking case hard-4. Not a real person; never part of the customer demo seed.",
+  "handle": "hard-komlan-adjovi",
+  "id": "b1c04dd6-5798-4197-872d-34eb6849778e",
+  "name": "Yawovi Komlan Adjovi",
+  "gender": "M",
+  "level": "senior",
+  "headline": "Moving Government Tendering Online | Bidder Portals and Contract Award Publishing | West Africa",
+  "city": "Lomé",
+  "country": "Togo",
+  "languages": [["French", "fluent"], ["English", "working"], ["Ewe", "fluent"]],
+  "work": ["Remote", "On-site"],
+  "pt": { "status": "available_now", "from": null, "until": null },
+  "ft": { "status": "available_now", "from": null, "until": null },
+  "updatedAt": "2026-11-01T00:00:00+00:00",
+  "featured": false,
+  "eligibility": "Togolese citizen; contracts as an individual consultant. Available for travel across francophone West Africa.",
+  "bio": "Komlan Adjovi is a Togolese systems lead who moved a finance ministry's tendering from paper to an online platform. He ran the bidder registration portal, set up electronic bid submission and public online bid opening, and built the module that publishes every contract award with its value and supplier. He mapped the tender board's business processes and the legal steps of each tender, managed the software vendor, linked the platform to the treasury and tax systems, trained buyers in ministries and suppliers, and ran the help desk during go live. He works in French and English and has advised two neighbouring governments on taking their tenders online.",
+  "tiers": {
+    "core": ["Public Sector Reform"],
+    "strong": ["Project Management"],
+    "working": ["Technical Writing"]
+  },
+  "accreditations": [],
+  "history": [
+    {
+      "role": "Online Tendering Platform Lead",
+      "organization": "Ministry of Public Finance (fictional)",
+      "start_year": 2017,
+      "end_year": 2023,
+      "logo_url": null,
+      "description": "Led the move of national tenders from paper to an online platform and its roll out to every ministry."
+    },
+    {
+      "role": "Independent Consultant",
+      "organization": "Self-employed",
+      "start_year": 2023,
+      "end_year": null,
+      "logo_url": null,
+      "description": "Advises governments on online tendering platforms, bidder registries and the publication of contract awards."
+    }
+  ],
+  "education": [
+    {
+      "institution": "Institut Supérieur du Golfe (fictional)",
+      "degree_or_course": "MSc Computer Science",
+      "start_year": 2008,
+      "end_year": 2010,
+      "logo_url": null
+    }
+  ],
+  "additional": [],
+  "portfolio": [
+    {
+      "name": "Online Tendering Platform for a Finance Ministry",
+      "org": "Ministry of Public Finance (fictional)",
+      "years": [2017, 2021],
+      "role": "Platform Lead",
+      "desc": "Led the move of national tenders from paper files to an online platform: supplier and bidder registration with tax and company registry checks, electronic submission of encrypted bids, live online bid opening that any bidder can watch, electronic evaluation by the tender committee, and an audit trail of every step.",
+      "results": "Within eighteen months 80 percent of national tenders ran online and the average time from bid opening to contract award fell from 90 to 45 days.",
+      "images": [],
+      "links": []
+    },
+    {
+      "name": "Contract Award Publishing Module",
+      "org": "Ministry of Public Finance (fictional)",
+      "years": [2020, 2022],
+      "role": "Product Owner",
+      "desc": "Designed the public page and open data feed that publishes each contract award, its value, the winning supplier and the other bids, following an international open data format for contracts, so journalists and civil society can follow public spending.",
+      "results": "Every contract award above the national threshold is now published within five days of signature.",
+      "images": [],
+      "links": []
+    },
+    {
+      "name": "Training Ministry Buyers and Suppliers",
+      "org": "Ministry of Public Finance (fictional)",
+      "years": [2019, 2023],
+      "role": "Change Lead",
+      "desc": "Built the training programme for 300 ministry buyers and 1,500 suppliers on the online platform, with French user guides, a trainer network in each ministry and a help desk during go live.",
+      "results": "Supplier registrations grew from 400 to 3,200 in two years, a third of them small local businesses.",
+      "images": [],
+      "links": []
+    }
+  ]
+}
