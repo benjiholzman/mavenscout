@@ -36,27 +36,42 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "jobs" {
 
 # The 7 day expiry covers only the prefixes the API and the worker write, so an object
 # uploaded by hand under another prefix (the index artifact, under index/) is kept.
+# The two rules are written out, not generated, because Checkov does not read the
+# abort setting inside a dynamic block (CKV_AWS_300).
 resource "aws_s3_bucket_lifecycle_configuration" "jobs" {
   bucket = aws_s3_bucket.jobs.id
 
-  dynamic "rule" {
-    for_each = toset(["inputs/", "results/"])
+  rule {
+    id     = "expire-7-days-inputs"
+    status = "Enabled"
 
-    content {
-      id     = "expire-7-days-${trimsuffix(rule.value, "/")}"
-      status = "Enabled"
+    filter {
+      prefix = "inputs/"
+    }
 
-      filter {
-        prefix = rule.value
-      }
+    expiration {
+      days = 7
+    }
 
-      expiration {
-        days = 7
-      }
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
+    }
+  }
 
-      abort_incomplete_multipart_upload {
-        days_after_initiation = 1
-      }
+  rule {
+    id     = "expire-7-days-results"
+    status = "Enabled"
+
+    filter {
+      prefix = "results/"
+    }
+
+    expiration {
+      days = 7
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
     }
   }
 }
