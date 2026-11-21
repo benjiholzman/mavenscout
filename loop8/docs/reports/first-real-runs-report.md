@@ -163,7 +163,7 @@ Measured tokens, computed cost, API-3 (98 candidates):
 | Total | | 114,080 | 4,661 | 0.0080 USD |
 
 1. A Fit call used about 1,076 input tokens and 37 output tokens, which is 0.0000735 USD per candidate.
-2. The summaries are about 9.5 percent of the cost of a job and produce no usable text, because every summary fails the 40 to 60 word rule and falls back. The CloudWatch invocation count shows why: 312 invocations before the last two jobs, which is 281 Fit calls, 30 summary calls (5 summaries, 2 tries, 3 jobs) and one test call.
+2. The summaries are about 9.5 percent of the cost of a job and produce no usable text, because every summary fails the 40 to 60 word rule and falls back. The CloudWatch invocation count shows why: 527 invocations for the five jobs, which is 476 Fit calls, 50 summary calls (5 summaries, 2 tries, 5 jobs) and one test call.
 3. The blueprint estimated 0.04 dollars per ranking with a small model, with Claude reference prices (estimate). The measured cost with Nova Lite is about five times lower.
 
 ### 7.3 Estimates beyond what was measured
@@ -183,7 +183,7 @@ These are estimates and nobody measured them in this account.
 |---|---|---|
 | Index build, Titan V2, 964 embeddings, 42,765 input tokens | 0.0009 USD (computed) | `index-build.log` P1 |
 | The five jobs of 2026-11-21, Nova Lite | 0.0387 USD (computed from the measured tokens) | `job-records.log` P1 |
-| CloudWatch token counts for 2026-11-21, taken before the last two jobs | Equal to the job records of the first three jobs plus one 11 token test call | `cost-measurement.log` P3 |
+| CloudWatch token counts for 2026-11-21 | Equal to the job records of the five jobs plus one 11 token test call: input 552,528 against 552,520 plus 8, output 23,042 against 23,039 plus 3 | `cost-measurement.log` P3 |
 | Bedrock spend of 2026-11-20 in Cost Explorer: Nova 2 Lite 0.19, Nova Lite 0.04, Nova Pro 0.01, Titan 0.001 | 0.25 USD (billed) | `cost-measurement.log` P5 |
 | Bedrock spend of November to 2026-11-20 | 0.2487 USD (billed) | `cost-measurement.log` P4 |
 | AWS Business Support+ plan, November | 29.00 USD (billed, the plan of the account, not caused by the engine) | `cost-measurement.log` P4 |
