@@ -1,0 +1,70 @@
+# The five real jobs of 2026-11-21: job records, tokens, cost and the comparison of the Fit scores.
+# Context: jobs table and jobs bucket of the POC account, read only. Job ids are shortened to 8 characters. API-n jobs were posted to the API, UI-n jobs were started from the app on the project lead's machine.
+# Prices used for the cost lines are in cost-measurement.log, P1 and P2.
+
+### P1 Records and results of the five semantic jobs
+$ python3 analyze-jobs.py   (script saved next to this log)
+Semantic jobs of the run, in creation order (job id shortened to 8 characters)
+
+=== API-1 462c52e7 state=PARTIAL ranked=92 of 121 fallbacks=29 endToEndMs=13408
+    models fit=us.amazon.nova-lite-v1:0 text=us.amazon.nova-lite-v1:0 embed=amazon.titan-embed-text-v2:0 index=bda903154e95230e prompt=fit-v2+summary-v1
+    settings fitCap=200 summaryCount=5 parallelCalls=16 threshold=None
+    phase embed_query  durationMs=204
+    phase search       durationMs=5
+    phase fit          durationMs=4812 calls=92 tokensIn=98178 tokensOut=3521 throttles=0 retries=0 fallbacks=0 skipped=0
+    phase score        durationMs=15
+    phase summary      durationMs=2316 calls=5 tokensIn=8608 tokensOut=950 throttles=0 retries=0 fallbacks=5 skipped=0
+    Nova Lite tokens in=106786 out=4471  cost USD 0.007480  (summaries alone USD 0.000744, all of them fell back: 5 of 5)
+
+=== UI-1 004b526f state=PARTIAL ranked=91 of 97 fallbacks=6 endToEndMs=13167
+    models fit=us.amazon.nova-lite-v1:0 text=us.amazon.nova-lite-v1:0 embed=amazon.titan-embed-text-v2:0 index=bda903154e95230e prompt=fit-v2+summary-v1
+    settings fitCap=200 summaryCount=5 parallelCalls=16 threshold=None
+    phase embed_query  durationMs=160
+    phase search       durationMs=5
+    phase fit          durationMs=4297 calls=91 tokensIn=97108 tokensOut=3492 throttles=0 retries=0 fallbacks=0 skipped=0
+    phase score        durationMs=24
+    phase summary      durationMs=2547 calls=5 tokensIn=8042 tokensOut=1066 throttles=0 retries=0 fallbacks=5 skipped=0
+    Nova Lite tokens in=105150 out=4558  cost USD 0.007403  (summaries alone USD 0.000738, all of them fell back: 5 of 5)
+
+=== API-2 6c402a5b state=DONE ranked=98 of 98 fallbacks=0 endToEndMs=13488
+    models fit=us.amazon.nova-lite-v1:0 text=us.amazon.nova-lite-v1:0 embed=amazon.titan-embed-text-v2:0 index=13d7674312434864 prompt=fit-v2+summary-v1
+    settings fitCap=200 summaryCount=5 parallelCalls=16 threshold=None
+    phase embed_query  durationMs=174
+    phase search       durationMs=6
+    phase fit          durationMs=4429 calls=98 tokensIn=105470 tokensOut=3657 throttles=0 retries=0 fallbacks=0 skipped=0
+    phase score        durationMs=31
+    phase summary      durationMs=2704 calls=5 tokensIn=8610 tokensOut=996 throttles=0 retries=0 fallbacks=5 skipped=0
+    Nova Lite tokens in=114080 out=4653  cost USD 0.007962  (summaries alone USD 0.000756, all of them fell back: 5 of 5)
+
+=== UI-2 3864c3c2 state=DONE ranked=97 of 97 fallbacks=0 endToEndMs=13474
+    models fit=us.amazon.nova-lite-v1:0 text=us.amazon.nova-lite-v1:0 embed=amazon.titan-embed-text-v2:0 index=13d7674312434864 prompt=fit-v2+summary-v1
+    settings fitCap=200 summaryCount=5 parallelCalls=16 threshold=None
+    phase embed_query  durationMs=180
+    phase search       durationMs=6
+    phase fit          durationMs=4345 calls=97 tokensIn=104400 tokensOut=3679 throttles=0 retries=0 fallbacks=0 skipped=0
+    phase score        durationMs=16
+    phase summary      durationMs=2604 calls=5 tokensIn=8024 tokensOut=1017 throttles=0 retries=0 fallbacks=5 skipped=0
+    Nova Lite tokens in=112424 out=4696  cost USD 0.007872  (summaries alone USD 0.000726, all of them fell back: 5 of 5)
+
+=== API-3 81aa91fd state=DONE ranked=98 of 98 fallbacks=0 endToEndMs=10737
+    models fit=us.amazon.nova-lite-v1:0 text=us.amazon.nova-lite-v1:0 embed=amazon.titan-embed-text-v2:0 index=13d7674312434864 prompt=fit-v2+summary-v1
+    settings fitCap=200 summaryCount=5 parallelCalls=16 threshold=None
+    phase embed_query  durationMs=124
+    phase search       durationMs=3
+    phase fit          durationMs=4373 calls=98 tokensIn=105470 tokensOut=3654 throttles=0 retries=0 fallbacks=0 skipped=0
+    phase score        durationMs=22
+    phase summary      durationMs=2447 calls=5 tokensIn=8610 tokensOut=1007 throttles=0 retries=0 fallbacks=5 skipped=0
+    Nova Lite tokens in=114080 out=4661  cost USD 0.007963  (summaries alone USD 0.000758, all of them fell back: 5 of 5)
+
+TOTAL of the 5 jobs: Nova Lite tokens in=552520 out=23039  cost USD 0.038681
+
+Fit scores across runs (Fit judges one candidate at a time, so a difference is model noise, not pool dependence)
+API-2 vs API-3, same pool repeated: common 98, identical Fit 95, different 3, differences in points [10, 10, 10]
+API-3 (98 pool) vs UI-2 (97 pool, other priorities): common 97, identical Fit 91, different 6, differences in points [-10, -10, -10, -10, -10, -10]
+API-3 vs API-1 (121 pool with firms, first index): common 92, identical Fit 86, different 6, differences in points [-10, -10, -10, -10, 5, 10]
+UI-2 vs UI-1 (before and after the index fix): common 91, identical Fit 87, different 4, differences in points [5, 10, 10, 10]
+top 10 identical API-2 vs API-3: True | top 5 identical API-3 vs UI-2: True
+Fit distribution API-3 (score: candidates): {95: 2, 90: 5, 85: 1, 80: 2, 70: 2, 60: 2, 40: 3, 30: 7, 20: 40, 10: 23, 0: 11}
+bands API-3: {'strong': 7, 'good': 3, 'partial': 4, 'weak': 84}
+summary fallback note present in the top 5 of API-3: 5 of 5
+RESULT: 5 jobs: 3 DONE and 2 PARTIAL (the first index left 29 and 6 profiles unindexed). No throttle, no retry, no Fit fallback in any job. All summaries fell back to the template.

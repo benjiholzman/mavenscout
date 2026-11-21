@@ -1,0 +1,56 @@
+# Pull requests and pipeline runs that built and deployed the engine, 2026-11-19 to 2026-11-21.
+# Context: GitHub repository of the project, branch loop8-develop. The apply runs only on a push to loop8-develop.
+
+### P1 Merged pull requests
+$ gh pr list --state merged --base loop8-develop --limit 16 --json number,title,mergedAt --jq '...'
+#44  2026-11-18T20:33Z  Record the engine deployment in the runbook and the plan
+#45  2026-11-18T21:25Z  Build the profile fragment embedding index (Stage 1)
+#47  2026-11-18T22:30Z  Create the Supabase secret and a script to upload its value
+#49  2026-11-18T22:45Z  Record the Supabase secret and the first baseline run
+#52  2026-11-19T15:16Z  Let the engineers read the engine secrets through the engine role
+#54  2026-11-19T19:01Z  Record the engine secret read access in the runbook and the plan
+#57  2026-11-20T18:08Z  Let the engineer role call Nova Lite and Nova Pro
+#59  2026-11-20T18:20Z  Add Nova 2 Lite to the engineer role for comparison
+#55  2026-11-20T19:32Z  Engine retry release, job description lookup and query exclusions
+#62  2026-11-20T19:52Z  Give the worker role model and secret access and alarm on failures
+#64  2026-11-20T19:58Z  Record the Nova and worker changes as applied
+#60  2026-11-21T17:56Z  Variant A engine and the manual against AI comparison
+#66  2026-11-21T18:02Z  Install the app dependencies before the engine build in the pipeline
+#68  2026-11-21T18:23Z  Add a request timeout, a run deadline and longer retry to the model calls
+#70  2026-11-21T18:56Z  Turn on the semantic engine in the worker and keep the index in the bucket
+#72  2026-11-21T19:17Z  Index the six id-less demo individuals under their database ids
+RESULT: Pull requests 55 to 72 are merged into loop8-develop. Nothing was merged into main.
+
+### P2 Pipeline runs on loop8-develop
+$ gh run list --branch loop8-develop --limit 14 --json createdAt,conclusion,displayTitle --jq '...'
+2026-11-18T20:11Z  failure  Merge pull request #40 from benjiholzman/feature/39-engine-deploy-ter…
+2026-11-18T20:28Z  success  Merge pull request #42 from benjiholzman/feature/41-apply-role-tagging
+2026-11-18T21:25Z  success  Merge pull request #45 from benjiholzman/feature/20-profile-embeddings
+2026-11-18T22:31Z  success  Merge pull request #47 from benjiholzman/feature/46-engine-secrets
+2026-11-19T15:16Z  success  Merge pull request #52 from benjiholzman/feature/51-engine-secret-read
+2026-11-20T18:08Z  success  Merge pull request #57 from benjiholzman/feature/56-nova-temporary-mo…
+2026-11-20T18:20Z  success  Merge pull request #59 from benjiholzman/feature/58-nova-2-lite-compa…
+2026-11-20T19:33Z  success  Merge pull request #55 from benjiholzman/feature/engine-wiring
+2026-11-20T19:52Z  success  Merge pull request #62 from benjiholzman/feature/61-worker-engine-access
+2026-11-21T17:57Z  failure  Merge pull request #60 from benjiholzman/feature/variant-a
+2026-11-21T18:02Z  success  Merge pull request #66 from benjiholzman/feature/65-engine-build-root…
+2026-11-21T18:23Z  success  Merge pull request #68 from benjiholzman/feature/67-engine-model-call…
+2026-11-21T18:56Z  success  Merge pull request #70 from benjiholzman/feature/69-engine-semantic-on
+2026-11-21T19:17Z  success  Merge pull request #72 from benjiholzman/feature/71-index-real-profil…
+RESULT: Two runs failed. The run of pull request 40 (2026-11-18) failed on the tagging permissions of the apply role, and pull request 42 and a re-run followed. The run of pull request 60 (2026-11-21) failed in the engine build because the app dependencies were not installed in CI, and pull request 66 fixed it. Every other run succeeded.
+
+### P3 Result of each apply (resources added, changed, destroyed)
+$ gh run view <run> --log | grep 'Apply complete'   for the runs of P2
+Merge pull request #72 from benjiholzman/feature/71-index-real-profil… | Apply complete! Resources: 0 added, 1 changed, 0 destroyed
+Merge pull request #70 from benjiholzman/feature/69-engine-semantic-on | Apply complete! Resources: 0 added, 2 changed, 0 destroyed
+Merge pull request #68 from benjiholzman/feature/67-engine-model-call… | Apply complete! Resources: 0 added, 1 changed, 0 destroyed
+Merge pull request #66 from benjiholzman/feature/65-engine-build-root… | Apply complete! Resources: 0 added, 2 changed, 0 destroyed
+Merge pull request #62 from benjiholzman/feature/61-worker-engine-acce | Apply complete! Resources: 6 added, 4 changed, 0 destroyed
+Merge pull request #55 from benjiholzman/feature/engine-wiring | Apply complete! Resources: 0 added, 2 changed, 0 destroyed
+Merge pull request #59 from benjiholzman/feature/58-nova-2-lite-compa… | Apply complete! Resources: 2 added, 1 changed, 0 destroyed
+Merge pull request #57 from benjiholzman/feature/56-nova-temporary-mo… | Apply complete! Resources: 4 added, 1 changed, 0 destroyed
+Merge pull request #52 from benjiholzman/feature/51-engine-secret-read | Apply complete! Resources: 2 added, 0 changed, 0 destroyed
+Merge pull request #47 from benjiholzman/feature/46-engine-secrets | Apply complete! Resources: 1 added, 0 changed, 0 destroyed
+Merge pull request #45 from benjiholzman/feature/20-profile-embeddings | Apply complete! Resources: 0 added, 0 changed, 0 destroyed
+Merge pull request #42 from benjiholzman/feature/41-apply-role-tagging | Apply complete! Resources: 2 added, 0 changed, 0 destroyed
+RESULT: Applies of the engine changes: 0 destroyed in every one.

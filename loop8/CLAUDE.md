@@ -114,8 +114,9 @@ There is no test runner, linter or CI in this repository. Do not claim tooling e
 | `loop8/docs/planning/` | Delivery plan and test case drafts | Yes |
 | `loop8/docs/architecture/` | The engine blueprint (HTML page) and its draw.io diagrams | Yes |
 | `loop8/docs/client-proposal/` | Flows and costs document sent to the customer | Yes |
-| `loop8/docs/reports/` | Technical assessment (SOW deliverable 1) | Yes |
+| `loop8/docs/reports/` | Technical assessment (SOW deliverable 1) and the reports of the runs | Yes |
 | `loop8/docs/runbooks/` | AWS POC environment runbook | Yes |
+| `loop8/evidences/` | Redacted raw output of live checks of the POC environment: one folder per environment and date, logs, screenshots and a section file. Format in its README | Yes |
 | `loop8/docs/best-practices/` | Loop8 documentation rules | Yes |
 | `loop8/docs/handoffs/` | End of phase handoffs | Yes |
 | `loop8/internal/` | Work hours, project context, session notes | No, gitignored |
