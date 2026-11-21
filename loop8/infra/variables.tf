@@ -128,9 +128,9 @@ variable "engine_embed_model" {
 }
 
 variable "index_artifact_key" {
-  description = "Key of the gzipped index artifact in the jobs bucket. The object is uploaded by hand and is outside the 7 day expiry, which covers only inputs/ and results/"
+  description = "Key of the gzipped index artifact in the jobs bucket, named after its index version. The object is uploaded by hand and is outside the 7 day expiry, which covers only inputs/ and results/. A new index goes under a new key and this default is changed in a pull request, which also restarts the worker so it reads the new index"
   type        = string
-  default     = "index/index.json.gz"
+  default     = "index/index-13d7674312434864.json.gz"
 }
 
 variable "engine_mode" {
