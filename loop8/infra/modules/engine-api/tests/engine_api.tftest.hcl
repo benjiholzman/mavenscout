@@ -192,6 +192,36 @@ run "settings_reach_the_functions_without_turning_the_engine_on" {
   }
 }
 
+run "engine_mode_sets_engine_on_the_worker_only" {
+  command = plan
+
+  variables {
+    engine_mode        = "semantic"
+    supabase_secret_id = "mavenscout/supabase"
+    index_artifact_key = "index/index.json.gz"
+  }
+
+  assert {
+    condition     = aws_lambda_function.worker.environment[0].variables["ENGINE"] == "semantic"
+    error_message = "engine_mode must set ENGINE on the worker"
+  }
+
+  assert {
+    condition     = !contains(keys(aws_lambda_function.api.environment[0].variables), "ENGINE")
+    error_message = "The api never gets ENGINE"
+  }
+}
+
+run "engine_mode_rejects_unknown_values" {
+  command = plan
+
+  variables {
+    engine_mode = "fast"
+  }
+
+  expect_failures = [var.engine_mode]
+}
+
 run "failure_alarms_notify_the_alerts_topic" {
   command = plan
 

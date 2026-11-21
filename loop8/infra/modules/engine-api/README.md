@@ -15,7 +15,7 @@ The worker role may call the models named in `worker_model_ids` (directly) and `
 
 ## Settings
 
-`fit_model`, `text_model` and `embed_model` become the environment of the api, which gives them to every job. `supabase_secret_id` and `index_artifact_key` become the environment of the worker. An empty value leaves the variable out. `ENGINE` is never set here, so the worker stays on the stub until a separate change turns the semantic engine on.
+`fit_model`, `text_model` and `embed_model` become the environment of the api, which gives them to every job. `supabase_secret_id` and `index_artifact_key` become the environment of the worker. An empty value leaves the variable out. `engine_mode` (empty, `stub` or `semantic`) becomes `ENGINE` on the worker and never on the api. Empty leaves `ENGINE` out, so the worker runs the stub. With `semantic` every job calls Titan V2 and the Fit and text models, and the worker needs the index key and the Supabase secret.
 
 ## Alarms
 

@@ -128,9 +128,15 @@ variable "engine_embed_model" {
 }
 
 variable "index_artifact_key" {
-  description = "Key of the gzipped index artifact in the jobs bucket. Empty until the engineers upload it, and the worker stays on the stub meanwhile"
+  description = "Key of the gzipped index artifact in the jobs bucket. The object is uploaded by hand and is outside the 7 day expiry, which covers only inputs/ and results/"
   type        = string
-  default     = ""
+  default     = "index/index.json.gz"
+}
+
+variable "engine_mode" {
+  description = "Engine the worker runs: semantic, stub, or empty to leave ENGINE out (the stub). The semantic engine calls Titan V2 and Nova Lite on every job, which the customer pays for. Set it to empty to turn the engine off"
+  type        = string
+  default     = "semantic"
 }
 
 variable "bedrock_throttle_alarm_models" {

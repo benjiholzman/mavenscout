@@ -1,7 +1,7 @@
 # Compute and front door of the engine: the two Lambdas, their roles, the queue
 # to worker mapping and the HTTP API. The worker role may call the named models
-# and read the named secrets, and nothing else. The engine stays on the stub
-# until ENGINE is set in a later change (loop8/docs/planning/worker-engine-connect-plan.md).
+# and read the named secrets, and nothing else. The worker runs the stub unless
+# engine_mode sets ENGINE (loop8/docs/planning/worker-engine-connect-plan.md).
 
 data "aws_caller_identity" "current" {}
 
@@ -238,6 +238,7 @@ resource "aws_lambda_function" "worker" {
       },
       var.supabase_secret_id != "" ? { SUPABASE_SECRET_ID = var.supabase_secret_id } : {},
       var.index_artifact_key != "" ? { INDEX_ARTIFACT_S3_KEY = var.index_artifact_key } : {},
+      var.engine_mode != "" ? { ENGINE = var.engine_mode } : {},
     )
   }
 

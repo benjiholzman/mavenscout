@@ -58,7 +58,17 @@ run "bucket_is_private_and_expires" {
   }
 
   assert {
-    condition     = one(aws_s3_bucket_lifecycle_configuration.jobs.rule).expiration[0].days == 7
-    error_message = "Objects must expire after 7 days"
+    condition     = length(aws_s3_bucket_lifecycle_configuration.jobs.rule) == 2 && alltrue([for r in aws_s3_bucket_lifecycle_configuration.jobs.rule : r.expiration[0].days == 7])
+    error_message = "Inputs and results must expire after 7 days"
+  }
+
+  assert {
+    condition     = toset([for r in aws_s3_bucket_lifecycle_configuration.jobs.rule : r.filter[0].prefix]) == toset(["inputs/", "results/"])
+    error_message = "The expiry must be limited to inputs/ and results/, so the index artifact under index/ is kept"
+  }
+
+  assert {
+    condition     = alltrue([for r in aws_s3_bucket_lifecycle_configuration.jobs.rule : r.abort_incomplete_multipart_upload[0].days_after_initiation == 1])
+    error_message = "Every rule must abort incomplete multipart uploads"
   }
 }

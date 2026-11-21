@@ -115,6 +115,17 @@ variable "index_artifact_key" {
   default     = ""
 }
 
+variable "engine_mode" {
+  description = "Value of ENGINE for the worker: stub or semantic. Empty leaves ENGINE out, which runs the stub. The semantic engine needs the index key and the Supabase secret"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = contains(["", "stub", "semantic"], var.engine_mode)
+    error_message = "engine_mode must be empty, stub or semantic."
+  }
+}
+
 variable "fit_model" {
   description = "Model id the API gives to jobs for Fit. Empty keeps the engine default"
   type        = string

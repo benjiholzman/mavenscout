@@ -6,7 +6,7 @@
 data "aws_caller_identity" "current" {}
 
 # ---------------------------------------------------------------------------
-# S3: job inputs and results, kept for 7 days.
+# S3: job inputs and results, kept for 7 days. The index artifact is kept.
 # ---------------------------------------------------------------------------
 
 resource "aws_s3_bucket" "jobs" {
@@ -34,21 +34,29 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "jobs" {
   }
 }
 
+# The 7 day expiry covers only the prefixes the API and the worker write, so an object
+# uploaded by hand under another prefix (the index artifact, under index/) is kept.
 resource "aws_s3_bucket_lifecycle_configuration" "jobs" {
   bucket = aws_s3_bucket.jobs.id
 
-  rule {
-    id     = "expire-7-days"
-    status = "Enabled"
+  dynamic "rule" {
+    for_each = toset(["inputs/", "results/"])
 
-    filter {}
+    content {
+      id     = "expire-7-days-${trimsuffix(rule.value, "/")}"
+      status = "Enabled"
 
-    expiration {
-      days = 7
-    }
+      filter {
+        prefix = rule.value
+      }
 
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 1
+      expiration {
+        days = 7
+      }
+
+      abort_incomplete_multipart_upload {
+        days_after_initiation = 1
+      }
     }
   }
 }
