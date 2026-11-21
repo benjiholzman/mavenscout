@@ -32,6 +32,7 @@ export async function handler(event: SQSEvent, context: Context): Promise<void> 
       limits: DEFAULT_LIMITS,
       now: Date.now,
       workerId: context.awsRequestId,
+      deadlineAt: Date.now() + context.getRemainingTimeInMillis(),
       retrySoon: buildRetrySoon({
         envUrl: process.env.JOBS_QUEUE_URL,
         eventSourceArn: record.eventSourceARN,

@@ -4,6 +4,8 @@ import type {
 
 export interface RunIO {
   settings: Settings
+  /** Passed to the engine as the end of the time it may use. See EngineContext. */
+  deadlineAt?: number
   existing: JdMatchResult[]
   saveCheckpoint(r: JdMatchResult): Promise<void>
   saveFallback(f: Fallback): Promise<void>
@@ -35,6 +37,7 @@ export async function runEngine(job: RankJob, engine: Engine, io: RunIO): Promis
 
   const ctx: EngineContext = {
     settings: io.settings,
+    deadlineAt: io.deadlineAt,
     isDone: (id) => existingIds.has(id) || results.has(id),
     async checkpoint(result) {
       results.set(result.profile_id, result)

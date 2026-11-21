@@ -14,6 +14,8 @@ export interface WorkerDeps {
   limits: Limits
   now(): number
   workerId: string
+  // When the Lambda times out, as epoch milliseconds. The engine stops starting model calls well before it.
+  deadlineAt?: number
   // Asks the queue to deliver this message again soon. Called only after the lease was released.
   retrySoon?(): Promise<void>
   // Finds the job description text when the request did not carry it. An error is retried like any other.
@@ -86,6 +88,7 @@ export async function processJob(jobId: string, attempt: number, deps: WorkerDep
 
     const outcome = await runEngine(rankJob, engine, {
       settings: job.settings,
+      deadlineAt: deps.deadlineAt,
       existing,
       async saveCheckpoint(r: JdMatchResult) {
         await store.saveCheckpoint(jobId, r)

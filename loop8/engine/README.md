@@ -76,11 +76,27 @@ Offline run: `ENGINE=semantic LOCAL_FAKE_MODELS=true npm run local` runs the who
 
 These are known and accepted for the proof of concept. All call counts below are worst case figures worked out from the code, not measurements.
 
-1. The `FIT_CAP` bound applies to one run of a job, not to the job as a whole. A run makes its Fit calls and summary calls before it saves any result. If it crashes after the Fit calls and before the results are saved, for example on a Lambda timeout, the next receive makes those calls again for every candidate not yet saved. Each such crash can therefore repeat up to `FIT_CAP` Fit calls plus `SUMMARY_COUNT` summary calls, and a job has up to five receives. The customer pays for every one of these calls.
+1. The `FIT_CAP` bound applies to one run of a job, not to the job as a whole. A run makes its Fit calls and summary calls before it saves any result. If it crashes after the Fit calls and before the results are saved, the next receive makes those calls again for every candidate not yet saved. A Lambda timeout is now avoided by the run deadline (see "Model call errors"), but a crash the worker cannot catch, such as running out of memory, still ends this way. Each such crash can therefore repeat up to `FIT_CAP` Fit calls plus `SUMMARY_COUNT` summary calls, and a job has up to five receives. The customer pays for every one of these calls.
 2. A resumed run can judge a candidate's Fit differently. Candidates saved by an earlier run keep their scores, and the candidates that were not saved are judged again. A language model does not always give the same Fit twice, so a candidate judged again can end up above candidates that were saved earlier. The summaries are then not exactly the top `SUMMARY_COUNT` by total, and a fallback (`profile_missing`, `score_failed` or `not_indexed`) recorded in both runs can be listed twice.
 3. Some wording reaches Fit and is kept out of the score only by the instruction in the Fit prompt. The job description can still say things about availability, seniority or work arrangement, because only organization, language and place names are removed from it. The free text of the profile fragments (bio, tagline, descriptions) can still contain the candidate's name, a city or an employer, unless `npm run check-artifact` was run on the index and passed. The prompt tells the model to ignore all of these, but nothing in the code removes them. The manual review of AI output should check for this.
 4. Organization and language names are removed with the case rule described under "Organization name check" below. A name such as `Pact` matches in any case, so the ordinary word "pact" is also removed from the job description. A name with a capital after its first letter, such as `UN Women`, is removed only when written in exactly that case, so "UN WOMEN" or "Un Women" stays in the text.
 5. An index stored in S3 must be gzip compressed. A plain JSON object fails to read, and the job fails with `engine_error` after five receives instead of `index_artifact_invalid`.
+
+## Model call errors
+
+Each Bedrock call is limited and retried as follows. The wait and time figures are choices made in the code, not measurements.
+
+| What | Behavior |
+|---|---|
+| Request timeout | A Converse call that is still open after 25 seconds is aborted and fails with `RequestTimeout` (`REQUEST_TIMEOUT_MS`). The error carries no request or model text. |
+| Retried errors | `ThrottlingException`, `ServiceUnavailableException`, `ModelTimeoutException`, `ModelErrorException`, `RequestTimeout` and HTTP 408, 424, 429 and 5xx (`isRetryable`). The SDK retry is off, so these are the only retries. |
+| Retry policy | 5 retries, a wait of a random share of 500 ms times 2 to the attempt, each wait capped at 8 seconds. The worst case total wait of one call is 15.5 seconds. |
+| Errors never retried | `AccessDenied`, `ValidationException`, `ResourceNotFoundException` and the message `not available for this account` fail the job at once with `fit_model_unavailable`. |
+| Run deadline | The handler passes the end of the Lambda time as `deadlineAt`. No new Fit attempt starts in the last 75 seconds and no new summary attempt in the last 45 seconds (20 seconds to save the results, 25 for a call that started just before, and 30 seconds of window for the summaries). A candidate not reached keeps its similarity estimate with its own note, and a summary not reached uses the template text. Local runs and tests have no deadline. |
+| After a throttle | The Fit calls in flight are halved, at most once every 2 seconds, down to 2, and are not raised again in that run. |
+| What the job record shows | The `fit` and `summary` records carry `throttles` (attempts that failed with throttling or a service error), `retries` (attempts that failed with a retryable error), `fallbacks` and `skipped`. A `fit_deadline_hit` record is added when candidates were skipped. The share of fallbacks is `fallbacks` over `calls`. |
+
+An error that is not a model failure, such as reaching the deadline while waiting to retry, skips the candidate and does not count as a failed Fit call. If every attempted Fit call fails the job still stops as before.
 
 ## Retries
 

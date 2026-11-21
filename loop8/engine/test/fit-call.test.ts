@@ -120,12 +120,12 @@ test('judgeFit retries throttling with backoff, then succeeds', async () => {
   assert.deepEqual(waits, [500, 1000])
 })
 
-test('judgeFit gives up after 3 throttling retries and throws the error', async () => {
+test('judgeFit gives up after 5 throttling retries and throws the error', async () => {
   let calls = 0
   const err = { name: 'ServiceUnavailableException' }
   const model: TextModel = async () => { calls++; throw err }
   await assert.rejects(judgeFit(model, 'm', input, { sleep: noSleep }), (e) => e === err)
-  assert.equal(calls, 4)
+  assert.equal(calls, 6)
 })
 
 test('judgeFit retries 5xx by status', async () => {
