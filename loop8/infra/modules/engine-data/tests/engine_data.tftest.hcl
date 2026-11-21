@@ -58,7 +58,17 @@ run "bucket_is_private_and_expires" {
   }
 
   assert {
-    condition     = one(aws_s3_bucket_lifecycle_configuration.jobs.rule).expiration[0].days == 7
-    error_message = "Objects must expire after 7 days"
+    condition     = length([for r in aws_s3_bucket_lifecycle_configuration.jobs.rule : r if length(r.expiration) > 0]) == 2 && alltrue([for r in aws_s3_bucket_lifecycle_configuration.jobs.rule : r.expiration[0].days == 7 if length(r.expiration) > 0])
+    error_message = "Inputs and results must expire after 7 days"
+  }
+
+  assert {
+    condition     = toset([for r in aws_s3_bucket_lifecycle_configuration.jobs.rule : r.filter[0].prefix if length(r.expiration) > 0]) == toset(["inputs/", "results/"])
+    error_message = "The expiry must be limited to inputs/ and results/, so the index artifact under index/ is kept"
+  }
+
+  assert {
+    condition     = anytrue([for r in aws_s3_bucket_lifecycle_configuration.jobs.rule : length(r.expiration) == 0 && try(r.abort_incomplete_multipart_upload[0].days_after_initiation, 0) == 1])
+    error_message = "A rule without an expiry must abort incomplete uploads after 1 day. Its filter is empty, which Checkov (CKV_AWS_300) checks in the pipeline"
   }
 }

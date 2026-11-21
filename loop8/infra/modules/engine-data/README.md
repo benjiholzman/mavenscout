@@ -4,7 +4,7 @@ The data plane of the engine walking skeleton: the bucket for job inputs and res
 
 ## What it does
 
-1. Creates the private, encrypted bucket `<name_prefix>-jobs-<account id>`. Objects expire after 7 days, and CORS allows only the app origins.
+1. Creates the private, encrypted bucket `<name_prefix>-jobs-<account id>`. Objects under `inputs/` and `results/` expire after 7 days. Anything under another prefix, such as the index artifact under `index/`, is kept. CORS allows only the app origins.
 2. Creates the on demand table `<name_prefix>-jobs` with key `pk` and `sk`, and a TTL on `expires_at`.
 3. Creates the jobs queue with a visibility timeout of 1,080 seconds, redriving into the dead letter queue after 5 receives.
 4. Creates an alarm that notifies the alert topic when the dead letter queue has a message.

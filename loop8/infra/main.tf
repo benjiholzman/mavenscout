@@ -65,6 +65,7 @@ module "engine_api" {
   secret_arns              = [module.engine_secrets.secret_arns["supabase"]]
   supabase_secret_id       = module.engine_secrets.secret_ids["supabase"]
   index_artifact_key       = var.index_artifact_key
+  engine_mode              = var.engine_mode
 
   # Settings the API gives to every job
   fit_model   = var.engine_fit_model

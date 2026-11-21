@@ -6,7 +6,7 @@
 data "aws_caller_identity" "current" {}
 
 # ---------------------------------------------------------------------------
-# S3: job inputs and results, kept for 7 days.
+# S3: job inputs and results, kept for 7 days. The index artifact is kept.
 # ---------------------------------------------------------------------------
 
 resource "aws_s3_bucket" "jobs" {
@@ -34,21 +34,47 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "jobs" {
   }
 }
 
+# The 7 day expiry covers only the prefixes the API and the worker write, so an object
+# uploaded by hand under another prefix (the index artifact, under index/) is kept.
+# A third rule with an empty filter aborts incomplete uploads in the whole bucket.
+# Checkov (CKV_AWS_300) accepts only a rule with an empty filter for that setting.
 resource "aws_s3_bucket_lifecycle_configuration" "jobs" {
   bucket = aws_s3_bucket.jobs.id
 
   rule {
-    id     = "expire-7-days"
+    id     = "abort-incomplete-uploads"
     status = "Enabled"
 
     filter {}
 
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
+    }
+  }
+
+  rule {
+    id     = "expire-7-days-inputs"
+    status = "Enabled"
+
+    filter {
+      prefix = "inputs/"
+    }
+
     expiration {
       days = 7
     }
+  }
 
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 1
+  rule {
+    id     = "expire-7-days-results"
+    status = "Enabled"
+
+    filter {
+      prefix = "results/"
+    }
+
+    expiration {
+      days = 7
     }
   }
 }
