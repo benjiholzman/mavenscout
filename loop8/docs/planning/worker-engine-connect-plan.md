@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Applied on 2026-11-20 (pull request 62) and checked. The engine is not turned on yet, that is a separate change |
+| Status | Applied on 2026-11-20 (pull request 62) and checked. The engine was turned on on 2026-11-21 (pull request 70, section 10) |
 | Phase | P2 (engine wiring, deploy) |
 | Task | Give the worker and API Lambdas what the semantic engine (variant A) needs to run in the customer account: model access, the Supabase secret, the index artifact and the settings, and cut the worker role at 150% of the budget |
 | Owner | Guillermo Sandoval |
@@ -160,3 +160,14 @@ Acceptance criteria.
 4. The dead letter queue is empty and no alarm fires.
 
 Remaining steps. The apply and the real job (build record below after they are done), the engineer's summary fix and a decision on the organization names in the index text.
+
+### 10.1 Build record
+
+| Date | Step | What was done and how it was checked |
+|---|---|---|
+| 2026-11-21 | Index built and uploaded | Built with the hand run script from the 98 local demo profiles with Titan V2: 964 fragments, index version `bda903154e95230e`, 42,765 input tokens, 9.4 MB gzipped, uploaded to `index/index.json.gz`. `npm run check-artifact` against the organization list of the customer database reported 159 organization names in the free text of 42 profiles, which is known limitation 3 and was not fixed |
+| 2026-11-21 | Turned on | Issue 69 and pull request 70 merged. The first pipeline run failed the Checkov check CKV_AWS_300, which accepts the abort setting only on a rule with an empty filter, so the lifecycle has a third rule for that. The apply finished with 0 added, 2 changed, 0 destroyed. The worker has `ENGINE=semantic` and the index key, and the 7 day expiry covers only `inputs/` and `results/` |
+| 2026-11-21 | First real job | One job posted to the deployed API with ToR 01, its 9 requirement rows and 121 pool profiles (the pool query did not exclude firms) finished PARTIAL in 13.4 seconds, 92 profiles ranked. Fit and text model `us.amazon.nova-lite-v1:0`, embedding Titan V2, prompt `fit-v2+summary-v1`. No profile carried an estimate note, so every Fit call that was made succeeded. The dead letter queue was empty, no alarm fired and the worker log showed no error. The three expected profiles of ToR 01 were in the top 5 (ranks 1, 2 and 5). The summaries of the top 5 all fell back to the template text, the known length problem of Nova Lite. The 29 `not_indexed` profiles were 23 firms and 6 individuals |
+| 2026-11-21 | Run from the app | The app on the project lead's machine, with `VITE_ENGINE_URL` set, ranked the 97 profiles of its pool for ToR 01 with two expertise priorities in 13.2 seconds: 91 ranked, 6 `not_indexed`, PARTIAL. The same top 3 as the API job. The app showed "6 more experts now meet your Must haves" for the 6 individuals. The ranking replaced the earlier unsaved ranking of the demo manager in the customer database, as the app does by design. The ranking saved to an opening was not touched |
+| 2026-11-21 | Cause of the 6 | The 6 are the ToR 05 individuals. The seed gives them a slug and no id, and the index keyed them by slug, while the database holds them under an id derived from `demo-<slug>` by the seed build. The 6 derived ids matched the 6 `not_indexed` ids of the real job (issue 71) |
+| 2026-11-21 | Index fixed | `demoKey` now derives the database id for a profile with a slug and no id, with tests for the six. The index was rebuilt with 0 Titan calls (all 964 vectors reused, the text is unchanged): version `13d7674312434864`, 98 profiles under their database ids, uploaded to `index/index-13d7674312434864.json.gz`. The key in Terraform points to it, so the apply replaces the worker environment and starts new containers (pull request 72). The result of the apply and of a job over the 98 individuals is recorded below once done |
