@@ -381,7 +381,7 @@ test('live mode prints the planned calls first, reuses the artifact and embeds t
   const events: string[] = []
   const dims = 32
   const demos = [demo('demo-a', A), { ...demo('x', 'unused'), handle: undefined, id: undefined, slug: 'slugged' }]
-  // The prebuilt artifact keys profiles by demoKey (id, or slug for the id-less ones).
+  // The prebuilt artifact keys profiles by demoKey (id, or the derived database id for the id-less ones).
   const fragments = demos.flatMap((d) => toFragments(fromDemoSeed(d as never)))
   assert.ok(fragments.some((f) => f.profileId === demoKey(demos[1] as never)))
   const artifactRaw = JSON.stringify({

@@ -4,6 +4,7 @@
 // fromDemoSeed is the POC path (the local demo profiles under
 // scripts/demo-seed/profiles), so Task 2a needs no client database access.
 
+import { createHash } from 'node:crypto'
 import type { PortfolioItem, Profile } from '../../../../src/types/db'
 import type { FragmentMetadata, FragmentSource } from './types'
 
@@ -91,14 +92,22 @@ function demoLocation(p: DemoProfile): string | null {
   return parts.length > 0 ? parts.join(', ') : null
 }
 
-/** The stable unique key for a demo profile: its UUID id, or the slug for the
- *  id-less ToR-05 individuals. Throws rather than emit an undefined profileId. */
+/** The id the database holds for a seed profile that has no id of its own. The seed build
+ *  (scripts/demo-seed/build-007.mjs, idOf) derives it from the handle `demo-<slug>` with a
+ *  SHA-1. This is the same formula, so the index uses the id the app and the engine read. */
+export function seedIdOf(handle: string): string {
+  const h = createHash('sha1').update(`mavenscout-demo:${handle}`).digest('hex')
+  const variant = ((parseInt(h[16], 16) & 0x3) | 0x8).toString(16)
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`
+}
+
+/** The stable unique key for a demo profile: its UUID id, or for the id-less ToR-05
+ *  individuals the id the database derived from their slug. Throws rather than emit an
+ *  undefined profileId. */
 export function demoKey(p: DemoProfile): string {
-  const key = p.id ?? p.slug
-  if (key == null || key.trim() === '') {
-    throw new Error(`demo profile has neither id nor slug: ${p.headline ?? 'unknown'}`)
-  }
-  return key
+  if (p.id != null && p.id.trim() !== '') return p.id
+  if (p.slug != null && p.slug.trim() !== '') return seedIdOf(`demo-${p.slug}`)
+  throw new Error(`demo profile has neither id nor slug: ${p.headline ?? 'unknown'}`)
 }
 
 /** The display handle used in the retrieval check and expectations.json. The
