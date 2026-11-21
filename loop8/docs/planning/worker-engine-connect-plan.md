@@ -124,3 +124,39 @@ Checks. Tests in the modules `engine-api` and `cost-guard` show the alarms exist
 | 2026-11-20 | 5 and 6, pull request and apply | Issue 61 and pull request 62 merged (merge commit 81167e3). The plan showed 6 to add, 4 to change, 0 to destroy and the apply finished with 6 added, 4 changed, 0 destroyed, so the guardrail did not deny the permissions for a role named `mavenscout-engine-*` |
 | 2026-11-20 | 7, simulation and checks | The worker role returned `allowed` for Titan V2, for the Nova Lite profile and its models in us-east-1, us-east-2 and us-west-2, and for `GetSecretValue` on `mavenscout/supabase`, and `implicitDeny` for Nova Pro, Luna and another secret name. The api role returned `implicitDeny` for a model and for the secret. The api function has `FIT_MODEL` and `TEXT_MODEL` set to the Nova Lite profile and `EMBED_MODEL` to Titan V2. The worker has `SUPABASE_SECRET_ID` and no `ENGINE` or `INDEX_ARTIFACT_S3_KEY`. Both budget actions (100 percent for the engineer role, 150 percent for the worker role) are in standby, and the five alarms exist in state OK or INSUFFICIENT_DATA. A job with the stub engine finished DONE in 1.4 seconds with 3 of 3 candidates. Acceptance criteria 1, 2, 3, 4, 6 and 7 are met |
 | 2026-11-20 | 8 and 9, pending | Criterion 5 is open: the gzipped index in the jobs bucket, the engine pull request 60 with the error handling changes, and the separate change that sets `ENGINE=semantic` and the index key. The customer is told about the temporary models through the project manager |
+
+## 10. Turning the engine on
+
+Written on 2026-11-21 before the change, for issue 69. This is the separate change that section 3 left for later.
+
+What it is for. The AI models do not run in AWS today, because the worker has no `ENGINE` and the stub answers every job. The customer review is on 2026-11-23 and the quality of the AI ranking has to be shown running in the account, not only in the engineers' local comparison.
+
+What is already decided. The worker role, the secret, the model settings, the budget cut, the failure alarms (this plan) and the model call limits (`engine-hardening-plan.md`) are applied. The first variant is the small model alone for everything, here Nova Lite, with 5 summaries.
+
+What will be built.
+
+1. The index artifact, built on 2026-11-21 from the 98 local demo profiles with Titan V2 (964 fragments, index version `bda903154e95230e`, 9.4 MB gzipped), uploaded by hand to `index/index.json.gz` in the jobs bucket. It is not in the repository.
+2. A variable `engine_mode` in the module `engine-api` and in the root, which sets `ENGINE` on the worker. The root default is `semantic`, and the root default of `index_artifact_key` is `index/index.json.gz`. Empty returns the worker to the stub.
+3. The bucket lifecycle limited to `inputs/` and `results/`, because the 7 day expiry covered every object and would have deleted the index on 2026-11-28.
+
+Assumptions.
+
+1. The index built from the local demo seed matches the profiles in the customer database for the 97 approved ones. The engine reads the profile data for scoring from the database, so a profile that is in the index and not in the database falls back with `profile_missing`.
+2. Reading and parsing the 9.4 MB index on a cold start takes a few seconds of the 180 second run. Not measured.
+3. The index text contains organization names in 42 profiles (159 hits of `npm run check-artifact`). Fit is told to ignore employer names and nothing removes them. This is known limitation 3 of the engine README. It affects the quality claim and is not fixed here.
+
+Impact analysis.
+
+1. From the apply every job calls Titan V2 once and Nova Lite once for each candidate judged (up to 200) and for up to 5 summaries. The customer pays for these calls. The cost per job is not measured, and the engineer reported about 0.20 dollars for his whole comparison.
+2. The worst case is bounded by 100 jobs a day, 200 candidates per job, the token alarms and the 150 percent cut of the worker role.
+3. The summaries fall back to the template text until the engineer's fix for the summary length is merged.
+4. Reversal: set `engine_mode` to empty in a pull request. The index is not touched.
+
+Acceptance criteria.
+
+1. The plan shows the worker updated in place and the lifecycle changed, with 0 destroys, and the apply succeeds.
+2. The worker has `ENGINE=semantic` and the index key.
+3. A job posted to the deployed API with a real job description and pool ids finishes DONE or PARTIAL, with Fit from Nova Lite and the index version in its result.
+4. The dead letter queue is empty and no alarm fires.
+
+Remaining steps. The apply and the real job (build record below after they are done), the engineer's summary fix and a decision on the organization names in the index text.
