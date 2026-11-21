@@ -105,6 +105,9 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Install the app dependencies the engine bundle imports
+        run: npm ci
+
       - name: Build the engine Lambda code
         run: |
           npm ci
@@ -165,6 +168,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Install the app dependencies the engine bundle imports
+        run: npm ci
 
       - name: Build the engine Lambda code
         run: |
