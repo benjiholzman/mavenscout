@@ -1,0 +1,14 @@
+# Ranking started from the app on the project lead's machine, with the app calling the engine in AWS.
+# Date: 2026-11-21 19:2x UTC. Context: app on http://localhost:5173 (npm run dev), VITE_ENGINE_URL set to the deployed API in the local .env (not committed), mocked session as Demo Hiring Manager through the dev role switcher.
+# Screenshots are in ui-run-screenshots/. The job record of this run is UI-2 in job-records.log.
+
+### P1 Steps of the run
+1. Open the app, role Hiring manager (dev switcher). 2. Rank candidates. 3. Expertise: Health Systems and Nutrition, both Important. 4. Match to a Job Description, text of docs/samples/tor-01-ethiopia-nutrition.txt set in one step with a script because typing 2,955 characters froze the tab. 5. Read job description: the app added Ethiopia, Somali, Amharic and English at Nice to have, 6 priorities in total. 6. See your matches. 7. Open the score breakdown of the first candidate and the full assessment.
+RESULT: The app showed '97 experts ranked by your job description and priorities' and no notice about unscored experts. The earlier run of the same flow, before the index fix, showed '91 experts ranked' and the notice '6 more experts now meet your Must haves'.
+
+### P2 What the app saved in the customer database for the demo manager (read only)
+$ GET <database>/rest/v1/job_descriptions?select=id,opening_id,created_at&hiring_manager_id=eq.<demo manager>   and   match_results count for the new run
+job_descriptions of the demo manager: 2
+  2026-11-21T19:26Z | ad hoc run (replaced by each new run) | mode jd | results 97
+  2026-10-22T02:20Z | saved in an opening (not touched by the run) | mode jd | results 115
+RESULT: The new ad hoc run holds 97 results. The ranking saved in an opening on 2026-10-22 is intact. The app replaced the earlier ad hoc run of the demo manager, as it does by design.

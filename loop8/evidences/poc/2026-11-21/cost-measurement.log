@@ -1,0 +1,59 @@
+# Prices and measured usage behind the cost figures of the report.
+# Date: 2026-11-21. Context: POC account us-east-1. Prices from the AWS Price List API, tokens from CloudWatch and from the job records, spend from Cost Explorer (data lags, 2026-11-21 is not in it yet).
+# Each Cost Explorer query costs 0.01 USD.
+
+### P1 Price of Nova Lite, on demand, us-east-1
+$ aws pricing get-products --service-code AmazonBedrock --filters regionCode=us-east-1 model='Nova Lite'   (on demand input and output rows)
+USE1-NovaLite-input-tokens | 0.0000600000 USD per 1K tokens | sku QRGWJ3P8FT28EYX2
+USE1-NovaLite-output-tokens | 0.0002400000 USD per 1K tokens | sku CBZ6A6U7XK8WJ3KA
+RESULT: Input 0.00006 USD and output 0.00024 USD per 1,000 tokens.
+
+### P2 Price of Titan Text Embeddings V2, on demand, us-east-1
+$ aws pricing get-products --service-code AmazonBedrock --filters regionCode=us-east-1 inferenceType='Input tokens'   (rows with TitanEmbeddingV2-Text)
+USE1-TitanEmbeddingV2-Text-input-tokens | 0.0000200000 USD per 1K tokens | sku EDNQYEHQ3XQ8N7EY
+USE1-TitanEmbeddingV2-Text-input-tokens-batch | 0.0000100000 USD per 1K tokens | sku K8BWWBWG2N3QMH5R
+RESULT: 0.00002 USD per 1,000 input tokens (the batch price is half).
+
+### P3 Bedrock metrics of the Nova Lite profile on 2026-11-21 (hours are local time, GMT-7)
+$ aws cloudwatch get-metric-statistics --namespace AWS/Bedrock --metric-name <metric> --dimensions Name=ModelId,Value=us.amazon.nova-lite-v1:0 --period 3600 --statistics Sum
+InputTokenCount: total 552528 | by hour [('11:00', 8), ('12:00', 552520)]
+OutputTokenCount: total 23042 | by hour [('11:00', 3), ('12:00', 23039)]
+Invocations: total 527 | by hour [('11:00', 1), ('12:00', 526)]
+InvocationThrottles: total 0 | by hour []
+InvocationClientErrors: total 0 | by hour []
+InvocationServerErrors: total 0 | by hour []
+RESULT: The totals equal the job records of the five jobs (input 552520, output 23039, 476 Fit calls plus 50 summary calls, see job-records.log) plus one test call of 11 tokens: input 552528 against 552520 plus 8, output 23042 against 23039 plus 3, 527 invocations against 526 plus 1. No throttle and no error.
+
+### P4 November spend by service, to date
+$ aws ce get-cost-and-usage --time-period Start=2026-11-01,End=2026-11-22 --granularity MONTHLY --metrics UnblendedCost --group-by Type=DIMENSION,Key=SERVICE
+AWS Business Support+                       29.0000
+Amazon Bedrock                               0.2487
+AWS Cost Explorer                            0.0700
+AWS Secrets Manager                          0.0313
+Tax                                          0.0100
+Amazon Simple Storage Service                0.0034
+Amazon DynamoDB                              0.0006
+Amazon API Gateway                           0.0000
+total                                       29.3640
+RESULT: AWS Business Support+ is 29.00 of the total. Bedrock is about 0.25. The five jobs of 2026-11-21 are not in these figures yet.
+
+### P5 Bedrock spend by day and usage type
+$ aws ce get-cost-and-usage --time-period Start=2026-11-17,End=2026-11-22 --granularity DAILY --filter SERVICE=Amazon Bedrock --group-by USAGE_TYPE
+2026-11-17
+2026-11-18
+   USE1-TitanEmbeddingV2-Text-input-tokens        cost 0.00103  quantity 51.4
+2026-11-19
+   USE1-gpt-oss-20b-input-tokens                  cost 0.00000  quantity 0.1
+   USE1-gpt-oss-20b-output-tokens                 cost 0.00001  quantity 0.0
+2026-11-20
+   USE1-Nova2.0Lite-input-tokens                  cost 0.13768  quantity 417.2
+   USE1-Nova2.0Lite-output-tokens                 cost 0.05394  quantity 19.6
+   USE1-NovaLite-input-tokens                     cost 0.03455  quantity 575.8
+   USE1-NovaLite-output-tokens                    cost 0.00571  quantity 23.8
+   USE1-NovaMicro-input-tokens                    cost 0.00000  quantity 0.0
+   USE1-NovaMicro-output-tokens                   cost 0.00000  quantity 0.0
+   USE1-NovaPro-input-tokens                      cost 0.01321  quantity 16.5
+   USE1-NovaPro-output-tokens                     cost 0.00134  quantity 0.4
+   USE1-TitanEmbeddingV2-Text-input-tokens        cost 0.00120  quantity 59.8
+2026-11-21
+RESULT: 2026-11-20 shows the engineers' comparison runs: Nova 2 Lite 0.19, Nova Lite 0.04, Nova Pro 0.01, Titan 0.001. 2026-11-18 is the first Titan indexing. 2026-11-21 has no usage yet because of the lag.
