@@ -38,6 +38,8 @@ export interface Usage {
   fallbacks?: number
   /** On a fit_cap_hit record: shortlisted candidates beyond the Fit cap. Not a call count. */
   beyondCap?: number
+  /** On the fit record: candidates not judged because the run was out of time. Not a call count. */
+  skipped?: number
 }
 
 export interface PhaseRecord extends Usage {
@@ -51,6 +53,8 @@ export interface Fallback {
 
 export interface EngineContext {
   settings: Settings
+  /** When the Lambda times out, as epoch milliseconds. Absent for local runs and tests, which have no deadline. */
+  deadlineAt?: number
   isDone(profileId: string): boolean
   checkpoint(result: JdMatchResult): Promise<void>
   fallback(profileId: string, reason: string): Promise<void>

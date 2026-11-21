@@ -33,6 +33,8 @@ export interface SemanticEngineOptions {
   fitModelId?: string
   textModelId?: string
   callOptions?: Stage2Options['callOptions']
+  /** The clock for the run deadline. Tests only. */
+  now?: Stage2Options['now']
 }
 
 const BELOW_CAP = 49
@@ -166,7 +168,7 @@ export function createSemanticEngine(opts: SemanticEngineOptions): Engine {
         await runStage2(
           [...result.shortlist.map((c) => item(c, true)), ...result.below.map((c) => item(c, false))],
           ctx,
-          { jobId: job.jobId, textModel, scoringData, jdQuery: queryText, requirements: job.requirements, callOptions: opts.callOptions },
+          { jobId: job.jobId, textModel, scoringData, jdQuery: queryText, requirements: job.requirements, callOptions: opts.callOptions, now: opts.now },
         )
       } else {
         for (const c of result.shortlist) await emit(c, false, 'shortlisted')

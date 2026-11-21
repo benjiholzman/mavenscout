@@ -655,6 +655,111 @@ test('stage 2: modelIds report the fit and text models of the job that ran, not 
   assert.deepEqual(e.modelIds, { embed: 'fake-embed-1', fit: 'job-fit', text: 'job-text', index: 'idx-1' })
 })
 
+// The run deadline. Fit stops 75 seconds before deadlineAt and summaries 45 seconds before it (20 seconds
+// to save plus one 25 second request timeout, and 30 seconds of window for the summaries).
+
+const throttle = () => Object.assign(new Error('MODEL-ERROR-TEXT'), { name: 'ThrottlingException' })
+
+test('stage 2 deadline: no Fit call starts at the Fit stop, the estimates keep their own note and the summaries still run', async () => {
+  const m = fakeModel()
+  const out = await runEngine(job5, stage2(m, { now: () => 0 }), { ...io5(), deadlineAt: 75_000 })
+  assert.equal(out.state, 'DONE')
+  assert.equal(m.fitCalls.length, 0)
+  assert.equal(m.summaryCalls.length, 2)
+  for (const r of out.results) {
+    assert.match(r.narrative, /not reached before the time limit/)
+    assert.doesNotMatch(r.narrative, /in-depth assessment of this profile failed/)
+  }
+  const p2 = out.results.find((r) => r.profile_id === 'p2') as JdMatchResult
+  assert.equal(p2.fit_score, Math.round(100 * Math.cos(0.2)))
+  const fit = out.record.find((p) => p.phase === 'fit')
+  assert.equal(fit?.calls, 0)
+  assert.equal(fit?.skipped, 5)
+  assert.equal(fit?.fallbacks, 0)
+  assert.equal(out.record.find((p) => p.phase === 'fit_deadline_hit')?.skipped, 5)
+})
+
+test('stage 2 deadline: a run past the summary stop uses the template text and counts the skipped summaries', async () => {
+  const m = fakeModel()
+  const out = await runEngine(job5, stage2(m, { now: () => 100_000 }), { ...io5(), deadlineAt: 100_000 })
+  assert.equal(out.state, 'DONE')
+  assert.equal(m.fitCalls.length, 0)
+  assert.equal(m.summaryCalls.length, 0)
+  const summary = out.record.find((p) => p.phase === 'summary')
+  assert.equal(summary?.skipped, 2)
+  assert.equal(summary?.fallbacks, 2)
+  for (const r of out.results.filter((x) => x.rank <= 2)) assert.match(r.narrative, /this is the standard summary/)
+  assert.equal(out.results.length, 5)
+})
+
+test('stage 2 deadline: Fit stops part way, the rest keep a flagged estimate and the summaries still run', async () => {
+  let t = 0
+  const base = fakeModel()
+  const model: TextModel = async (req) => {
+    const out = await base.model(req)
+    if (req.system.startsWith('You judge')) t += 10_000
+    return out
+  }
+  const out = await runEngine(job5, stage2({ ...base, model }, { now: () => t }), { ...io5({ parallelCalls: 1 }), deadlineAt: 100_000 })
+  assert.equal(base.fitCalls.length, 3)
+  assert.equal(base.summaryCalls.length, 2)
+  const note = /not reached before the time limit/
+  for (const id of ['p1', 'p2', 'p3']) assert.doesNotMatch((out.results.find((r) => r.profile_id === id) as JdMatchResult).narrative, note)
+  for (const id of ['p4', 'p5']) assert.match((out.results.find((r) => r.profile_id === id) as JdMatchResult).narrative, note)
+  const fit = out.record.find((p) => p.phase === 'fit')
+  assert.equal(fit?.calls, 3)
+  assert.equal(fit?.skipped, 2)
+  assert.equal(out.state, 'DONE')
+})
+
+test('stage 2 deadline: reaching the deadline while waiting to retry skips the candidate instead of failing the job', async () => {
+  let t = 0
+  const model: TextModel = async () => { throw throttle() }
+  const out = await runEngine(
+    job5,
+    stage2({ ...fakeModel(), model }, { now: () => t, callOptions: { sleep: async () => { t += 60_000 } } }),
+    { ...io5({ parallelCalls: 1, summaryCount: 0 }), deadlineAt: 200_000 },
+  )
+  assert.equal(out.state, 'DONE')
+  const fit = out.record.find((p) => p.phase === 'fit')
+  assert.equal(fit?.skipped, 5)
+  assert.equal(fit?.calls, 0)
+  assert.equal(fit?.throttles, 3)
+  assert.equal(fit?.retries, 3)
+  assert.equal(out.record.filter((p) => p.phase === 'fit_fallback').length, 0)
+})
+
+test('stage 2 deadline: without a deadline nothing is skipped', async () => {
+  const m = fakeModel()
+  const out = await runEngine(job5, stage2(m, { now: () => Number.MAX_SAFE_INTEGER }), io5())
+  assert.equal(m.fitCalls.length, 5)
+  assert.equal(out.record.find((p) => p.phase === 'fit')?.skipped, 0)
+  assert.equal(out.record.find((p) => p.phase === 'fit_deadline_hit'), undefined)
+})
+
+test('stage 2: throttles and retries are counted on the fit record and the job still ends DONE', async () => {
+  const base = fakeModel()
+  const seen = new Set<string>()
+  const model: TextModel = async (req) => {
+    if (req.system.startsWith('You judge')) {
+      const id = ids5.find((p) => req.user.includes(`EV-${p}`)) as string
+      if (!seen.has(id)) {
+        seen.add(id)
+        throw throttle()
+      }
+    }
+    return base.model(req)
+  }
+  const out = await runEngine(job5, stage2({ ...base, model }, { callOptions: { sleep: async () => {} } }), io5({ summaryCount: 0 }))
+  assert.equal(out.state, 'DONE')
+  const fit = out.record.find((p) => p.phase === 'fit')
+  assert.equal(fit?.calls, 5)
+  assert.equal(fit?.throttles, 5)
+  assert.equal(fit?.retries, 5)
+  assert.equal(fit?.fallbacks, 0)
+  assert.equal(fit?.skipped, 0)
+})
+
 /** Every Fit call fails with the error from makeErr (or, with a reply, returns it); summaries are not reached. */
 function failingFit(makeErr: (id: string) => Error | { text: string; inputTokens: number; outputTokens: number; stopReason?: string }): FakeModel {
   const base = fakeModel()

@@ -7,6 +7,10 @@
 // name only. Nothing here logs profile, fragment, query, prompt, model output
 // or error message text.
 //
+// Time: with ctx.deadlineAt the run stops starting model calls early enough to save its results before
+// the Lambda times out. Candidates not reached keep their estimate with their own note, summaries not
+// reached use the template text (see FINISH_RESERVE_MS). After a throttle the calls in flight are cut.
+//
 // Resume: the Fit targets are fixed by search order (done candidates are skipped
 // but keep their place), and each candidate is checkpointed once, after the
 // summaries, in rank order with the summarized candidates first. The done
@@ -26,7 +30,7 @@ import { scoreCandidate } from '../scoring/score'
 import type { Candidate } from '../search/cosine'
 import { log } from '../shared/log'
 import { judgeFit } from './fit'
-import { ReplyError } from './retry'
+import { DeadlineError, isRetryable, isThrottling, REQUEST_TIMEOUT_MS, ReplyError } from './retry'
 import { writeSummary } from './summary'
 
 export interface Stage2Item {
@@ -52,20 +56,86 @@ export interface Stage2Options {
   requirements: Requirement[]
   /** Passed to the model calls; tests use it to skip retry waits. */
   callOptions?: { retries?: number; sleep?: (ms: number) => Promise<void>; random?: () => number }
+  /** The clock, in epoch milliseconds. Tests inject it to move through the run deadline. */
+  now?: () => number
 }
 
 const FIT_FALLBACK_NOTE =
   'The in-depth assessment of this profile failed, so the score is an estimate from semantic similarity to the job description.'
+const FIT_DEADLINE_NOTE =
+  'The in-depth assessment of this profile was not reached before the time limit of the run, so the score is an estimate from semantic similarity to the job description.'
 const SUMMARY_FALLBACK_NOTE = 'A written summary was not available, so this is the standard summary.'
 
-/** Runs fn over items with at most limit calls in flight (at least 1). fn must not throw. */
-async function inPool<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
-  let next = 0
-  const worker = async (): Promise<void> => {
-    while (next < items.length) await fn(items[next++])
+// Time kept at the end of the Lambda run, in milliseconds. The deadline is the end of the Lambda time
+// (EngineContext.deadlineAt). No new summary attempt starts in the last FINISH_RESERVE_MS plus one request
+// timeout: the reserve is for saving the results, the timeout is for a call that started just before.
+// No new Fit attempt starts SUMMARY_WINDOW_MS before that, so the summaries still have time.
+// Estimates, not measurements: saving up to 200 results was not timed.
+const FINISH_RESERVE_MS = 20_000
+const SUMMARY_WINDOW_MS = 30_000
+
+/** After a throttle the number of calls in flight is halved, at most once in this time. */
+const THROTTLE_CUT_INTERVAL_MS = 2000
+/** The number of calls in flight is never cut below this. */
+const MIN_PARALLEL_CALLS = 2
+
+/** The number of model calls allowed in flight. A throttle cuts it and nothing raises it again in the run. */
+export interface Limit {
+  value: number
+}
+
+/** A setting of 0 or a fraction still allows one call at a time. */
+const limitOf = (parallelCalls: number): Limit => ({ value: Math.max(1, Math.floor(parallelCalls) || 1) })
+
+/** The limit and the function that cuts it after a throttle: halved, at most once in
+ *  THROTTLE_CUT_INTERVAL_MS, never below MIN_PARALLEL_CALLS (or below the setting, when that is lower). */
+export function createLimiter(parallelCalls: number, now: () => number): { limit: Limit; cut: () => void } {
+  const limit = limitOf(parallelCalls)
+  const floor = Math.min(MIN_PARALLEL_CALLS, limit.value)
+  let lastCut = -Infinity
+  const cut = (): void => {
+    const t = now()
+    if (t - lastCut < THROTTLE_CUT_INTERVAL_MS || limit.value <= floor) return
+    limit.value = Math.max(floor, Math.floor(limit.value / 2))
+    lastCut = t
   }
-  const n = Math.min(Math.max(1, Math.floor(limit) || 1), items.length)
-  await Promise.all(Array.from({ length: n }, worker))
+  return { limit, cut }
+}
+
+/** Runs fn over items with at most limit.value calls in flight (at least 1). A slot above the current
+ *  limit stops taking items, and slot 0 never does, so the pool always finishes. fn must not throw. */
+export async function inPool<T>(items: T[], limit: Limit, fn: (item: T) => Promise<void>): Promise<void> {
+  let next = 0
+  const worker = async (slot: number): Promise<void> => {
+    while (next < items.length && slot < limit.value) await fn(items[next++])
+  }
+  const n = Math.min(Math.max(1, Math.floor(limit.value) || 1), items.length)
+  await Promise.all(Array.from({ length: n }, (_, slot) => worker(slot)))
+}
+
+interface CallStats {
+  /** Attempts that failed with throttling or a service error (see isThrottling). */
+  throttles: number
+  /** Attempts that failed with an error a retry can fix (see isRetryable), whether or not it was retried. */
+  retries: number
+}
+
+/** A text model that counts failed attempts and refuses to start an attempt after stopAt, with a
+ *  DeadlineError. withRetry does not retry that error, so a call waiting to retry ends at the deadline. */
+function guarded(model: TextModel, stopAt: number, now: () => number, stats: CallStats, onThrottle?: () => void): TextModel {
+  return async (req) => {
+    if (now() >= stopAt) throw new DeadlineError()
+    try {
+      return await model(req)
+    } catch (err) {
+      if (isRetryable(err)) stats.retries++
+      if (isThrottling(err)) {
+        stats.throttles++
+        onThrottle?.()
+      }
+      throw err
+    }
+  }
 }
 
 /** A stored job from before fitCap existed carries no value; the settings default applies. */
@@ -140,14 +210,26 @@ export async function runStage2(items: Stage2Item[], ctx: EngineContext, o: Stag
   const targets = present.filter((i) => inCap.has(i.candidate.profileId))
   const fits = new Map<string, { fit: number; reason: string }>()
   const failed = new Set<string>()
+  const skipped = new Set<string>()
   const fitErrors: unknown[] = []
   const fitUsage = { tokensIn: 0, tokensOut: 0, fallbacks: 0 }
+  // The run deadline. Without ctx.deadlineAt (local runs, tests) nothing is ever stopped.
+  const now = o.now ?? Date.now
+  const summaryStop = ctx.deadlineAt === undefined ? Infinity : ctx.deadlineAt - FINISH_RESERVE_MS - REQUEST_TIMEOUT_MS
+  const fitStop = summaryStop - SUMMARY_WINDOW_MS
+  const { limit, cut } = createLimiter(settings.parallelCalls, now)
+  const fitStats: CallStats = { throttles: 0, retries: 0 }
+  const fitModel = guarded(o.textModel, fitStop, now, fitStats, cut)
   const fitStart = Date.now()
-  await inPool(targets, settings.parallelCalls, async (item) => {
+  await inPool(targets, limit, async (item) => {
     const id = item.candidate.profileId
     const start = Date.now()
+    if (now() >= fitStop) {
+      skipped.add(id)
+      return
+    }
     try {
-      const out = await judgeFit(o.textModel, settings.fitModel, {
+      const out = await judgeFit(fitModel, settings.fitModel, {
         jdQuery: o.jdQuery,
         fragments: item.candidate.topFragments.map(({ fragment: f }) => ({ fragmentId: f.fragmentId, type: f.type, text: f.text })),
       }, o.callOptions)
@@ -155,6 +237,11 @@ export async function runStage2(items: Stage2Item[], ctx: EngineContext, o: Stag
       fitUsage.tokensIn += out.inputTokens
       fitUsage.tokensOut += out.outputTokens
     } catch (err) {
+      // Out of time while retrying: not a model failure, the candidate keeps its estimate.
+      if (err instanceof DeadlineError) {
+        skipped.add(id)
+        return
+      }
       // The error can carry request or output details, so only its name is logged.
       // Calls and fallbacks are counted once, on the fit record.
       failed.add(id)
@@ -167,9 +254,14 @@ export async function runStage2(items: Stage2Item[], ctx: EngineContext, o: Stag
       ctx.record('fit_fallback', { durationMs: Date.now() - start })
     }
   })
-  ctx.record('fit', { durationMs: Date.now() - fitStart, calls: targets.length, ...fitUsage })
+  const attempted = targets.length - skipped.size
+  ctx.record('fit', { durationMs: Date.now() - fitStart, calls: attempted, ...fitUsage, ...fitStats, skipped: skipped.size })
+  if (skipped.size > 0) {
+    ctx.record('fit_deadline_hit', { durationMs: 0, skipped: skipped.size })
+    log('fit_deadline_hit', { jobId: o.jobId, skipped: skipped.size })
+  }
   // Every attempted call failed: the ranking would be estimates only, so the job does not finish as DONE.
-  if (targets.length > 0 && failed.size === targets.length) throw fitFailure(fitErrors)
+  if (attempted > 0 && failed.size === attempted) throw fitFailure(fitErrors)
 
   // Scoring, in memory. A candidate whose scoring throws falls back on its own.
   const scoreStart = Date.now()
@@ -181,7 +273,9 @@ export async function runStage2(items: Stage2Item[], ctx: EngineContext, o: Stag
       const judged = fits.get(id)
       const beyond = item.shortlisted && !inCap.has(id) ? item.beyondFitCap : undefined
       const fit = judged ? judged.fit : beyond ? beyond.estimate : item.estimate
-      const flag = judged ? '' : failed.has(id) ? FIT_FALLBACK_NOTE : beyond ? beyond.note : item.estimateNote
+      const flag = judged
+        ? ''
+        : failed.has(id) ? FIT_FALLBACK_NOTE : skipped.has(id) ? FIT_DEADLINE_NOTE : beyond ? beyond.note : item.estimateNote
       const s = scoreCandidate(fit, { candidate: input, requirements: o.requirements, expertise: data.expertise, orgs: data.orgs })
       const base = { fit_score: fit, total_score: s.total_score, adjustments: s.adjustments, scoring: s.scoring }
       const template = buildNarrative({ profile: input.profile, total: s.total_score, band: s.band, breakdown: scoreBreakdown(base), coveredTerms: [] })
@@ -206,11 +300,14 @@ export async function runStage2(items: Stage2Item[], ctx: EngineContext, o: Stag
   const top = ranked.slice(0, summarySlots)
   const texts = new Map<string, string>()
   const sumUsage = { tokensIn: 0, tokensOut: 0, fallbacks: 0 }
+  const sumStats: CallStats = { throttles: 0, retries: 0 }
+  const sumModel = guarded(o.textModel, summaryStop, now, sumStats)
+  let sumSkipped = 0
   const sumStart = Date.now()
-  await inPool(top, settings.parallelCalls, async (s) => {
+  await inPool(top, limitOf(settings.parallelCalls), async (s) => {
     const r = s.result
     try {
-      const out = await writeSummary(o.textModel, settings.textModel, {
+      const out = await writeSummary(sumModel, settings.textModel, {
         fit: r.fit_score,
         total: r.total_score,
         band: r.band,
@@ -224,13 +321,15 @@ export async function runStage2(items: Stage2Item[], ctx: EngineContext, o: Stag
       if (out.text.trim() === '') sumUsage.fallbacks++
       else texts.set(r.profile_id, out.text)
     } catch (err) {
+      if (err instanceof DeadlineError) sumSkipped++
       const spent = tokensOf(err)
       sumUsage.tokensIn += spent.inputTokens
       sumUsage.tokensOut += spent.outputTokens
       sumUsage.fallbacks++
     }
   })
-  ctx.record('summary', { durationMs: Date.now() - sumStart, calls: top.length, ...sumUsage })
+  ctx.record('summary', { durationMs: Date.now() - sumStart, calls: top.length, ...sumUsage, ...sumStats, skipped: sumSkipped })
+  if (sumSkipped > 0) log('summary_deadline_hit', { jobId: o.jobId, skipped: sumSkipped })
 
   // One checkpoint per candidate, in rank order, so the summarized ones come first.
   for (const [i, s] of ranked.entries()) {
