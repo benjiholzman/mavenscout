@@ -36,10 +36,21 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "jobs" {
 
 # The 7 day expiry covers only the prefixes the API and the worker write, so an object
 # uploaded by hand under another prefix (the index artifact, under index/) is kept.
-# The two rules are written out, not generated, because Checkov does not read the
-# abort setting inside a dynamic block (CKV_AWS_300).
+# A third rule with an empty filter aborts incomplete uploads in the whole bucket.
+# Checkov (CKV_AWS_300) accepts only a rule with an empty filter for that setting.
 resource "aws_s3_bucket_lifecycle_configuration" "jobs" {
   bucket = aws_s3_bucket.jobs.id
+
+  rule {
+    id     = "abort-incomplete-uploads"
+    status = "Enabled"
+
+    filter {}
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
+    }
+  }
 
   rule {
     id     = "expire-7-days-inputs"
@@ -51,10 +62,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "jobs" {
 
     expiration {
       days = 7
-    }
-
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 1
     }
   }
 
@@ -68,10 +75,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "jobs" {
 
     expiration {
       days = 7
-    }
-
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 1
     }
   }
 }
