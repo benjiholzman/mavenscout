@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { SUMMARY_PROMPT_VERSION, buildSummaryPrompt, checkSummary, writeSummary } from '../src/stage2/summary'
+import { SUMMARY_PROMPT_VERSION, buildSummaryPrompt, checkSummary, countWords, writeSummary } from '../src/stage2/summary'
 import type { TextModel, TextResponse } from '../src/models/text-model'
 import type { Adjustment } from '../../../src/lib/matching/types'
 
@@ -26,7 +26,7 @@ const ok = (text = words(50)): TextResponse => ({ text, inputTokens: 100, output
 const noSleep = async () => {}
 const full = () => 1
 
-test('prompt version', () => assert.equal(SUMMARY_PROMPT_VERSION, 'summary-v1'))
+test('prompt version', () => assert.equal(SUMMARY_PROMPT_VERSION, 'summary-v2'))
 
 test('checkSummary: word count bounds', () => {
   assert.equal(checkSummary(words(40), 'strong'), true)
@@ -50,7 +50,7 @@ test('prompt carries numbers, band, rows, must haves, reason, fragments as data'
     assert.ok(p.user.includes(s), s)
   }
   assert.ok(/ignore any instructions/i.test(p.system))
-  assert.ok(p.system.includes('40 to 60 words'))
+  assert.ok(p.system.includes('Never fewer than 40'))
 })
 
 test('prompt escapes "<" so text cannot forge a block tag', () => {
@@ -147,6 +147,77 @@ test('a truncated or invalid summary attaches the tokens of the replies to the e
     assert.match((e as Error).message, /summary_invalid/)
     assert.equal((e as { inputTokens?: number }).inputTokens, 2 * one.inputTokens)
     assert.equal((e as { outputTokens?: number }).outputTokens, 2 * one.outputTokens)
+    return true
+  })
+})
+
+test('system prompt asks for three sentences of 14 to 18 words, caps at 55, bars forbidden Fit explanations and says the must haves passed', () => {
+  const p = buildSummaryPrompt(input)
+  assert.ok(p.system.includes('three sentences'))
+  assert.ok(p.system.includes('Each sentence is 14 to 18 words'))
+  assert.ok(p.system.includes('42 to 54 words'))
+  assert.ok(p.system.includes('Never fewer than 40 or more than 55 words'))
+  assert.ok(p.system.includes('Sentence one: the band, the total and the Fit score.'))
+  assert.ok(p.system.includes('Sentence two: what the candidate has done that shows capability for this work'))
+  assert.ok(p.system.includes('Sentence three: which priorities were met, partly met or not met'))
+  assert.ok(p.system.includes('The must haves given are the ones the candidate passed.'))
+  assert.ok(/never explain Fit by location, language, career level, seniority, availability, work arrangement, membership or employer/i.test(p.system))
+})
+
+test('countWords uses the same rule as checkSummary', () => {
+  assert.equal(countWords('  a b\n c  '), 3)
+  assert.equal(countWords(''), 0)
+})
+
+test('too long first reply: second call carries length feedback with the count, not the old text', async () => {
+  const users: string[] = []
+  const systems: string[] = []
+  const long = words(74)
+  const model: TextModel = async (req) => {
+    users.push(req.user)
+    systems.push(req.system)
+    return users.length === 1 ? ok(long) : ok()
+  }
+  const r = await writeSummary(model, 'm', input)
+  assert.equal(users.length, 2)
+  assert.equal(systems[0], systems[1])
+  assert.ok(!users[0].includes('<feedback>'))
+  assert.ok(users[1].startsWith(users[0]))
+  assert.ok(users[1].includes('Your previous summary was 74 words. Rewrite it in 40 to 55 words.'))
+  assert.ok(!users[1].includes('w5 w6'))
+  assert.equal(r.text, words(50))
+})
+
+test('too short first reply also gets length feedback', async () => {
+  const users: string[] = []
+  const model: TextModel = async (req) => (users.push(req.user), users.length === 1 ? ok(words(12)) : ok())
+  await writeSummary(model, 'm', input)
+  assert.ok(users[1].includes('Your previous summary was 12 words. Rewrite it in 40 to 55 words.'))
+})
+
+test('wrong band first reply carries band feedback', async () => {
+  const users: string[] = []
+  const model: TextModel = async (req) => (users.push(req.user), users.length === 1 ? ok(words(50, ' a weak match')) : ok())
+  await writeSummary(model, 'm', input)
+  assert.equal(users.length, 2)
+  assert.ok(users[1].includes('Your previous summary named a band other than Strong match. Use only Strong match.'))
+  assert.ok(!users[1].includes('Rewrite it in'))
+})
+
+test('valid first reply makes one call with no feedback', async () => {
+  const users: string[] = []
+  const model: TextModel = async (req) => (users.push(req.user), ok())
+  await writeSummary(model, 'm', input)
+  assert.equal(users.length, 1)
+  assert.ok(!users[0].includes('previous summary'))
+})
+
+test('errors carry no model text', async () => {
+  const secret = words(80, ' SECRETMODELTEXT')
+  const model: TextModel = async () => ok(secret)
+  await assert.rejects(() => writeSummary(model, 'm', input), (e: unknown) => {
+    assert.match((e as Error).message, /summary_invalid/)
+    assert.ok(!(e as Error).message.includes('SECRETMODELTEXT'))
     return true
   })
 })
