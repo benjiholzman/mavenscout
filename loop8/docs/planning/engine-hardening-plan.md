@@ -15,7 +15,7 @@ All time and cost figures in this document are estimates. None has been measured
 
 Calls to a model fail often. Pull request 60 retries throttling three times, fails fast on configuration errors and falls back per candidate, but four things are still open. A call that hangs has no timeout. A run has no deadline, so a Lambda timeout at 180 seconds loses every call of the run and the next receive pays for them again. The retry gives up after about 3.5 seconds, so a real throttling burst turns many Fit calls into estimates without any sign of it beyond a note on each candidate. Two transient errors, `ModelTimeoutException` (HTTP 408) and `ModelErrorException` (HTTP 424), are treated as final.
 
-The summaries are not part of this task. The engineer is changing `src/stage2/summary.ts` and its prompt.
+The summaries are not part of this task. They are in `summary-writing-plan.md`.
 
 ## 2. What the design already decided
 
@@ -61,7 +61,7 @@ Files: `src/models/text-model.ts`, `src/stage2/retry.ts`, `src/stage2/run-stage2
 
 ## 7. Remaining steps
 
-1. The engineer finishes the summaries and uploads the gzipped index to the jobs bucket.
+1. The summaries were done in pull request 79 (`summary-writing-plan.md`) and the index is in the jobs bucket.
 2. A separate change sets `ENGINE=semantic` and `INDEX_ARTIFACT_S3_KEY` after approval, because from then every job calls a model and costs money.
 3. One real run checks the throttle path. It is not forced against the customer account without approval.
 4. Gaps 4 and 6 of section 8 (a share of fallbacks that fails the job, and the content filter stop reason) are decided after the first real runs.
@@ -76,7 +76,7 @@ Built on 2026-11-21 in pull request 68 for issue 67. Checked locally on a copy w
 4. Checked with a real call. On 2026-11-21 one Converse call to Nova Lite through the `us.` profile with the normal timeout returned in about 0.9 seconds and used 11 tokens, and the same call with a timeout of 1 millisecond failed with `RequestTimeout` after 9 milliseconds, which `isRetryable` accepts. This shows the SDK honors the abort signal. The call was a single request with 5 output tokens at most.
 5. Not checked. A real hung call, a real throttling burst and the names `ModelTimeoutException` and `ModelErrorException` cannot be forced against the account, so the other paths are tested with injected errors and a client that never answers. The time to save 200 results is not measured.
 6. Applied. The pull request was merged on 2026-11-21 and the apply finished with 0 added, 1 changed, 0 destroyed (the worker function). Both functions were Active, the dead letter queue was empty and a job with the stub engine finished DONE in 1.4 seconds. The engine was turned on later the same day (`worker-engine-connect-plan.md`, section 10) and five real jobs ran with these limits: no throttle, no retry and no failed Fit call in any of them, so the retry and the deadline paths were not exercised live.
-7. Still pending. The summaries fix of the engineer, and the decisions of section 9.
+7. Still pending. The decisions of section 9. The summaries were done in pull request 79 (`summary-writing-plan.md`).
 
 ## 9. Deviations from the blueprint
 

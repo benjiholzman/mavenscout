@@ -621,3 +621,4 @@ Then re-run the tagging check: it must return no rows. Quota increases and the M
 | 2026-11-21 | Project lead: index artifact uploaded to the jobs bucket by hand. Inventory rows for `ENGINE=semantic` and the bucket lifecycle added as pending apply (issue 69) |
 | 2026-11-21 | Project lead: `ENGINE=semantic` and the bucket lifecycle applied by the pipeline (pull request 70). First real job through the API finished PARTIAL with 29 `not_indexed` profiles, 6 of them individuals |
 | 2026-11-21 | Project lead: index rebuilt with the six ToR 05 individuals under their database ids (version `13d7674312434864`), uploaded under a versioned key, and the worker key changed in Terraform (issue 71) |
+| 2026-11-22 | Project lead: worker code updated with the new summary prompt and checks, applied by the pipeline (pull request 79). No resource changed |
