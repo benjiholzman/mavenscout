@@ -1,0 +1,27 @@
+# Index artifact of the semantic engine: the two builds and the check of the ids.
+# Date: 2026-11-21. Context: POC account us-east-1, Titan Text Embeddings V2, 98 local demo profiles.
+# Script: loop8/engine/scripts/build-index.ts, hand run. The artifact is loop8/internal/index-artifact.json (not in the repository).
+
+### P1 First build, output saved when it ran (index bda903154e95230e)
+$ node loop8/engine/.local-dist/build-index.mjs
+Loaded 98 demo profiles, 964 fragments.
+Embedded: 964 new, 0 reused from the prior artifact.
+Wrote <repo>/loop8/internal/index-artifact.json (index bda903154e95230e, 964 vectors).
+Titan usage this run: 964 calls, 42765 input tokens.
+RESULT: 964 fragments embedded with 964 Titan calls and 42765 input tokens. The ids of six profiles were slugs.
+
+### P2 Ids of the rebuilt artifact: the six ToR 05 individuals under their database ids
+$ python3 (reads loop8/internal/index-artifact.json)
+modelVersion amazon.titan-embed-text-v2:0 | dimensions 1024 | indexVersion 13d7674312434864
+profiles 98 | fragments 964
+the six under their database ids: True
+keys that are not a 36 character id: []
+RESULT: 98 profiles, 964 fragments, the six under the ids the database holds, no slug key left.
+
+### P3 Second build after the fix: every vector reused, no Titan call
+$ node loop8/engine/.local-dist/build-index.mjs
+Loaded 98 demo profiles, 964 fragments.
+Embedded: 0 new, 964 reused from the prior artifact.
+Wrote <repo>/loop8/internal/index-artifact.json (index 13d7674312434864, 964 vectors).
+Titan usage this run: 0 calls, 0 input tokens.
+RESULT: 0 new embeddings, 964 reused, 0 Titan calls. Index version 13d7674312434864.

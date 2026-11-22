@@ -1,0 +1,181 @@
+# Organization names in the free text of the index fragments (known limitation 3 of loop8/engine/README.md).
+# Date: 2026-11-21. Context: index bda903154e95230e, organization list read from the customer database (read only).
+# Exit code 1 means hits were found. Each hit line is: fragment id, profile id, fragment type, the organization name found.
+
+### P1 Raw output of the check
+$ npm run check-artifact -- ../internal/index-artifact.json   (SUPABASE_URL and SUPABASE_ANON_KEY set, not shown)
+
+> mavenscout-engine@0.0.0 check-artifact
+> esbuild scripts/check-artifact.ts --bundle --platform=node --format=esm --packages=external --outfile=.local-dist/check-artifact.mjs && node .local-dist/check-artifact.mjs ../internal/index-artifact.json
+
+
+  .local-dist/check-artifact.mjs  18.9kb
+
+⚡ Done in 16ms
+fragments 964
+terms 420
+0213e357-91f3-5088-bfa2-08dcb9538133#bio#0 0213e357-91f3-5088-bfa2-08dcb9538133 bio UNHCR
+09b0edb2-bee9-4e9c-91ce-77e2d8e6f7cc#bio#0 09b0edb2-bee9-4e9c-91ce-77e2d8e6f7cc bio UNDP
+09b0edb2-bee9-4e9c-91ce-77e2d8e6f7cc#portfolio#78dd001e-9b1f-4eda-89b4-18805d6a3030 09b0edb2-bee9-4e9c-91ce-77e2d8e6f7cc portfolio UNDP
+09b0edb2-bee9-4e9c-91ce-77e2d8e6f7cc#tagline#0 09b0edb2-bee9-4e9c-91ce-77e2d8e6f7cc tagline UNDP
+0b3dca45-f309-4196-b83d-8840e915a177#bio#0 0b3dca45-f309-4196-b83d-8840e915a177 bio EU
+0b3dca45-f309-4196-b83d-8840e915a177#bio#0 0b3dca45-f309-4196-b83d-8840e915a177 bio GIZ
+0b3dca45-f309-4196-b83d-8840e915a177#bio#0 0b3dca45-f309-4196-b83d-8840e915a177 bio World Bank
+0b3dca45-f309-4196-b83d-8840e915a177#portfolio#4 0b3dca45-f309-4196-b83d-8840e915a177 portfolio EU
+0b3dca45-f309-4196-b83d-8840e915a177#portfolio#a6610471-d045-414e-9649-774d1ec006d7 0b3dca45-f309-4196-b83d-8840e915a177 portfolio GIZ
+0b3dca45-f309-4196-b83d-8840e915a177#tagline#0 0b3dca45-f309-4196-b83d-8840e915a177 tagline EU
+0b3dca45-f309-4196-b83d-8840e915a177#tagline#0 0b3dca45-f309-4196-b83d-8840e915a177 tagline GIZ
+0b3dca45-f309-4196-b83d-8840e915a177#work_history#d7147573-e066-403d-8556-5e6a5844e4b8 0b3dca45-f309-4196-b83d-8840e915a177 work_history EU
+15212843-500f-540b-b3a1-32e16a2b00b6#bio#0 15212843-500f-540b-b3a1-32e16a2b00b6 bio Asian Development Bank
+15212843-500f-540b-b3a1-32e16a2b00b6#bio#0 15212843-500f-540b-b3a1-32e16a2b00b6 bio World Bank
+19e6abe5-7d45-5fc7-bf74-b6c9b5d77180#portfolio#564f170c-76b5-4ed8-b4c4-7e9d7546dfa2 19e6abe5-7d45-5fc7-bf74-b6c9b5d77180 portfolio EU
+1ab138f0-db40-596d-b6be-72a6ec048f58#bio#0 1ab138f0-db40-596d-b6be-72a6ec048f58 bio ADB
+1ab138f0-db40-596d-b6be-72a6ec048f58#bio#0 1ab138f0-db40-596d-b6be-72a6ec048f58 bio Asian Development Bank
+1ab138f0-db40-596d-b6be-72a6ec048f58#portfolio#13cbd3be-4363-4297-8e55-7c7587ded152 1ab138f0-db40-596d-b6be-72a6ec048f58 portfolio ADB
+1ab138f0-db40-596d-b6be-72a6ec048f58#tagline#0 1ab138f0-db40-596d-b6be-72a6ec048f58 tagline Asian Development Bank
+1ab138f0-db40-596d-b6be-72a6ec048f58#work_history#7686e723-30db-4bde-afe8-eff94af9e31b 1ab138f0-db40-596d-b6be-72a6ec048f58 work_history ADB
+2132cd88-8240-49d9-aa2c-20370a44581a#bio#0 2132cd88-8240-49d9-aa2c-20370a44581a bio Inter-American Development Bank
+2132cd88-8240-49d9-aa2c-20370a44581a#bio#0 2132cd88-8240-49d9-aa2c-20370a44581a bio UN Peacebuilding Fund
+2132cd88-8240-49d9-aa2c-20370a44581a#bio#0 2132cd88-8240-49d9-aa2c-20370a44581a bio USAID
+2132cd88-8240-49d9-aa2c-20370a44581a#portfolio#7b85f34c-6105-482c-8cda-b93dbaafa284 2132cd88-8240-49d9-aa2c-20370a44581a portfolio USAID
+2132cd88-8240-49d9-aa2c-20370a44581a#portfolio#bf00a3bd-3e93-4c8a-809c-27501b75b7b5 2132cd88-8240-49d9-aa2c-20370a44581a portfolio UNODC
+2132cd88-8240-49d9-aa2c-20370a44581a#tagline#0 2132cd88-8240-49d9-aa2c-20370a44581a tagline USAID
+340f760f-5bd6-5468-b5dc-61786475bc03#bio#0 340f760f-5bd6-5468-b5dc-61786475bc03 bio Boston University
+382822da-2b19-45d6-8c2f-6296957fcdc4#bio#0 382822da-2b19-45d6-8c2f-6296957fcdc4 bio Asian Development Bank
+382822da-2b19-45d6-8c2f-6296957fcdc4#bio#0 382822da-2b19-45d6-8c2f-6296957fcdc4 bio UNICEF
+382822da-2b19-45d6-8c2f-6296957fcdc4#bio#0 382822da-2b19-45d6-8c2f-6296957fcdc4 bio World Bank
+382822da-2b19-45d6-8c2f-6296957fcdc4#portfolio#957117ce-09a8-4dda-be42-f06c70a926f9 382822da-2b19-45d6-8c2f-6296957fcdc4 portfolio World Bank
+382822da-2b19-45d6-8c2f-6296957fcdc4#tagline#0 382822da-2b19-45d6-8c2f-6296957fcdc4 tagline UNICEF
+382822da-2b19-45d6-8c2f-6296957fcdc4#tagline#0 382822da-2b19-45d6-8c2f-6296957fcdc4 tagline World Bank
+388093d4-21e1-413a-a718-4296a10a44fc#bio#0 388093d4-21e1-413a-a718-4296a10a44fc bio FCDO
+388093d4-21e1-413a-a718-4296a10a44fc#bio#0 388093d4-21e1-413a-a718-4296a10a44fc bio UN Women
+388093d4-21e1-413a-a718-4296a10a44fc#bio#0 388093d4-21e1-413a-a718-4296a10a44fc bio USAID
+388093d4-21e1-413a-a718-4296a10a44fc#portfolio#4 388093d4-21e1-413a-a718-4296a10a44fc portfolio UN Women
+388093d4-21e1-413a-a718-4296a10a44fc#portfolio#8ad3fb21-d648-4528-84ea-2538f0d94867 388093d4-21e1-413a-a718-4296a10a44fc portfolio USAID
+388093d4-21e1-413a-a718-4296a10a44fc#portfolio#d06a9361-b24e-4fb5-9939-bfee01d0ad8a 388093d4-21e1-413a-a718-4296a10a44fc portfolio DRC
+388093d4-21e1-413a-a718-4296a10a44fc#portfolio#d06a9361-b24e-4fb5-9939-bfee01d0ad8a 388093d4-21e1-413a-a718-4296a10a44fc portfolio UN Women
+388093d4-21e1-413a-a718-4296a10a44fc#portfolio#fbd2dcb3-cfbc-46ef-966f-ee41f8303e03 388093d4-21e1-413a-a718-4296a10a44fc portfolio FCDO
+388093d4-21e1-413a-a718-4296a10a44fc#tagline#0 388093d4-21e1-413a-a718-4296a10a44fc tagline FCDO
+388093d4-21e1-413a-a718-4296a10a44fc#tagline#0 388093d4-21e1-413a-a718-4296a10a44fc tagline USAID
+388093d4-21e1-413a-a718-4296a10a44fc#work_history#3cc2a7cb-dcef-46ba-a5ac-c45f9389e12e 388093d4-21e1-413a-a718-4296a10a44fc work_history FCDO
+3e8dd2d0-9e2f-5843-bc4a-0cbfe901cec2#bio#0 3e8dd2d0-9e2f-5843-bc4a-0cbfe901cec2 bio African Development Bank
+3e8dd2d0-9e2f-5843-bc4a-0cbfe901cec2#bio#0 3e8dd2d0-9e2f-5843-bc4a-0cbfe901cec2 bio World Bank
+48fe6665-9238-5e21-b240-465e05bb93c2#work_history#2f151818-6830-48a5-80bb-ddb0e6dd0266 48fe6665-9238-5e21-b240-465e05bb93c2 work_history UN Women
+565532b7-ac77-5b48-a69b-ea3008f79ae3#bio#0 565532b7-ac77-5b48-a69b-ea3008f79ae3 bio ILO
+565532b7-ac77-5b48-a69b-ea3008f79ae3#bio#0 565532b7-ac77-5b48-a69b-ea3008f79ae3 bio UNICEF
+57e08d91-59a0-59d4-b146-bbd1d987a615#bio#0 57e08d91-59a0-59d4-b146-bbd1d987a615 bio ADB
+57e08d91-59a0-59d4-b146-bbd1d987a615#bio#0 57e08d91-59a0-59d4-b146-bbd1d987a615 bio IFAD
+57e08d91-59a0-59d4-b146-bbd1d987a615#portfolio#1bc059c8-5020-41d9-a8ff-5a40efe55423 57e08d91-59a0-59d4-b146-bbd1d987a615 portfolio ADB
+57e08d91-59a0-59d4-b146-bbd1d987a615#work_history#09714cd7-20e4-48de-b1e5-d9b07908db9b 57e08d91-59a0-59d4-b146-bbd1d987a615 work_history ADB
+57e08d91-59a0-59d4-b146-bbd1d987a615#work_history#09714cd7-20e4-48de-b1e5-d9b07908db9b 57e08d91-59a0-59d4-b146-bbd1d987a615 work_history IFAD
+59e4a332-ed54-513b-84bd-be3126f24d22#bio#0 59e4a332-ed54-513b-84bd-be3126f24d22 bio EU
+59e4a332-ed54-513b-84bd-be3126f24d22#bio#0 59e4a332-ed54-513b-84bd-be3126f24d22 bio UNIDO
+59e4a332-ed54-513b-84bd-be3126f24d22#portfolio#5338c035-e898-4e45-b498-c7cfd1e39dbb 59e4a332-ed54-513b-84bd-be3126f24d22 portfolio EU
+733b270c-913f-54b6-8b2c-6f4935db4528#bio#0 733b270c-913f-54b6-8b2c-6f4935db4528 bio African Development Bank
+733b270c-913f-54b6-8b2c-6f4935db4528#bio#0 733b270c-913f-54b6-8b2c-6f4935db4528 bio IFAD
+733b270c-913f-54b6-8b2c-6f4935db4528#bio#0 733b270c-913f-54b6-8b2c-6f4935db4528 bio World Bank
+7b955afd-03a8-54ca-b884-f580abebb5f1#bio#0 7b955afd-03a8-54ca-b884-f580abebb5f1 bio icddr,b
+7b955afd-03a8-54ca-b884-f580abebb5f1#portfolio#3 7b955afd-03a8-54ca-b884-f580abebb5f1 portfolio BRAC
+7b955afd-03a8-54ca-b884-f580abebb5f1#portfolio#44564e59-375e-4491-95e1-a6f72a5bbbbc 7b955afd-03a8-54ca-b884-f580abebb5f1 portfolio WFP
+7f19fdb3-785a-533a-b8e7-c77fa3bcd616#bio#0 7f19fdb3-785a-533a-b8e7-c77fa3bcd616 bio FAO
+890c205e-4c05-509e-95e3-5bef6e708547#bio#0 890c205e-4c05-509e-95e3-5bef6e708547 bio IFAD
+890c205e-4c05-509e-95e3-5bef6e708547#bio#0 890c205e-4c05-509e-95e3-5bef6e708547 bio World Bank
+9169e962-d148-4d97-92d9-e4cb37209044#bio#0 9169e962-d148-4d97-92d9-e4cb37209044 bio International Rescue Committee
+9169e962-d148-4d97-92d9-e4cb37209044#bio#0 9169e962-d148-4d97-92d9-e4cb37209044 bio UNHCR
+9169e962-d148-4d97-92d9-e4cb37209044#bio#0 9169e962-d148-4d97-92d9-e4cb37209044 bio University of Oxford
+9169e962-d148-4d97-92d9-e4cb37209044#portfolio#165be5cc-90d8-4938-be7b-32b7f3807360 9169e962-d148-4d97-92d9-e4cb37209044 portfolio UNHCR
+9169e962-d148-4d97-92d9-e4cb37209044#portfolio#a40a44c3-06ac-4bdd-b098-b5d914f5a6f9 9169e962-d148-4d97-92d9-e4cb37209044 portfolio IRC
+9169e962-d148-4d97-92d9-e4cb37209044#portfolio#c7ac3f34-4611-4db4-9f83-25c8fae6cfcd 9169e962-d148-4d97-92d9-e4cb37209044 portfolio UNHCR
+9169e962-d148-4d97-92d9-e4cb37209044#tagline#0 9169e962-d148-4d97-92d9-e4cb37209044 tagline IRC
+9169e962-d148-4d97-92d9-e4cb37209044#tagline#0 9169e962-d148-4d97-92d9-e4cb37209044 tagline UNHCR
+9169e962-d148-4d97-92d9-e4cb37209044#work_history#c5fc7732-56ec-4721-ad7e-51c69112c648 9169e962-d148-4d97-92d9-e4cb37209044 work_history IRC
+9169e962-d148-4d97-92d9-e4cb37209044#work_history#d2b2a7f8-6111-4539-aca9-0a24335f9ccc 9169e962-d148-4d97-92d9-e4cb37209044 work_history UNHCR
+9c516d30-13a6-5c47-a8ec-a90b60c0ba12#bio#0 9c516d30-13a6-5c47-a8ec-a90b60c0ba12 bio DRC
+9c516d30-13a6-5c47-a8ec-a90b60c0ba12#tagline#0 9c516d30-13a6-5c47-a8ec-a90b60c0ba12 tagline DRC
+9d1f06a9-7ca3-54fb-80e2-a05e454951d1#bio#0 9d1f06a9-7ca3-54fb-80e2-a05e454951d1 bio UNHCR
+a241c771-1cae-47db-a6dd-a01f98742b05#bio#0 a241c771-1cae-47db-a6dd-a01f98742b05 bio GPE
+a241c771-1cae-47db-a6dd-a01f98742b05#bio#0 a241c771-1cae-47db-a6dd-a01f98742b05 bio University of Cape Coast
+a241c771-1cae-47db-a6dd-a01f98742b05#bio#0 a241c771-1cae-47db-a6dd-a01f98742b05 bio University of Oxford
+a241c771-1cae-47db-a6dd-a01f98742b05#portfolio#34d53561-9f5d-4713-99cc-3f0fc55988ee a241c771-1cae-47db-a6dd-a01f98742b05 portfolio UNICEF
+a241c771-1cae-47db-a6dd-a01f98742b05#portfolio#3d7f81a5-52ca-4350-b61f-bf31e9b2f110 a241c771-1cae-47db-a6dd-a01f98742b05 portfolio GPE
+a241c771-1cae-47db-a6dd-a01f98742b05#portfolio#55a67cf1-779e-43cd-98b0-dc733679fc8c a241c771-1cae-47db-a6dd-a01f98742b05 portfolio Ghana Education Service
+a241c771-1cae-47db-a6dd-a01f98742b05#tagline#0 a241c771-1cae-47db-a6dd-a01f98742b05 tagline UNESCO
+a241c771-1cae-47db-a6dd-a01f98742b05#tagline#0 a241c771-1cae-47db-a6dd-a01f98742b05 tagline UNICEF
+a8161c80-db01-47c6-ba5b-ec4f86883950#bio#0 a8161c80-db01-47c6-ba5b-ec4f86883950 bio Inter-American Development Bank
+a8161c80-db01-47c6-ba5b-ec4f86883950#bio#0 a8161c80-db01-47c6-ba5b-ec4f86883950 bio J-PAL
+a8161c80-db01-47c6-ba5b-ec4f86883950#bio#0 a8161c80-db01-47c6-ba5b-ec4f86883950 bio World Bank
+a8161c80-db01-47c6-ba5b-ec4f86883950#portfolio#94b5f091-c11c-48da-bd2a-b20f5c146c0c a8161c80-db01-47c6-ba5b-ec4f86883950 portfolio IDB
+a8161c80-db01-47c6-ba5b-ec4f86883950#tagline#0 a8161c80-db01-47c6-ba5b-ec4f86883950 tagline IDB
+a8161c80-db01-47c6-ba5b-ec4f86883950#tagline#0 a8161c80-db01-47c6-ba5b-ec4f86883950 tagline J-PAL
+ade0f4c7-c4a6-453c-a5c4-ccf933c17362#bio#0 ade0f4c7-c4a6-453c-a5c4-ccf933c17362 bio Asian Development Bank
+ade0f4c7-c4a6-453c-a5c4-ccf933c17362#bio#0 ade0f4c7-c4a6-453c-a5c4-ccf933c17362 bio Australian National University
+ade0f4c7-c4a6-453c-a5c4-ccf933c17362#bio#0 ade0f4c7-c4a6-453c-a5c4-ccf933c17362 bio UNICEF
+ade0f4c7-c4a6-453c-a5c4-ccf933c17362#portfolio#3d7111c6-f410-4a5d-8cf8-64c79c606eee ade0f4c7-c4a6-453c-a5c4-ccf933c17362 portfolio UNICEF
+ade0f4c7-c4a6-453c-a5c4-ccf933c17362#portfolio#414e96af-77d6-439d-b542-192d9fef71d7 ade0f4c7-c4a6-453c-a5c4-ccf933c17362 portfolio ADB
+ade0f4c7-c4a6-453c-a5c4-ccf933c17362#tagline#0 ade0f4c7-c4a6-453c-a5c4-ccf933c17362 tagline ADB
+ade0f4c7-c4a6-453c-a5c4-ccf933c17362#tagline#0 ade0f4c7-c4a6-453c-a5c4-ccf933c17362 tagline UNICEF
+ade0f4c7-c4a6-453c-a5c4-ccf933c17362#work_history#91d5b0d3-c4e2-4598-ab8b-3833260198cf ade0f4c7-c4a6-453c-a5c4-ccf933c17362 work_history ADB
+ade0f4c7-c4a6-453c-a5c4-ccf933c17362#work_history#d670c778-bbb8-467e-ba9f-cf297b9c284f ade0f4c7-c4a6-453c-a5c4-ccf933c17362 work_history UNICEF
+aminata-kone-traore#bio#0 aminata-kone-traore bio KPMG
+aminata-kone-traore#bio#0 aminata-kone-traore bio World Bank
+aminata-kone-traore#portfolio#1 aminata-kone-traore portfolio World Bank
+b183f7f7-ff54-5b98-acb7-c2055190df9c#bio#0 b183f7f7-ff54-5b98-acb7-c2055190df9c bio UN Women
+b183f7f7-ff54-5b98-acb7-c2055190df9c#bio#0 b183f7f7-ff54-5b98-acb7-c2055190df9c bio UNFPA
+b48d9270-658b-41e4-b211-0387a4a9cff1#bio#0 b48d9270-658b-41e4-b211-0387a4a9cff1 bio African Development Bank
+b48d9270-658b-41e4-b211-0387a4a9cff1#bio#0 b48d9270-658b-41e4-b211-0387a4a9cff1 bio IsDB
+b48d9270-658b-41e4-b211-0387a4a9cff1#bio#0 b48d9270-658b-41e4-b211-0387a4a9cff1 bio World Bank
+b48d9270-658b-41e4-b211-0387a4a9cff1#portfolio#bda892da-0191-40bf-ac28-2469d1ef7613 b48d9270-658b-41e4-b211-0387a4a9cff1 portfolio Islamic Development Bank
+b48d9270-658b-41e4-b211-0387a4a9cff1#portfolio#e03193a4-2bbe-4bf7-bfbc-ecf0907b1f7a b48d9270-658b-41e4-b211-0387a4a9cff1 portfolio AfDB
+b48d9270-658b-41e4-b211-0387a4a9cff1#portfolio#e03193a4-2bbe-4bf7-bfbc-ecf0907b1f7a b48d9270-658b-41e4-b211-0387a4a9cff1 portfolio African Development Bank
+b48d9270-658b-41e4-b211-0387a4a9cff1#tagline#0 b48d9270-658b-41e4-b211-0387a4a9cff1 tagline AfDB
+b48d9270-658b-41e4-b211-0387a4a9cff1#tagline#0 b48d9270-658b-41e4-b211-0387a4a9cff1 tagline World Bank
+bcf1b059-1569-5cfd-b134-3f80c6d5f9a7#bio#0 bcf1b059-1569-5cfd-b134-3f80c6d5f9a7 bio UNFCCC
+c68b0449-f6f5-532f-9f24-78544ef1aff6#bio#0 c68b0449-f6f5-532f-9f24-78544ef1aff6 bio Asian Development Bank
+c68b0449-f6f5-532f-9f24-78544ef1aff6#bio#0 c68b0449-f6f5-532f-9f24-78544ef1aff6 bio IFAD
+c68b0449-f6f5-532f-9f24-78544ef1aff6#bio#0 c68b0449-f6f5-532f-9f24-78544ef1aff6 bio World Bank
+c68b0449-f6f5-532f-9f24-78544ef1aff6#portfolio#b4e6effe-41df-42e9-bec5-31251575739a c68b0449-f6f5-532f-9f24-78544ef1aff6 portfolio IFAD
+c68b0449-f6f5-532f-9f24-78544ef1aff6#work_history#c9fb3899-7f04-4227-a23a-4463a0152761 c68b0449-f6f5-532f-9f24-78544ef1aff6 work_history IFAD
+c68b0449-f6f5-532f-9f24-78544ef1aff6#work_history#c9fb3899-7f04-4227-a23a-4463a0152761 c68b0449-f6f5-532f-9f24-78544ef1aff6 work_history World Bank
+c7639a01-8637-5ffc-b14d-0f6c72a0bbb3#bio#0 c7639a01-8637-5ffc-b14d-0f6c72a0bbb3 bio UNHCR
+claire-mbarga-lefevre#bio#0 claire-mbarga-lefevre bio Crown Agents
+claire-mbarga-lefevre#bio#0 claire-mbarga-lefevre bio World Bank
+claire-mbarga-lefevre#portfolio#1 claire-mbarga-lefevre portfolio DRC
+d953913c-a01a-5835-81a7-c5e81f24db6f#bio#0 d953913c-a01a-5835-81a7-c5e81f24db6f bio World Bank
+da94e4d4-5b84-5543-8e66-64631454aacc#portfolio#2 da94e4d4-5b84-5543-8e66-64631454aacc portfolio IFC
+e1ff6a4f-a52d-46a9-b498-52d6f3659bdc#bio#0 e1ff6a4f-a52d-46a9-b498-52d6f3659bdc bio Asian Development Bank
+e1ff6a4f-a52d-46a9-b498-52d6f3659bdc#bio#0 e1ff6a4f-a52d-46a9-b498-52d6f3659bdc bio Green Climate Fund
+e1ff6a4f-a52d-46a9-b498-52d6f3659bdc#portfolio#30a612e4-3ee5-4a9f-b3be-d569770f9919 e1ff6a4f-a52d-46a9-b498-52d6f3659bdc portfolio GCF
+e1ff6a4f-a52d-46a9-b498-52d6f3659bdc#portfolio#30a612e4-3ee5-4a9f-b3be-d569770f9919 e1ff6a4f-a52d-46a9-b498-52d6f3659bdc portfolio Green Climate Fund
+e1ff6a4f-a52d-46a9-b498-52d6f3659bdc#tagline#0 e1ff6a4f-a52d-46a9-b498-52d6f3659bdc tagline ADB
+e1ff6a4f-a52d-46a9-b498-52d6f3659bdc#tagline#0 e1ff6a4f-a52d-46a9-b498-52d6f3659bdc tagline GCF
+e1ff6a4f-a52d-46a9-b498-52d6f3659bdc#work_history#002d2893-613b-4b38-a904-d4505089e912 e1ff6a4f-a52d-46a9-b498-52d6f3659bdc work_history IFC
+eb73efe8-dd02-5d87-837a-fa818d06fdfc#bio#0 eb73efe8-dd02-5d87-837a-fa818d06fdfc bio World Bank
+eb73efe8-dd02-5d87-837a-fa818d06fdfc#work_history#7e5d7aad-4132-4d85-8f07-0e51d913013b eb73efe8-dd02-5d87-837a-fa818d06fdfc work_history World Bank
+ec044c84-4d5d-5c10-b716-40bf0e0e04d2#bio#0 ec044c84-4d5d-5c10-b716-40bf0e0e04d2 bio Asian Development Bank
+ef9da174-4196-4a7d-950f-fb237c3e11ce#bio#0 ef9da174-4196-4a7d-950f-fb237c3e11ce bio AIIMS
+ef9da174-4196-4a7d-950f-fb237c3e11ce#bio#0 ef9da174-4196-4a7d-950f-fb237c3e11ce bio Global Fund
+ef9da174-4196-4a7d-950f-fb237c3e11ce#bio#0 ef9da174-4196-4a7d-950f-fb237c3e11ce bio Johns Hopkins
+ef9da174-4196-4a7d-950f-fb237c3e11ce#bio#0 ef9da174-4196-4a7d-950f-fb237c3e11ce bio Johns Hopkins Bloomberg School of Public Health
+ef9da174-4196-4a7d-950f-fb237c3e11ce#bio#0 ef9da174-4196-4a7d-950f-fb237c3e11ce bio The Global Fund
+ef9da174-4196-4a7d-950f-fb237c3e11ce#bio#0 ef9da174-4196-4a7d-950f-fb237c3e11ce bio WHO
+ef9da174-4196-4a7d-950f-fb237c3e11ce#bio#0 ef9da174-4196-4a7d-950f-fb237c3e11ce bio World Bank
+ef9da174-4196-4a7d-950f-fb237c3e11ce#portfolio#4 ef9da174-4196-4a7d-950f-fb237c3e11ce portfolio WHO
+ef9da174-4196-4a7d-950f-fb237c3e11ce#portfolio#7c25c5c3-1b47-42be-8177-5a1d77971934 ef9da174-4196-4a7d-950f-fb237c3e11ce portfolio World Bank
+ef9da174-4196-4a7d-950f-fb237c3e11ce#portfolio#b2b75b27-a61d-4cd2-b4e9-3ef60b368e5f ef9da174-4196-4a7d-950f-fb237c3e11ce portfolio WHO
+ef9da174-4196-4a7d-950f-fb237c3e11ce#tagline#0 ef9da174-4196-4a7d-950f-fb237c3e11ce tagline WHO
+ef9da174-4196-4a7d-950f-fb237c3e11ce#tagline#0 ef9da174-4196-4a7d-950f-fb237c3e11ce tagline World Bank
+ef9da174-4196-4a7d-950f-fb237c3e11ce#work_history#d1bc7d4e-4476-406f-9c55-2643d907467d ef9da174-4196-4a7d-950f-fb237c3e11ce work_history WHO
+mariam-coulibaly-sanogo#bio#0 mariam-coulibaly-sanogo bio African Development Bank
+ousmane-ndiaye-fall#bio#0 ousmane-ndiaye-fall bio UNDP
+RESULT: The check reports 964 fragments and 420 terms and lists 153 hits. It fails, as the engine README says it can.
+
+### P2 Hits by fragment type and profiles with hits
+$ awk on the hit lines of P1
+hits: 153
+by fragment type:
+  76 bio
+  38 portfolio
+  24 tagline
+  15 work_history
+profiles with at least one hit: 40
+RESULT: 153 hits: bio 76, portfolio 38, tagline 24 and work history 15, in 40 of the 98 profiles. Fit is told to ignore employer names, nothing removes them from the text.

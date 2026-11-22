@@ -1,0 +1,109 @@
+# State of the POC engine after the first real runs, read only.
+# Date: 2026-11-21, after the apply of pull request 72. Context: us-east-1, account id and API id removed.
+
+### P1 Worker function: state, engine and index key (environment names only)
+$ aws lambda get-function-configuration --function-name mavenscout-engine-worker --query '{state,update,envNames,engine,indexKey}'
+{
+    "state": "Active",
+    "update": "Successful",
+    "runtime": "nodejs22.x",
+    "memoryMb": 1024,
+    "timeoutS": 180,
+    "envNames": [
+        "ENGINE_VARIANT",
+        "JOBS_TABLE",
+        "INDEX_ARTIFACT_S3_KEY",
+        "ENGINE",
+        "JOBS_BUCKET",
+        "SUPABASE_SECRET_ID"
+    ],
+    "engine": "semantic",
+    "indexKey": "index/index-13d7674312434864.json.gz",
+    "supabaseSecretId": "mavenscout/supabase"
+}
+RESULT: ENGINE is semantic, the key points to index 13d7674312434864, the function is Active.
+
+### P2 Api function: models given to every job (names and model ids only)
+$ aws lambda get-function-configuration --function-name mavenscout-engine-api --query '{state,envNames,fit,text,embed}'
+{
+    "state": "Active",
+    "update": "Successful",
+    "envNames": [
+        "ENGINE_VARIANT",
+        "JOBS_TABLE",
+        "EMBED_MODEL",
+        "JOBS_QUEUE_URL",
+        "JOBS_BUCKET",
+        "TEXT_MODEL",
+        "FIT_MODEL"
+    ],
+    "fit": "us.amazon.nova-lite-v1:0",
+    "text": "us.amazon.nova-lite-v1:0",
+    "embed": "amazon.titan-embed-text-v2:0"
+}
+RESULT: FIT_MODEL and TEXT_MODEL are the Nova Lite profile, EMBED_MODEL is Titan V2. ENGINE is not set on the api.
+
+### P3 Bucket lifecycle rules
+$ aws s3api get-bucket-lifecycle-configuration --bucket <jobs bucket> --query 'Rules[]'
+[
+    {
+        "id": "abort-incomplete-uploads",
+        "status": "Enabled",
+        "prefix": "",
+        "expireDays": null,
+        "abortUploadsDays": 1
+    },
+    {
+        "id": "expire-7-days-inputs",
+        "status": "Enabled",
+        "prefix": "inputs/",
+        "expireDays": 7,
+        "abortUploadsDays": null
+    },
+    {
+        "id": "expire-7-days-results",
+        "status": "Enabled",
+        "prefix": "results/",
+        "expireDays": 7,
+        "abortUploadsDays": null
+    }
+]
+RESULT: Only inputs/ and results/ expire after 7 days. A rule without a prefix aborts incomplete uploads after 1 day.
+
+### P4 Index objects in the bucket
+$ aws s3api list-objects-v2 --bucket <jobs bucket> --prefix index/ --query 'Contents[].[Key,Size]'
+[
+    [
+        "index/index-13d7674312434864.json.gz",
+        9442836
+    ],
+    [
+        "index/index.json.gz",
+        9442657
+    ]
+]
+RESULT: Two objects: the first index and the current one, 9.4 MB gzipped each.
+
+### P5 Dead letter queue depth
+$ aws sqs get-queue-attributes --queue-url <dlq> --attribute-names ApproximateNumberOfMessages
+{
+    "Attributes": {
+        "ApproximateNumberOfMessages": "0"
+    }
+}
+RESULT: 0 messages.
+
+### P6 Alarms of the engine that are not OK
+$ aws cloudwatch describe-alarms --alarm-name-prefix mavenscout-engine --query "MetricAlarms[?StateValue!='OK']"
+alarms in total: 17
+[]
+RESULT: No alarm outside OK.
+
+### P7 Preflight from the origin of the local app
+$ curl -i -X OPTIONS $API/jobs -H 'Origin: http://localhost:5173' -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type,idempotency-key'
+HTTP/2 204 
+access-control-allow-origin: http://localhost:5173
+access-control-allow-methods: GET,POST
+access-control-allow-headers: content-type,idempotency-key
+access-control-max-age: 0
+RESULT: 204, the origin http://localhost:5173 is allowed for GET and POST with the headers the app sends.

@@ -1,0 +1,43 @@
+# A real job on the deployed engine after pull request 79: are the summaries of the top five real text?
+# Date: 2026-11-22. Context: ToR 01, its 9 fixed requirement rows, the 98 approved and active individuals, index 13d7674312434864, Nova Lite for Fit and text, worker code of pull request 79 (applied with 0 added, 1 changed, 0 destroyed).
+
+### P1 Post the job, poll it and read the result
+$ ENGINE_URL=<api> SUPABASE_URL=<database> SUPABASE_ANON_KEY=<key> node real-job.mjs
+pool 98 profiles, ToR tor-01, 9 requirement rows
+POST /jobs 202
++2.9s QUEUED 0/98
++4.5s RUNNING 0/98
++12.6s RUNNING 15/98
++14.3s DONE 98/98
+final state DONE errorCode - endToEndMs 11563
+modelIds {"embed":"amazon.titan-embed-text-v2:0","fit":"us.amazon.nova-lite-v1:0","text":"us.amazon.nova-lite-v1:0","index":"13d7674312434864"} promptVersion fit-v2+summary-v2
+fallbacks []
+top 10
+  #1 Hanna Tesfaye fit=95 total=95 band=strong
+  #2 Nusrat Jahan Chowdhury fit=95 total=90 band=strong
+  #3 Yonas Alemu fit=90 total=90 band=strong
+  #4 Selamawit Girma fit=90 total=88 band=strong
+  #5 Abdiwali Hersi Warsame fit=90 total=86 band=strong
+  #6 Giulia Ferraro Benedetti fit=90 total=80 band=strong
+  #7 Beatriz Nogueira Lima fit=85 total=79 band=good
+  #8 Pablo Vargas fit=85 total=75 band=good
+  #9 Dr. Sunita Patel fit=80 total=75 band=good
+  #10 Hiba Osman Elfaki fit=80 total=68 band=good
+narrative #1: The candidate ranks in the Strong match band with a total score of 95. This is due to a Fit of 95, driven by proven experience in impact evaluation, survey design, and statistical analysis. The candidate met all must-haves and priority rows, including strong expertise in nutrition, impact evaluation, and survey design, and speaks Amharic.
+results 98, with an estimate note 0
+expected top (fixture): [{"handle":"demo-hanna-tesfaye","why":"Addis-based senior nutrition evaluator; four impact evaluations with anthropometry, Amharic, PSNP nutrition-sensitive endline."},{"handle":"demo-abdiwali-hersi-warsame","why":"Somali-speaking SMART survey specialist for the Somali region; lighter on impact evaluation."},{"handle":"demo-nusrat-jahan-chowdhury","why":"Senior nutrition impact evaluator who led an Ethiopia endline; strong fit despite being based in Dhaka."}]
+RESULT: DONE, 98 ranked, no fallback, prompt versions fit-v2 and summary-v2, 11.6 seconds.
+
+### P2 The narratives of the top five and the summary phase of the job record
+$ python3 (reads the stored result and the job record)
+state DONE | ranked 98 | promptVersion fit-v2+summary-v2
+top 5 that fell back to the template: 0 of 5
+#1 words=55 dash=False
+#2 words=56 dash=False
+#3 words=51 dash=False
+#4 words=60 dash=False
+#5 words=54 dash=False
+narrative of #1:
+The candidate ranks in the Strong match band with a total score of 95. This is due to a Fit of 95, driven by proven experience in impact evaluation, survey design, and statistical analysis. The candidate met all must-haves and priority rows, including strong expertise in nutrition, impact evaluation, and survey design, and speaks Amharic.
+summary phase of the job record: calls=5 fallbacks=0 retries=0 tokensIn=6466 tokensOut=450 durationMs=1691 (job 51342d21)
+RESULT: The top five summaries are real text of 51 to 60 words with no dash. The summary phase made 5 calls, none fell back, and used 6466 input and 450 output tokens, about 0.0005 USD, against 0.00076 USD for the 10 calls of the earlier jobs.

@@ -31,6 +31,8 @@ This folder holds everything Loop8 creates in this repository. `loop8-develop` i
 | [docs/architecture/interactive-resources.md](docs/architecture/interactive-resources.md) | Catalog of the published web page for the engine blueprint: its link, versions, companion files and how to keep it in sync |
 | [docs/client-proposal/MavenScout-AI-Ranking-Proposal.en.md](docs/client-proposal/MavenScout-AI-Ranking-Proposal.en.md) | The Flows and Costs document sent to the customer, with its [PDF](docs/client-proposal/Flows-and-Costs.pdf), flowchart and charts |
 | [docs/reports/technical-assessment.md](docs/reports/technical-assessment.md) | Technical assessment (SOW deliverable 1): findings, inputs and outputs, cost, architecture, differences from the SOW diagram |
+| [docs/reports/first-real-runs-report.md](docs/reports/first-real-runs-report.md) | Report of the first real runs of the semantic engine in the customer account: results, time, cost with its sources, findings and deviations from the blueprint
+| [evidences/README.md](evidences/README.md) | Redacted raw output of the live checks of the POC environment, one folder per environment and date, with the format and the rules. The first runs are in `poc/2026-11-21/`
 | [docs/runbooks/poc-environment.md](docs/runbooks/poc-environment.md) | AWS POC environment runbook: read-only checks and their findings, create steps, teardown, inventory |
 | [docs/handoffs/phase0-repo-setup.md](docs/handoffs/phase0-repo-setup.md) | Handoff for P0 |
 | [infra/](infra/) | Terraform for the POC environment and the one bootstrap template (`infra/bootstrap/bootstrap.yaml`, draft, not deployed). Pre-commit checks are in `.pre-commit-config.yaml` |

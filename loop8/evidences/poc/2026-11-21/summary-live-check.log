@@ -1,0 +1,265 @@
+# Live check of the written summaries with the real text model (Nova Lite), prompt summary-v2 of pull request 79.
+# Date: 2026-11-22. Context: 20 real candidates per run taken from the stored result of a real job (strong, good and weak bands), their fragments from the index, a real Fit call for the reason, ToR 01. Bedrock Converse in us-east-1.
+# Runs 9 and 10 used the prompt before the must haves rule, runs m1 and m2 the final prompt of pull request 79, runs k1 and k2 the prompt of pull request 78 (the same script with that version imported, and the first reply analysed with the same rules), runs c1 and c2 a combination of both that was not kept.
+# The first three summaries of each run are printed in full. A summary is accepted when it has 40 to 60 words, names no other band, has no dash used as punctuation and no list.
+
+### P1 Run 9
+$ node summary-live.mjs result.json index-artifact.json tor-01-ethiopia-nutrition.txt 20   (script saved next to this log)
+prompt summary-v2, model us.amazon.nova-lite-v1:0, 20 candidates of a result with 91
+# 1 strong  fit=95 tries=1 words=54 dash=false
+    The candidate ranks in the Strong match band with a total score of 94. Their Fit score of 95 shows proven experience in relevant evaluations, statistical analysis, and survey design. They met key priorities for Nutrition and Health Systems, and also speak Amharic and English. They did not meet the slight priority for Somali.
+# 2 strong  fit=90 tries=2 words=54 dash=false
+    The candidate ranks as a strong match with a total score of 90. Their fit score of 95 shows strong expertise in nutrition and health systems, both tagged as core. They met the slight priority of speaking English. Their proven experience in nutrition evaluations and statistical analysis in Ethiopia drives the strong match ranking.
+# 3 strong  fit=85 tries=1 words=49 dash=false
+    The candidate ranks in the Strong match band with a total score of 89. Their Fit score is 90, driven by relevant experience in nutrition surveys, impact evaluations, and statistical analysis. They met priority rows for Nutrition, Health Systems, and being based in Ethiopia, and speak Amharic and English.
+# 4 strong  fit=85 tries=1 words=54 dash=false
+# 5 strong  fit=90 tries=1 words=48 dash=false
+# 6 strong  fit=85 tries=1 words=45 dash=false
+# 7 good    fit=40 tries=1 words=51 dash=false
+# 8 good    fit=20 tries=2 words=53 dash=false
+# 9 good    fit=70 tries=1 words=53 dash=false
+#10 good    fit=80 tries=1 words=59 dash=false
+#11 good    fit=30 tries=1 words=57 dash=false
+#12 weak    fit=40 tries=1 words=55 dash=false
+#13 weak    fit=10 tries=1 words=60 dash=false
+#14 weak    fit=20 FAILED summary_invalid first=62 second=62
+#15 weak    fit=10 tries=1 words=49 dash=false
+#16 weak    fit=10 tries=1 words=57 dash=false
+#17 weak    fit=10 FAILED summary_invalid first=69 second=63
+#18 weak    fit=0 tries=1 words=60 dash=false
+#19 weak    fit=0 tries=1 words=43 dash=false
+#20 weak    fit=0 tries=2 words=54 dash=false
+
+passed at the first try: 15, after retries: 3 (of them at the third try: 0), fell back: 2 of 20
+words of the accepted summaries: min 43 max 60 average 53.1
+summary tokens in 19763 out 1375 (summary calls only, both tries)
+problems of the rejected first replies: ["too_long:64","too_long:63","FAILED summary_invalid first reply problems: too_long","FAILED summary_invalid first reply problems: too_long","too_short:39"]
+RESULT: 18 of 20 accepted: 15 at the first try, 3 after a retry, 2 fell back (weak candidates the model barely shortened). No dash in any accepted summary.
+
+### P2 Run 10
+$ node summary-live.mjs result.json index-artifact.json tor-01-ethiopia-nutrition.txt 20
+prompt summary-v2, model us.amazon.nova-lite-v1:0, 20 candidates of a result with 91
+# 1 strong  fit=95 tries=1 words=56 dash=false
+    The candidate ranks in the Strong match band with a total score of 94. Their Fit score is 95, driven by proven experience in nutrition evaluations, statistical analysis, and survey design. They met key priorities for nutrition and health systems expertise and are based in Ethiopia. They speak Amharic and English but do not speak Somali.
+# 2 strong  fit=95 tries=1 words=54 dash=false
+    The candidate ranks as a strong match with a total score of 90. Their fit score of 95 shows proven experience in nutrition evaluations and health systems work. They met priority rows for nutrition and health systems but did not meet the slight priority for being based in Ethiopia or speaking Somali or Amharic.
+# 3 strong  fit=85 tries=1 words=48 dash=false
+    The candidate ranks as a strong match with a total score of 89. Their Fit score is 90, driven by relevant experience in nutrition evaluation, survey design, and statistical analysis. They met priority rows for nutrition, health systems, and being based in Ethiopia, and speak Amharic and English.
+# 4 strong  fit=85 tries=1 words=57 dash=false
+# 5 strong  fit=90 tries=1 words=48 dash=false
+# 6 strong  fit=85 tries=1 words=45 dash=false
+# 7 good    fit=40 tries=1 words=52 dash=false
+# 8 good    fit=20 tries=2 words=52 dash=false
+# 9 good    fit=70 tries=1 words=55 dash=false
+#10 good    fit=80 tries=1 words=54 dash=false
+#11 good    fit=30 tries=1 words=55 dash=false
+#12 weak    fit=40 tries=2 words=44 dash=false
+#13 weak    fit=10 tries=1 words=53 dash=false
+#14 weak    fit=20 tries=1 words=46 dash=false
+#15 weak    fit=10 tries=1 words=58 dash=false
+#16 weak    fit=10 tries=1 words=58 dash=false
+#17 weak    fit=20 tries=1 words=55 dash=false
+#18 weak    fit=0 tries=1 words=45 dash=false
+#19 weak    fit=0 tries=1 words=57 dash=false
+#20 weak    fit=0 tries=1 words=49 dash=false
+
+passed at the first try: 18, after retries: 2 (of them at the third try: 0), fell back: 0 of 20
+words of the accepted summaries: min 44 max 58 average 52.0
+summary tokens in 20483 out 1440 (summary calls only, both tries)
+problems of the rejected first replies: ["too_long:62","too_long:61"]
+RESULT: 20 of 20 accepted: 18 at the first try, 2 after a retry. No dash in any accepted summary.
+
+### P3 Together
+Runs 9 and 10: 38 of 40 summaries accepted (95 percent), 33 at the first try and 5 after a retry, 2 fell back to the template. Accepted summaries have 43 to 60 words, 52.6 on average. Summary tokens of the 40 summaries, every try: 40246 in and 2815 out, about 0.00008 USD a summary (computed with the prices of cost-measurement.log).
+RESULT: In production, summary-v1 of pull request 60 had 0 of 25 summaries accepted in the five real jobs (job-records.log P1). Earlier runs of the prompt while it was being tuned are not kept as logs: asking for about 45 words gave 9 of 20, and two or three sentences with one retry gave 17 to 19 of 20.
+
+### P4 Runs m1 and m2: the final prompt of pull request 79 (with the must haves rule)
+$ node summary-live.mjs result.json index-artifact.json tor-01-ethiopia-nutrition.txt 20   (twice)
+--- run m1
+prompt summary-v2, model us.amazon.nova-lite-v1:0, 20 candidates of a result with 91
+# 1 strong  fit=95 tries=1 words=53 dash=false
+    The candidate ranks in the Strong match band with a total score of 94. Their Fit score of 95 shows proven experience in relevant evaluations, statistical analysis, and survey design. They met priority rows for nutrition and health systems, and for being based in Ethiopia. They speak Amharic and English but not Somali.
+# 2 strong  fit=95 tries=1 words=50 dash=false
+    The candidate ranks as a strong match with a total score of 90. They have a Fit score of 95, showing strong capability in nutrition and health systems. They lack some slight priority points for location and language, but their expertise in nutrition evaluations and health systems work is clear.
+# 3 strong  fit=85 tries=1 words=48 dash=false
+    The candidate ranks as a strong match with a total score of 89. Their Fit score is 90, driven by proven experience in nutrition surveys, impact evaluations, and statistical analysis. They met priority rows for nutrition, health systems, and being based in Ethiopia, and speak Amharic and English.
+# 4 strong  fit=90 tries=1 words=54 dash=false
+# 5 strong  fit=90 tries=2 words=48 dash=false
+# 6 strong  fit=85 tries=1 words=52 dash=false
+# 7 good    fit=40 tries=1 words=52 dash=false
+# 8 good    fit=20 tries=2 words=60 dash=false
+# 9 good    fit=70 tries=2 words=52 dash=false
+#10 good    fit=80 tries=1 words=55 dash=false
+#11 good    fit=30 tries=1 words=48 dash=false
+#12 weak    fit=40 tries=1 words=54 dash=false
+#13 weak    fit=10 tries=1 words=56 dash=false
+#14 weak    fit=20 tries=1 words=55 dash=false
+#15 weak    fit=10 tries=1 words=51 dash=false
+#16 weak    fit=10 tries=2 words=52 dash=false
+#17 weak    fit=10 tries=2 words=60 dash=false
+#18 weak    fit=0 tries=1 words=44 dash=false
+#19 weak    fit=0 FAILED summary_invalid first=63 second=62
+#20 weak    fit=0 tries=1 words=55 dash=false
+
+passed at the first try: 14, after retries: 5 (of them at the third try: 0), fell back: 1 of 20
+words of the accepted summaries: min 44 max 60 average 52.6
+summary tokens in 23490 out 1617 (summary calls only, both tries)
+problems of the rejected first replies: ["too_long:61","too_long:68","too_long:61","too_long:70","too_long:65","FAILED summary_invalid first reply problems: too_long"]
+--- run m2
+prompt summary-v2, model us.amazon.nova-lite-v1:0, 20 candidates of a result with 91
+# 1 strong  fit=95 tries=1 words=58 dash=false
+    The candidate ranks as a strong match with a total score of 94. Their Fit score of 95 shows proven experience in nutrition evaluations, statistical analysis, and survey design. They met key priorities for nutrition and health systems expertise, and speak Amharic and English. They did not meet the slight priority for Somali, but are based in Ethiopia.
+# 2 strong  fit=95 tries=1 words=51 dash=false
+    The candidate ranks as a strong match with a total score of 90. Their Fit score of 95 shows proven experience in nutrition evaluations and statistical analysis, particularly in Ethiopia. They met priority rows for nutrition and health systems but did not meet slight priority rows for location or language skills.
+# 3 strong  fit=90 tries=1 words=55 dash=false
+    The candidate ranks as a strong match with a total score of 89. Their Fit score is 90, driven by proven experience in nutrition evaluation, survey design, and statistical analysis in Ethiopia. They met priority rows for nutrition and health systems, and speak Amharic and English. They did not meet the requirement to speak Somali.
+# 4 strong  fit=85 tries=1 words=55 dash=false
+# 5 strong  fit=90 tries=1 words=49 dash=false
+# 6 strong  fit=85 tries=1 words=49 dash=false
+# 7 good    fit=40 tries=1 words=55 dash=false
+# 8 good    fit=20 tries=2 words=60 dash=false
+# 9 good    fit=70 tries=1 words=50 dash=false
+#10 good    fit=80 tries=1 words=54 dash=false
+#11 good    fit=30 tries=1 words=51 dash=false
+#12 weak    fit=40 tries=1 words=60 dash=false
+#13 weak    fit=10 tries=1 words=53 dash=false
+#14 weak    fit=20 tries=1 words=57 dash=false
+#15 weak    fit=10 tries=1 words=58 dash=false
+#16 weak    fit=0 FAILED summary_invalid first=73 second=63
+#17 weak    fit=10 FAILED summary_invalid first=67 second=66
+#18 weak    fit=0 tries=1 words=45 dash=false
+#19 weak    fit=0 tries=1 words=57 dash=false
+#20 weak    fit=0 tries=1 words=51 dash=false
+
+passed at the first try: 17, after retries: 1 (of them at the third try: 0), fell back: 2 of 20
+words of the accepted summaries: min 45 max 60 average 53.8
+summary tokens in 18064 out 1277 (summary calls only, both tries)
+problems of the rejected first replies: ["too_long:68","FAILED summary_invalid first reply problems: too_long+other_band","FAILED summary_invalid first reply problems: too_long"]
+RESULT: m1: 19 of 20 accepted, 14 at the first try. m2: 18 of 20, 17 at the first try. Together 37 of 40 (92.5 percent), 31 at the first try, no dash.
+
+### P5 Runs k1 and k2: the prompt of pull request 78 (three sentences with a role each, feedback of the word count or the band, two tries)
+$ node summary-live-krish.mjs result.json index-artifact.json tor-01-ethiopia-nutrition.txt 20   (twice)
+--- run k1
+prompt summary-v2, model us.amazon.nova-lite-v1:0, 20 candidates of a result with 91
+# 1 strong  fit=95 tries=1 words=51 dash=false
+    The candidate scored a band of Strong match, with a Fit of 95 and a total of 94. They have proven experience in relevant evaluations, statistical analysis, and survey design. They met the priority rows for Nutrition and Health Systems, and also met the slight priority of being based in Ethiopia.
+# 2 strong  fit=95 tries=1 words=53 dash=false
+    The candidate scored a Fit of 95, placing them in the Strong match band with a total of 90. Their expertise in nutrition and health systems, as core competencies, aligns well with the role. They have proven experience in impact evaluations and statistical analysis, as evidenced by their work in Ethiopia and Bangladesh.
+# 3 strong  fit=85 tries=1 words=56 dash=false
+    The candidate has a Fit score of 90, placing them in the Strong match band with a total of 89. Their expertise in nutrition evaluation, survey design, and statistical analysis aligns well with the work. They met strong priority rows for Nutrition and Health Systems, and slight rows for being based in Ethiopia and speaking Amharic.
+# 4 strong  fit=85 tries=2 words=58 dash=false
+# 5 strong  fit=90 FAILED summary_invalid first=62 second=61
+# 6 strong  fit=85 FAILED summary_invalid first=64 second=62
+# 7 good    fit=40 tries=1 words=60 dash=false
+# 8 good    fit=20 tries=1 words=57 dash=false
+# 9 good    fit=70 tries=1 words=52 dash=false
+#10 good    fit=80 tries=2 words=57 dash=false
+#11 good    fit=30 tries=1 words=58 dash=false
+#12 weak    fit=40 tries=1 words=56 dash=false
+#13 weak    fit=10 tries=1 words=52 dash=false
+#14 weak    fit=20 tries=1 words=56 dash=false
+#15 weak    fit=10 tries=1 words=56 dash=false
+#16 weak    fit=0 FAILED summary_invalid first=66 second=67
+#17 weak    fit=10 tries=1 words=46 dash=false
+#18 weak    fit=0 tries=1 words=54 dash=false
+#19 weak    fit=0 tries=1 words=55 dash=false
+#20 weak    fit=0 tries=1 words=50 dash=false
+
+passed at the first try: 15, after retries: 2 (of them at the third try: 0), fell back: 3 of 20
+words of the accepted summaries: min 46 max 60 average 54.5
+summary tokens in 16504 out 1339 (summary calls only, both tries)
+problems of the rejected first replies: ["too_long:71","FAILED summary_invalid first reply problems: too_long","FAILED summary_invalid first reply problems: too_long","too_long:61","FAILED summary_invalid first reply problems: too_long"]
+--- run k2
+prompt summary-v2, model us.amazon.nova-lite-v1:0, 20 candidates of a result with 91
+# 1 strong  fit=95 tries=1 words=52 dash=false
+    The candidate scored a band of Strong match, with a Fit of 95 and a total of 94. Their proven experience in relevant evaluations, statistical analysis, and survey design is evident. They met the priority rows for Nutrition and Health Systems, and also met the slight priority of being based in Ethiopia.
+# 2 strong  fit=95 tries=1 words=59 dash=false
+    The candidate scored a Fit of 95, placing them in the Strong match band with a total of 90. Their expertise in nutrition and health systems, as core competencies, aligns well with the role. They have successfully met key priorities, including their proficiency in English, while not meeting others like being based in Ethiopia or speaking Somali and Amharic.
+# 3 strong  fit=85 tries=2 words=58 dash=false
+    The candidate scored a band of Strong match, with a Fit of 90 and a total of 89. Their expertise in nutrition evaluation, survey design, and statistical analysis shows capability for this work. They met priorities for nutrition and health systems, based in Ethiopia, and speak Amharic and English. They did not meet the priority for speaking Somali.
+# 4 strong  fit=90 FAILED summary_invalid first=63 second=64
+# 5 strong  fit=90 tries=1 words=60 dash=false
+# 6 strong  fit=85 FAILED summary_invalid first=69 second=62
+# 7 good    fit=40 tries=1 words=60 dash=false
+# 8 good    fit=20 FAILED summary_invalid first=61 second=66
+# 9 good    fit=70 tries=1 words=58 dash=false
+#10 good    fit=80 tries=1 words=57 dash=false
+#11 good    fit=30 tries=1 words=59 dash=false
+#12 weak    fit=40 tries=1 words=54 dash=false
+#13 weak    fit=10 tries=1 words=51 dash=false
+#14 weak    fit=20 tries=1 words=50 dash=false
+#15 weak    fit=10 tries=1 words=54 dash=false
+#16 weak    fit=10 FAILED summary_invalid first=61 second=64
+#17 weak    fit=20 tries=1 words=56 dash=false
+#18 weak    fit=0 tries=1 words=54 dash=false
+#19 weak    fit=0 tries=1 words=58 dash=false
+#20 weak    fit=0 tries=1 words=50 dash=false
+
+passed at the first try: 15, after retries: 1 (of them at the third try: 0), fell back: 4 of 20
+words of the accepted summaries: min 50 max 60 average 55.6
+summary tokens in 14533 out 1209 (summary calls only, both tries)
+problems of the rejected first replies: ["too_long:72","FAILED summary_invalid first reply problems: too_long","FAILED summary_invalid first reply problems: too_long","FAILED summary_invalid first reply problems: too_long","FAILED summary_invalid first reply problems: too_long"]
+RESULT: k1: 17 of 20 accepted, 15 at the first try. k2: 16 of 20, 15 at the first try. Together 33 of 40 (82.5 percent), 30 at the first try, no dash. The retry of that version fixed 3 of 10 rejected replies.
+
+### P6 Runs c1 and c2: the three sentence structure of pull request 78 with the writing rules and the retry of pull request 79 (not kept)
+$ node summary-live.mjs result.json index-artifact.json tor-01-ethiopia-nutrition.txt 20   (twice)
+--- run c1
+prompt summary-v2, model us.amazon.nova-lite-v1:0, 20 candidates of a result with 91
+# 1 strong  fit=95 tries=1 words=50 dash=false
+    The candidate has a Fit score of 95 and a total of 94. They have proven experience in evaluations, statistical analysis, and survey design. They met the priority rows for Nutrition and Health Systems, and for being based in Ethiopia. They did not meet the priority row for speaking Somali.
+# 2 strong  fit=90 FAILED summary_invalid first=61 second=61
+# 3 strong  fit=85 tries=1 words=52 dash=false
+    The candidate has a Fit score of 90 and a total of 89, placing them in the Strong match band. They have experience in nutrition evaluation, survey design, and statistical analysis. They met the priority rows for Nutrition, Health Systems, and Based in Ethiopia, and partly met the row for Speaks Amharic.
+# 4 strong  fit=85 tries=1 words=56 dash=false
+# 5 strong  fit=90 tries=1 words=52 dash=false
+# 6 strong  fit=85 tries=1 words=55 dash=false
+# 7 good    fit=40 tries=2 words=51 dash=false
+# 8 good    fit=20 tries=2 words=52 dash=false
+# 9 good    fit=70 tries=2 words=50 dash=false
+#10 good    fit=80 tries=1 words=46 dash=false
+#11 good    fit=30 tries=2 words=51 dash=false
+#12 weak    fit=40 FAILED summary_invalid first=68 second=68
+#13 weak    fit=10 tries=1 words=52 dash=false
+#14 weak    fit=20 tries=1 words=58 dash=false
+#15 weak    fit=10 tries=1 words=55 dash=false
+#16 weak    fit=10 FAILED summary_invalid first=63 second=63
+#17 weak    fit=20 tries=1 words=53 dash=false
+#18 weak    fit=0 tries=1 words=58 dash=false
+#19 weak    fit=0 tries=1 words=42 dash=false
+#20 weak    fit=0 tries=1 words=51 dash=false
+
+passed at the first try: 13, after retries: 4 (of them at the third try: 0), fell back: 3 of 20
+words of the accepted summaries: min 42 max 58 average 52.0
+summary tokens in 20965 out 1328 (summary calls only, both tries)
+problems of the rejected first replies: ["FAILED summary_invalid first reply problems: too_long","too_short:38","too_long:61","too_short:37","too_short:37","FAILED summary_invalid first reply problems: too_long","FAILED summary_invalid first reply problems: too_long"]
+--- run c2
+prompt summary-v2, model us.amazon.nova-lite-v1:0, 20 candidates of a result with 91
+# 1 strong  fit=95 tries=1 words=51 dash=false
+    The candidate has a Fit score of 95 and a total of 94. They have proven experience in relevant evaluations, statistical analysis, and survey design. They met the priority rows for Nutrition and Health Systems, and for being based in Ethiopia. They did not meet the priority row for speaking Somali.
+# 2 strong  fit=90 tries=1 words=59 dash=false
+    The candidate has a Fit score of 95 and a total of 90, fitting the Strong match band. They have proven experience in nutrition evaluations and statistical analysis, with relevant work in Ethiopia. They met the priority rows for nutrition and health systems, but did not meet the slight priority rows for location, language, or speaking Somali and Amharic.
+# 3 strong  fit=85 tries=1 words=47 dash=false
+    The candidate has a Fit score of 90 and a total of 89. They have relevant experience in nutrition evaluation, survey design, and statistical analysis. They met the priority rows for nutrition, health systems, and being based in Ethiopia. They speak Amharic and English but not Somali.
+# 4 strong  fit=85 tries=1 words=56 dash=false
+# 5 strong  fit=90 tries=1 words=46 dash=false
+# 6 strong  fit=85 tries=1 words=58 dash=false
+# 7 good    fit=40 tries=2 words=50 dash=false
+# 8 good    fit=20 tries=2 words=53 dash=false
+# 9 good    fit=70 tries=2 words=50 dash=false
+#10 good    fit=80 tries=1 words=52 dash=false
+#11 good    fit=30 tries=2 words=48 dash=false
+#12 weak    fit=40 tries=1 words=47 dash=false
+#13 weak    fit=10 tries=1 words=52 dash=false
+#14 weak    fit=20 tries=2 words=57 dash=false
+#15 weak    fit=10 tries=1 words=52 dash=false
+#16 weak    fit=10 tries=2 words=60 dash=false
+#17 weak    fit=20 tries=1 words=47 dash=false
+#18 weak    fit=0 tries=1 words=57 dash=false
+#19 weak    fit=0 tries=1 words=53 dash=false
+#20 weak    fit=0 tries=1 words=52 dash=false
+
+passed at the first try: 14, after retries: 6 (of them at the third try: 0), fell back: 0 of 20
+words of the accepted summaries: min 46 max 60 average 52.4
+summary tokens in 26035 out 1658 (summary calls only, both tries)
+problems of the rejected first replies: ["too_short:35","too_long:62","too_short:37","too_short:34","too_short:38","too_long:75"]
+RESULT: c1: 17 of 20 accepted, 13 at the first try. c2: 20 of 20, 14 at the first try. Together 37 of 40, 27 at the first try. The structure did not raise the first try rate, so it was not kept, and only the must haves rule of pull request 78 was taken.
