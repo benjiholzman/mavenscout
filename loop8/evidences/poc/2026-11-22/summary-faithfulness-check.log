@@ -92,4 +92,4 @@ RESULT: 19 of 20 accepted, 18 at the first try, 1 fell back. No first reply over
 
 ### P4 Together
 Runs o1 and o2: 38 of 40 summaries accepted (95 percent), 35 at the first try (before the fix: 31 to 33), 2 fell back to the template. No reply overclaimed at the first try, and an overclaim is rejected by the check whatever the model writes. Summaries that use proven, extensive or impressive: 8 of 38 (before the fix: 18 of 23). Summaries that start with The candidate ranks: 34 of 38.
-RESULT: The check of P1 on the deployed engine after the fix is in summary-deployed-faithfulness.log once the fix is merged and applied.
+RESULT: The check of P1 on the deployed engine after the fix is in summary-deployed-faithfulness.log.
