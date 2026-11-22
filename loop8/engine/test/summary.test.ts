@@ -199,7 +199,7 @@ test('checkSummary agrees with summaryProblems', () => {
 
 test('the system prompt carries the length target, the writing rules and the Fit rule', () => {
   const { system } = buildSummaryPrompt(input)
-  for (const s of ['about 40 words in total', '40 to 60 words', 'one person explains a candidate to another', 'no analogies', 'No lists, no bullet points', 'no markdown', 'Do not use a dash as punctuation', 'mid-career', 'Never explain Fit by location, language, availability, seniority or career level, work arrangement, membership or employer names']) {
+  for (const s of ['about 40 words in total', '40 to 60 words', 'one person explains a candidate to another', 'no analogies', 'No lists, no bullet points', 'no markdown', 'Do not use a dash as punctuation', 'mid-career', 'Never explain Fit by location, language, availability, seniority or career level, work arrangement, membership or employer names', 'The must haves given are the ones the candidate passed']) {
     assert.ok(system.includes(s), s)
   }
   assert.ok(!/[—–]/.test(system), 'the prompt itself has no long dash')
