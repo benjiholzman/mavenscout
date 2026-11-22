@@ -81,6 +81,9 @@ function readEnv(): Record<string, string> {
   return env
 }
 const env = readEnv()
+// Let the shell override the engine URL and model label without editing .env, so
+// a sweep can point the harness at different local engines in turn.
+for (const k of ['VITE_ENGINE_URL', 'EXTRACT_MODEL'] as const) if (process.env[k]) env[k] = process.env[k] as string
 const db = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY)
 
 // This file is bundled for Node, so import.meta.env (the app's engine switch in
