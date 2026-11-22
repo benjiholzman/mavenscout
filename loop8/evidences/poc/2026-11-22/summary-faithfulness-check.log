@@ -1,0 +1,95 @@
+# Do the written summaries say what the data says? A check of the top five summaries of the five sample ToRs, and the live check after the fix.
+# Date: 2026-11-22. Context: P1 ran the deployed engine of pull request 79 (summary-v2). P2 and P3 ran the code of pull request 82 on 20 real candidates per run with Nova Lite. Checked: the numbers, the band, claims that every priority was met against the stored priority rows, and Fit sentences that name an excluded attribute.
+
+### P1 The five sample ToRs through the deployed engine, 25 top five summaries checked against the stored data
+$ ENGINE_URL=<api> SUPABASE_URL=<database> SUPABASE_ANON_KEY=<key> node faithful.mjs   (script saved next to this log)
+top five summaries checked: 25, template fallback: 2, real text: 23
+numbers match the data: 23 of 23 (wrong: 0)
+claims that every priority was met while one was not: 5
+Fit sentence naming an excluded attribute (location, language, career level, employer): 0
+start with "The candidate ranks": 23 of 23; use the word "proven": 18 of 23
+words: min 49 max 60 average 54.4
+
+ISSUES:
+ - tor-01 #3 Yonas Alemu: says all priorities met, data has 2 not fully met (Statistical Analysis:partial, Senior:partial)
+      "The candidate ranks as a strong match with a total score of 90. Their Fit score of 90 comes from proven experience in nutrition evaluation, survey design, and statistical analysis. They met all must-haves and priority rows, including strong expertise in nutrition and impact evaluation, and slight expertise in health systems and survey design."
+ - tor-02 #1 Lucía Barrios Cifuentes: says all priorities met, data has 1 not fully met (Data Science:not_met)
+      "The candidate ranks as a strong match with a total score of 94. Their fit score of 95 shows extensive relevant experience and expertise. They met all must-haves and priority rows, including anti-corruption and public procurement as core expertise. They also met the slight priority of being based in Guatemala."
+ - tor-02 #2 Andrés Castillo Zelaya: says all priorities met, data has 2 not fully met (Citizen Engagement:partial, Policy Analysis:partial)
+      "The candidate ranks as a strong match with a total score of 88. Their fit score of 90 shows proven experience in procurement data analysis and open contracting. They met all must-haves and priority rows, including strong anti-corruption and public procurement expertise, and core data science skills. They also met the slight priority of being based in Tegucigalpa, Honduras."
+ - tor-03 #2 Omar Khalil Mansour: says all priorities met, data has 1 not fully met (Qualitative Research:partial)
+      "The candidate ranks as a strong match with a total score of 93. Their fit score of 95 shows proven experience in market assessments, SME support, and social cohesion. They met all priority rows, including strong expertise in refugees and forced displacement, and slight expertise in SME development and market research. They also met the must-have of speaking Arabic fluently."
+ - tor-05 #3 Aminata Koné-Traoré: says all priorities met, data has 2 not fully met (Software Development:partial, Information Systems:partial)
+      "The candidate ranks in the Strong match band with a total score of 89. Their Fit score is 90, driven by proven experience in e-procurement, change management, and interoperability. They met all must-haves and priority rows, including strong expertise in Digital Governance, Public Procurement, and Change Management. They are based in Abidjan, Côte d'Ivoire."
+RESULT: 23 real summaries and 2 template fallbacks. Numbers right in 23 of 23, no Fit sentence naming an excluded attribute, and 5 of 23 summaries said every priority was met while a row was partly met or not met. 23 of 23 start with The candidate ranks and 18 of 23 use the word proven.
+
+### P2 Live check after the fix, run o1
+$ node summary-live.mjs result.json index-artifact.json tor-01-ethiopia-nutrition.txt 20   (script saved next to this log)
+prompt summary-v2, model us.amazon.nova-lite-v1:0, 20 candidates of a result with 91
+# 1 strong  fit=95 tries=1 words=60 dash=false
+    The candidate ranks as a strong match with a total score of 94. They scored 95 for fit, showing proven experience in nutrition evaluations, statistical analysis, and survey design. They met five out of six priority rows, including strong expertise in nutrition and health systems, and being based in Ethiopia. They did not meet the slight priority of speaking Somali.
+# 2 strong  fit=95 tries=2 words=50 dash=false
+    The candidate ranks as a strong match with a total score of 90. They scored 95 for capability, showing proven experience in nutrition evaluations and health systems work. They met three priority rows, including nutrition and health systems, but did not meet the slight rows for location or language skills.
+# 3 strong  fit=85 tries=1 words=56 dash=false
+    The candidate ranks as a strong match with a total score of 89. They scored 90 for Fit, based on relevant experience in nutrition surveys, impact evaluations, and statistical analysis. Five out of six priority rows were met, including strong expertise in nutrition and health systems. The only unmet row was the ability to speak Somali.
+# 4 strong  fit=85 tries=3 words=50 dash=false
+# 5 strong  fit=90 tries=1 words=55 dash=false
+# 6 strong  fit=85 tries=1 words=59 dash=false
+# 7 good    fit=40 tries=1 words=59 dash=false
+# 8 good    fit=20 tries=1 words=53 dash=false
+# 9 good    fit=70 tries=1 words=55 dash=false
+#10 good    fit=80 FAILED summary_invalid first=65 second=64
+#11 good    fit=30 tries=1 words=50 dash=false
+#12 weak    fit=40 tries=1 words=52 dash=false
+#13 weak    fit=10 tries=1 words=50 dash=false
+#14 weak    fit=20 tries=1 words=58 dash=false
+#15 weak    fit=10 tries=1 words=44 dash=false
+#16 weak    fit=0 tries=1 words=49 dash=false
+#17 weak    fit=10 tries=1 words=50 dash=false
+#18 weak    fit=0 tries=1 words=44 dash=false
+#19 weak    fit=0 tries=1 words=43 dash=false
+#20 weak    fit=0 tries=1 words=57 dash=false
+
+passed at the first try: 17, after retries: 2 (of them at the third try: 1), fell back: 1 of 20
+accepted summaries that use proven, extensive or impressive: 3; that start with 'The candidate ranks': 16; first replies that overclaimed (of the accepted): 0
+words of the accepted summaries: min 43 max 60 average 52.3
+summary tokens in 22800 out 1492 (summary calls only, both tries)
+problems of the rejected first replies: ["too_long:65","too_long:61","FAILED summary_invalid first reply problems: too_long"]
+RESULT: 19 of 20 accepted, 17 at the first try, 1 fell back. No first reply overclaimed. 3 of the accepted summaries use proven, extensive or impressive.
+
+### P3 Live check after the fix, run o2
+$ node summary-live.mjs result.json index-artifact.json tor-01-ethiopia-nutrition.txt 20
+prompt summary-v2, model us.amazon.nova-lite-v1:0, 20 candidates of a result with 91
+# 1 strong  fit=95 tries=1 words=59 dash=false
+    The candidate ranks as a strong match with a total score of 94. They scored 95 for fit, showing proven experience in evaluations, statistical analysis, and survey design. They met five out of six priority rows, including strong expertise in nutrition and health systems, and being based in Ethiopia. They did not meet the slight priority of speaking Somali.
+# 2 strong  fit=95 FAILED summary_invalid first=67 second=61
+# 3 strong  fit=85 tries=1 words=57 dash=false
+    The candidate ranks as a strong match with a total score of 89. Their Fit score is 90, driven by relevant experience in nutrition evaluation, survey design, and statistical analysis. They met five out of six priority rows, including strong expertise in nutrition and health systems, and being based in Ethiopia. They also speak Amharic and English.
+# 4 strong  fit=90 tries=1 words=54 dash=false
+# 5 strong  fit=90 tries=1 words=59 dash=false
+# 6 strong  fit=85 tries=1 words=44 dash=false
+# 7 good    fit=40 tries=1 words=60 dash=false
+# 8 good    fit=20 tries=1 words=54 dash=false
+# 9 good    fit=70 tries=1 words=47 dash=false
+#10 good    fit=80 tries=2 words=50 dash=false
+#11 good    fit=30 tries=1 words=60 dash=false
+#12 weak    fit=40 tries=1 words=52 dash=false
+#13 weak    fit=10 tries=1 words=50 dash=false
+#14 weak    fit=20 tries=1 words=42 dash=false
+#15 weak    fit=10 tries=1 words=52 dash=false
+#16 weak    fit=10 tries=1 words=49 dash=false
+#17 weak    fit=20 tries=1 words=48 dash=false
+#18 weak    fit=0 tries=1 words=45 dash=false
+#19 weak    fit=0 tries=1 words=48 dash=false
+#20 weak    fit=0 tries=1 words=44 dash=false
+
+passed at the first try: 18, after retries: 1 (of them at the third try: 0), fell back: 1 of 20
+accepted summaries that use proven, extensive or impressive: 5; that start with 'The candidate ranks': 18; first replies that overclaimed (of the accepted): 0
+words of the accepted summaries: min 42 max 60 average 51.3
+summary tokens in 20672 out 1291 (summary calls only, both tries)
+problems of the rejected first replies: ["FAILED summary_invalid first reply problems: too_long","too_long:64"]
+RESULT: 19 of 20 accepted, 18 at the first try, 1 fell back. No first reply overclaimed. 5 of the accepted summaries use proven, extensive or impressive.
+
+### P4 Together
+Runs o1 and o2: 38 of 40 summaries accepted (95 percent), 35 at the first try (before the fix: 31 to 33), 2 fell back to the template. No reply overclaimed at the first try, and an overclaim is rejected by the check whatever the model writes. Summaries that use proven, extensive or impressive: 8 of 38 (before the fix: 18 of 23). Summaries that start with The candidate ranks: 34 of 38.
+RESULT: The check of P1 on the deployed engine after the fix is in summary-deployed-faithfulness.log once the fix is merged and applied.
