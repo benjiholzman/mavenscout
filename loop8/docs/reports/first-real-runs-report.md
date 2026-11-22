@@ -17,7 +17,7 @@ Everything in this report was measured on 2026-11-21 unless it says estimate. A 
 2. Five real jobs ran: three posted to the API and two started from the customer's app on the project lead's machine. The last three finished DONE with every candidate ranked. The first two finished PARTIAL because the index left some profiles out, which was found and fixed the same day.
 3. On the sample job description (ToR 01) the three profiles that the test fixture expects at the top ranked first, second and fifth. This is one job description and a synthetic pool, so it shows that the path works and not that the ranking is better than the manual one.
 4. There was no throttle, no retry, no server error and no failed Fit call in any of the five jobs. The dead letter queue stayed empty and no alarm fired.
-5. Four things are not good yet. The written summaries all fell back to the template text in these jobs and still cost about 9.5 percent of each job. A fix (pull request 79) was accepted on 37 or 38 of 40 summaries in two live checks, and it is not deployed. The index text carries organization names in 40 of 98 profiles, the Fit scale is coarse and changes by 10 points for 3 to 6 percent of the candidates between repeats, and the engine does not read job descriptions with a model yet.
+5. Four things are not good yet. The written summaries all fell back to the template text in these jobs and still cost about 9.5 percent of each job. A fix (pull request 79) was accepted on 37 or 38 of 40 summaries in two live checks, and on 2026-11-22 it is deployed and the top five summaries of a real job were real text. The index text carries organization names in 40 of 98 profiles, the Fit scale is coarse and changes by 10 points for 3 to 6 percent of the candidates between repeats, and the engine does not read job descriptions with a model yet.
 6. The cost of the process this month is dominated by the AWS support plan, 29.00 dollars of 29.36 dollars. The Bedrock spend of the project to 2026-11-20 is 0.25 dollars.
 
 ## 2. What was built and deployed
@@ -206,7 +206,7 @@ These are estimates and nobody measured them in this account.
 
 | # | Finding | Evidence | State |
 |---|---|---|---|
-| 1 | The written summaries all fall back to the template. Nova Lite writes 74 to 77 words against the 40 to 60 required, so the length check fails and the retry fails too, and the job still pays for both tries | `job-records.log` P1, `ui-run-screenshots/04-score-breakdown-first-candidate.jpg` (the summary is marked placeholder) | Fixed in pull request 79: prompt `summary-v2` with the writing rules, a check for dashes and lists, and a retry that cuts or extends the rejected text. Live checks on 40 real candidates accepted 37 to 38 and none had a dash, against 33 of 40 for the engineer's pull request 78 on the same candidates (`summary-live-check.log`). Open until a summary pull request is merged and deployed |
+| 1 | The written summaries all fall back to the template. Nova Lite writes 74 to 77 words against the 40 to 60 required, so the length check fails and the retry fails too, and the job still pays for both tries | `job-records.log` P1, `ui-run-screenshots/04-score-breakdown-first-candidate.jpg` (the summary is marked placeholder) | Fixed in pull request 79: prompt `summary-v2` with the writing rules, a check for dashes and lists, and a retry that cuts or extends the rejected text. Live checks on 40 real candidates accepted 37 to 38 and none had a dash, against 33 of 40 for the engineer's pull request 78 on the same candidates (`summary-live-check.log`). Pull request 79 was merged and applied on 2026-11-22, and a real job on the deployed engine returned real summaries for the top five (`summary-deployed-check.log`) |
 | 2 | The index text carries organization names: 153 hits in 40 of the 98 profiles (bio 76, portfolio 38, tagline 24, work history 15). Fit is told to ignore employer names and nothing removes them | `check-artifact.log` P1 and P2 | Known limitation 3 of the engine README. Decision needed: clean the text before indexing or accept it |
 | 3 | Six individuals were missing from every ranking | `index-build.log`, `job-records.log` | Fixed in pull request 72 |
 | 4 | Fit is coarse and moves by one step for 3 to 6 percent of the candidates between repeats | Section 5.3 | Open. Needs a repeat study |
@@ -235,7 +235,7 @@ The blueprint is the published page `loop8/docs/architecture/index.html`. The bu
 | # | Point | State |
 |---|---|---|
 | 1 | Variants: start with the small model alone and 5 summaries | Variant A is built and measured. The small model is Nova Lite, temporarily, because the agreed models are not enabled for the account. The customer must be told before the review |
-| 2 | Summaries of 40 to 60 words, 5 by default | The count and the length rule are built. The text falls back until pull request 79 is merged. The on demand button is not built |
+| 2 | Summaries of 40 to 60 words, 5 by default | The count, the length rule and the writing rules are built and deployed (pull request 79), and the top five summaries of a real job are real text. The on demand button is not built |
 | 3 | A similarity threshold to try | The setting exists and is off. No value was tried. The cap of 200 against 20 made no difference on the engineer's pools |
 | 4 | The AI may suggest Important and Must have | Not built. It needs the extraction call and a rule recorded with the customer |
 | 5 | A monthly cap per hiring manager | Not built. The manager id already travels in the request |
@@ -243,7 +243,7 @@ The blueprint is the published page `loop8/docs/architecture/index.html`. The bu
 
 ## 12. Open items
 
-1. Merge pull request 79, the summary fix with the writing rules (plain words, like one person explaining to another, no analogies, no lists, no dashes used as punctuation) and a code check with feedback on the retry, apply it, and rank again from the app to read the real summaries.
+1. Repeat the live summary check with the models agreed with the customer when AWS enables them, and rank again from the app to read the real summaries in the interface.
 2. Decide on the organization names in the index text.
 3. Tell the customer, through the project manager, that the review uses Nova Lite and not the models agreed on 2026-11-16, and that a ranking from the app replaces the demo manager's ad hoc ranking.
 4. Wait for AWS to enable Luna, Sol, Haiku and Sonnet 5.5 (support case and sales form sent), then repeat the five jobs and the comparison with them.
@@ -285,6 +285,7 @@ All files are in `loop8/evidences/poc/2026-11-21/`. The index of the folder is `
 | `pipeline.log` | Merged pull requests, pipeline runs and the result of each apply |
 | `ui-run.log` | The run from the app and what it saved in the customer database |
 | `summary-live-check.log` | The live check of the written summaries after the fix, 40 real candidates |
+| `summary-deployed-check.log` | A real job on the deployed engine after the fix: the top five summaries are real text |
 | `analyze-jobs.py`, `real-job.mjs`, `summary-live.ts` | The scripts behind `job-records.log`, `api-run-3.log` and `summary-live-check.log` |
 
 ### Screenshots of the run from the app

@@ -35,14 +35,15 @@ POC environment, us-east-1. Five jobs ran with the engine in AWS: three posted t
 | Third API job | DONE, 98 ranked, 10.7 s, no fallback | `api-run-3.log` |
 | The five jobs | 3 DONE, 2 PARTIAL, 0 throttles, 0 retries, 0 Fit fallbacks, 5 of 5 summaries fell back in every job | `job-records.log` P1 |
 | Cost of a job | About 0.008 USD for 98 candidates, 114,080 tokens in and 4,661 out | `job-records.log` P1, `cost-measurement.log` P1 |
-| Written summaries after the fix | 37 to 38 of 40 accepted, 31 to 33 at the first try, none with a dash, 43 to 60 words. Pull request 78, measured the same way, 33 of 40. Not deployed until a summary pull request is merged | `summary-live-check.log` |
+| Written summaries on the deployed engine | Top five of a real job: real text, 0 fell back, 51 to 60 words, no dash | `summary-deployed-check.log` |
+| Written summaries after the fix | 37 to 38 of 40 accepted, 31 to 33 at the first try, none with a dash, 43 to 60 words. Pull request 78, measured the same way, 33 of 40. Deployed with pull request 79 on 2026-11-22 | `summary-live-check.log` |
 | Run from the app | 97 of 97 ranked, same top five as the API, no unscored notice | `ui-run.log`, `ui-run-screenshots/` |
 | What the app saved in the customer database | A new ad hoc run with 97 results. The ranking saved in an opening was not touched | `ui-run.log` P2 |
 | Pull requests and applies | Pull requests 55 to 72 merged, 0 resources destroyed in any apply, two failed runs fixed | `pipeline.log` |
 
 ## Not run
 
-The summaries inside a deployed job, because the fix is not deployed yet. The comparison of the engine against the manual ranking, which the engineer ran locally and reported. A repeat study of Fit with many runs. Any job description other than ToR 01. The engine with the models agreed with the customer, which are not enabled for the account.
+The comparison of the engine against the manual ranking, which the engineer ran locally and reported. A repeat study of Fit with many runs. Any job description other than ToR 01. The engine with the models agreed with the customer, which are not enabled for the account.
 
 ## Window
 

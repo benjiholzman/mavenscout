@@ -32,6 +32,7 @@ The only environment so far is `poc`, the temporary POC environment in the custo
 | [poc/2026-11-21](poc/2026-11-21/) | [job-records.log](poc/2026-11-21/job-records.log) | Records, tokens, cost and Fit comparison of the five real jobs |
 | [poc/2026-11-21](poc/2026-11-21/) | [cost-measurement.log](poc/2026-11-21/cost-measurement.log) | Prices, CloudWatch token counts and Cost Explorer spend |
 | [poc/2026-11-21](poc/2026-11-21/) | [summary-live-check.log](poc/2026-11-21/summary-live-check.log) | Live check of the written summaries with the real text model on 40 real candidates, prompt `summary-v2` |
+| [poc/2026-11-21](poc/2026-11-21/) | [summary-deployed-check.log](poc/2026-11-21/summary-deployed-check.log) | A real job on the deployed engine after pull request 79: the top five summaries are real text |
 | [poc/2026-11-21](poc/2026-11-21/) | [pipeline.log](poc/2026-11-21/pipeline.log) | Merged pull requests, pipeline runs and the result of each apply |
 | [poc/2026-11-21](poc/2026-11-21/) | [ui-run.log](poc/2026-11-21/ui-run.log) | The ranking started from the app, its screenshots and what it saved in the customer database |
 
