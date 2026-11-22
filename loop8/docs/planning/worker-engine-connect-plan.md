@@ -94,7 +94,7 @@ What already works:
 
 1. Throttling and transient errors (`ThrottlingException`, `ServiceUnavailableException`, HTTP 429 and 5xx) are retried 3 times with full jitter backoff, and the SDK own retry is off (`maxAttempts` 1), so retries do not multiply.
 2. Errors that a retry cannot fix (`AccessDenied`, `ValidationException`, `ResourceNotFoundException`, and the message `not available for this account`) fail the job at once with `fit_model_unavailable`, instead of five receives. This is the exact error the blocked models give today.
-3. A reply that is cut off or is not valid JSON is retried once, and the tokens of every reply are counted because they are billed. A summary of the wrong length or one that names another band is retried once.
+3. A reply that is cut off or is not valid JSON is retried once, and the tokens of every reply are counted because they are billed. A summary that is the wrong length, names another band, uses a dash as punctuation or has a list marker is asked for again with what was wrong, up to three tries, and then falls back to the template text (`summary-writing-plan.md`).
 4. One failed Fit, score or summary falls back for that candidate only, with an honest note. If every Fit call fails, the job does not finish as DONE.
 5. After a caught retryable error the worker releases its lease and requeues the message after 10 seconds. The queue sends a job to the dead letter queue after 5 receives, and an alarm fires when that queue is not empty. Logs carry the error name only, never request or model text.
 
@@ -143,13 +143,13 @@ Assumptions.
 
 1. The index built from the local demo seed matches the profiles in the customer database for the 97 approved ones. The engine reads the profile data for scoring from the database, so a profile that is in the index and not in the database falls back with `profile_missing`.
 2. Reading and parsing the 9.4 MB index on a cold start takes a few seconds of the 180 second run. Not measured.
-3. The index text contains organization names in 42 profiles (159 hits of `npm run check-artifact`). Fit is told to ignore employer names and nothing removes them. This is known limitation 3 of the engine README. It affects the quality claim and is not fixed here.
+3. The index text contains organization names in 40 profiles (153 hits of `npm run check-artifact`). Fit is told to ignore employer names and nothing removes them. This is known limitation 3 of the engine README. It affects the quality claim and is not fixed here.
 
 Impact analysis.
 
 1. From the apply every job calls Titan V2 once and Nova Lite once for each candidate judged (up to 200) and for up to 5 summaries. The customer pays for these calls. The cost per job is not measured, and the engineer reported about 0.20 dollars for his whole comparison.
 2. The worst case is bounded by 100 jobs a day, 200 candidates per job, the token alarms and the 150 percent cut of the worker role.
-3. The summaries fall back to the template text until the engineer's fix for the summary length is merged.
+3. The summaries fell back to the template text until the summary change of pull request 79, merged on 2026-11-22 (`summary-writing-plan.md`).
 4. Reversal: set `engine_mode` to empty in a pull request. The index is not touched.
 
 Acceptance criteria.
@@ -159,15 +159,17 @@ Acceptance criteria.
 3. A job posted to the deployed API with a real job description and pool ids finishes DONE or PARTIAL, with Fit from Nova Lite and the index version in its result.
 4. The dead letter queue is empty and no alarm fires.
 
-Remaining steps. The apply and the real job (build record below after they are done), the engineer's summary fix and a decision on the organization names in the index text.
+Remaining steps. The apply and the real job (build record below after they are done), and a decision on the organization names in the index text. The summary fix was done in pull request 79.
 
 ### 10.1 Build record
 
 | Date | Step | What was done and how it was checked |
 |---|---|---|
-| 2026-11-21 | Index built and uploaded | Built with the hand run script from the 98 local demo profiles with Titan V2: 964 fragments, index version `bda903154e95230e`, 42,765 input tokens, 9.4 MB gzipped, uploaded to `index/index.json.gz`. `npm run check-artifact` against the organization list of the customer database reported 159 organization names in the free text of 42 profiles, which is known limitation 3 and was not fixed |
+| 2026-11-21 | Index built and uploaded | Built with the hand run script from the 98 local demo profiles with Titan V2: 964 fragments, index version `bda903154e95230e`, 42,765 input tokens, 9.4 MB gzipped, uploaded to `index/index.json.gz`. `npm run check-artifact` against the organization list of the customer database reported 153 organization names in the free text of 40 of the 98 profiles, which is known limitation 3 and was not fixed. An earlier version of this record said 159 hits in 42 profiles, which counted lines of the output that were not hits |
 | 2026-11-21 | Turned on | Issue 69 and pull request 70 merged. The first pipeline run failed the Checkov check CKV_AWS_300, which accepts the abort setting only on a rule with an empty filter, so the lifecycle has a third rule for that. The apply finished with 0 added, 2 changed, 0 destroyed. The worker has `ENGINE=semantic` and the index key, and the 7 day expiry covers only `inputs/` and `results/` |
 | 2026-11-21 | First real job | One job posted to the deployed API with ToR 01, its 9 requirement rows and 121 pool profiles (the pool query did not exclude firms) finished PARTIAL in 13.4 seconds, 92 profiles ranked. Fit and text model `us.amazon.nova-lite-v1:0`, embedding Titan V2, prompt `fit-v2+summary-v1`. No profile carried an estimate note, so every Fit call that was made succeeded. The dead letter queue was empty, no alarm fired and the worker log showed no error. The three expected profiles of ToR 01 were in the top 5 (ranks 1, 2 and 5). The summaries of the top 5 all fell back to the template text, the known length problem of Nova Lite. The 29 `not_indexed` profiles were 23 firms and 6 individuals |
 | 2026-11-21 | Run from the app | The app on the project lead's machine, with `VITE_ENGINE_URL` set, ranked the 97 profiles of its pool for ToR 01 with two expertise priorities in 13.2 seconds: 91 ranked, 6 `not_indexed`, PARTIAL. The same top 3 as the API job. The app showed "6 more experts now meet your Must haves" for the 6 individuals. The ranking replaced the earlier unsaved ranking of the demo manager in the customer database, as the app does by design. The ranking saved to an opening was not touched |
 | 2026-11-21 | Cause of the 6 | The 6 are the ToR 05 individuals. The seed gives them a slug and no id, and the index keyed them by slug, while the database holds them under an id derived from `demo-<slug>` by the seed build. The 6 derived ids matched the 6 `not_indexed` ids of the real job (issue 71) |
-| 2026-11-21 | Index fixed | `demoKey` now derives the database id for a profile with a slug and no id, with tests for the six. The index was rebuilt with 0 Titan calls (all 964 vectors reused, the text is unchanged): version `13d7674312434864`, 98 profiles under their database ids, uploaded to `index/index-13d7674312434864.json.gz`. The key in Terraform points to it, so the apply replaces the worker environment and starts new containers (pull request 72). The result of the apply and of a job over the 98 individuals is recorded below once done |
+| 2026-11-21 | Index fixed | `demoKey` now derives the database id for a profile with a slug and no id, with tests for the six. The index was rebuilt with 0 Titan calls (all 964 vectors reused, the text is unchanged): version `13d7674312434864`, 98 profiles under their database ids, uploaded to `index/index-13d7674312434864.json.gz`. The key in Terraform points to it, so the apply replaces the worker environment and starts new containers (pull request 72). The result of the apply and of a job over the 98 individuals is in the next row |
+| 2026-11-21 | Apply and job over the 98 individuals | The apply of pull request 72 finished with 0 added, 1 changed, 0 destroyed. The worker environment has the key of index `13d7674312434864`. A job over the 98 individuals finished DONE in 13.5 seconds with 98 ranked and no `not_indexed` profile, no estimate note, no throttle and no retry. The dead letter queue was empty. The app then ranked its 97 profiles with no unscored notice. Two more jobs and the screenshots are in `loop8/evidences/poc/2026-11-21/`, and the report is `loop8/docs/reports/first-real-runs-report.md` |
+| 2026-11-22 | Summaries | Pull request 79 changed the written summaries and was applied with 0 added, 1 changed, 0 destroyed. A real job over the 98 individuals finished DONE with prompt versions `fit-v2+summary-v2`, and the top five summaries were real text and not the template. Plan and build record: `summary-writing-plan.md` |

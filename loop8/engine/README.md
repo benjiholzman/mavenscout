@@ -98,6 +98,20 @@ Each Bedrock call is limited and retried as follows. The wait and time figures a
 
 An error that is not a model failure, such as reaching the deadline while waiting to retry, skips the candidate and does not count as a failed Fit call. If every attempted Fit call fails the job still stops as before.
 
+## Written summaries
+
+The summary of each of the top `SUMMARY_COUNT` candidates is written after the ranking, with the text model, and explains the total and not Fit. Prompt version `summary-v2` (recorded with each result in `promptVersion`). Plan and measurements: `loop8/docs/planning/summary-writing-plan.md`.
+
+| What | Behavior |
+|---|---|
+| Input | The numbers, the band, the priority rows, the must haves the candidate passed, the reason of the Fit call and the evidence. Never the name or the ids of the candidate |
+| Prompt | Two or three short sentences, about 40 words and never more than 55. Plain words like one person explaining to another, no analogies, no lists or markdown, no dash used as punctuation. Fit is never explained by location, language, availability, seniority or career level, work arrangement, membership or employer names. The must haves given are the ones passed |
+| Checks | `summaryProblems`: 40 to 60 words, no other band named, no long dash, short dash, double hyphen or hyphen with white space around it, and no list marker at the start of a line. A hyphen inside a word is fine. `checkSummary` is true when there is no problem |
+| Retry | A rejected reply is asked for again with what was wrong and the rejected text, up to 3 tries. Too long: cut to about 50 words by removing the least important details. Too short: add one short sentence. The tokens of every try are counted |
+| Fallback | A reply that fails the third try, or is cut off at the token limit, falls back to the template text with the note that a written summary was not available. The job continues |
+
+Measured with Nova Lite on 20 real candidates per run: 37 to 38 of 40 summaries accepted, 31 to 33 at the first try, none with a dash. The first version in production had 0 of 25 accepted. On a real job on the deployed engine the top five summaries were real text, 51 to 60 words.
+
 ## Retries
 
 When the worker catches an error that a retry might fix, it releases its lease on the job and makes the SQS message visible again after 10 seconds (`retryDelaySeconds` in `src/shared/limits.ts`), instead of waiting for the full visibility timeout of 1,080 seconds. It shortens the wait only if the lease was released, because a worker that finds the lease still held skips the message and SQS then deletes it. A crash the worker cannot catch, such as a Lambda timeout, still waits the full visibility timeout. Each retry counts as a receive, so after the fifth receive the job is failed and the message goes to the dead letter queue as before. A `TerminalError` fails the job at once and is never retried. The worker role needs `sqs:ChangeMessageVisibility`, which runbook Part D already grants. The worker takes the queue URL from `JOBS_QUEUE_URL` when it is set and otherwise builds it from the `eventSourceARN` of the SQS record (`aws` and `aws-us-gov` partitions only); if neither gives a URL, no fast retry is requested and the message waits for its visibility timeout.

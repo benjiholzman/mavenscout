@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Built and checked locally on 2026-11-21 in pull request 68. The apply and the stub job check are recorded after the merge |
+| Status | Applied on 2026-11-21 (pull request 68) and checked. The deviations from the blueprint are listed in section 9 and wait for the project lead's decision |
 | Phase | P2 (engine wiring, error handling) |
 | Task | Close gaps 1, 2, 3 and 5 of section 8 of `worker-engine-connect-plan.md`: a request timeout on the Bedrock call, a run deadline, longer and visible retry of throttling with fewer parallel calls after a throttle, and the two transient errors that were treated as final |
 | Owner | Guillermo Sandoval |
@@ -15,7 +15,7 @@ All time and cost figures in this document are estimates. None has been measured
 
 Calls to a model fail often. Pull request 60 retries throttling three times, fails fast on configuration errors and falls back per candidate, but four things are still open. A call that hangs has no timeout. A run has no deadline, so a Lambda timeout at 180 seconds loses every call of the run and the next receive pays for them again. The retry gives up after about 3.5 seconds, so a real throttling burst turns many Fit calls into estimates without any sign of it beyond a note on each candidate. Two transient errors, `ModelTimeoutException` (HTTP 408) and `ModelErrorException` (HTTP 424), are treated as final.
 
-The summaries are not part of this task. The engineer is changing `src/stage2/summary.ts` and its prompt.
+The summaries are not part of this task. They are in `summary-writing-plan.md`.
 
 ## 2. What the design already decided
 
@@ -61,7 +61,7 @@ Files: `src/models/text-model.ts`, `src/stage2/retry.ts`, `src/stage2/run-stage2
 
 ## 7. Remaining steps
 
-1. The engineer finishes the summaries and uploads the gzipped index to the jobs bucket.
+1. The summaries were done in pull request 79 (`summary-writing-plan.md`) and the index is in the jobs bucket.
 2. A separate change sets `ENGINE=semantic` and `INDEX_ARTIFACT_S3_KEY` after approval, because from then every job calls a model and costs money.
 3. One real run checks the throttle path. It is not forced against the customer account without approval.
 4. Gaps 4 and 6 of section 8 (a share of fallbacks that fails the job, and the content filter stop reason) are decided after the first real runs.
@@ -75,4 +75,19 @@ Built on 2026-11-21 in pull request 68 for issue 67. Checked locally on a copy w
 3. Checks. `npm run typecheck`, `npm test` (382 of 382) and `npm run build` pass, and the worker bundle loads. The pre-commit hooks are run by the commit.
 4. Checked with a real call. On 2026-11-21 one Converse call to Nova Lite through the `us.` profile with the normal timeout returned in about 0.9 seconds and used 11 tokens, and the same call with a timeout of 1 millisecond failed with `RequestTimeout` after 9 milliseconds, which `isRetryable` accepts. This shows the SDK honors the abort signal. The call was a single request with 5 output tokens at most.
 5. Not checked. A real hung call, a real throttling burst and the names `ModelTimeoutException` and `ModelErrorException` cannot be forced against the account, so the other paths are tested with injected errors and a client that never answers. The time to save 200 results is not measured.
-6. Still pending. The apply of this pull request (the two Lambda functions update in place, `ENGINE` stays unset) and a job with the stub engine, the summaries fix of the engineer, the gzipped index in the jobs bucket and the separate change that sets `ENGINE=semantic`.
+6. Applied. The pull request was merged on 2026-11-21 and the apply finished with 0 added, 1 changed, 0 destroyed (the worker function). Both functions were Active, the dead letter queue was empty and a job with the stub engine finished DONE in 1.4 seconds. The engine was turned on later the same day (`worker-engine-connect-plan.md`, section 10) and five real jobs ran with these limits: no throttle, no retry and no failed Fit call in any of them, so the retry and the deadline paths were not exercised live.
+7. Still pending. The decisions of section 9. The summaries were done in pull request 79 (`summary-writing-plan.md`).
+
+## 9. Deviations from the blueprint
+
+The blueprint is the published page `loop8/docs/architecture/index.html`. These are the places where the build differs from it, reviewed with the project lead on 2026-11-21. Each one waits for a decision. The blueprint is updated for the ones that are accepted.
+
+| # | Blueprint | Build | Reason | What would remove it |
+|---|---|---|---|---|
+| 1 | When time runs short the worker saves a checkpoint and sends a continuation message | The run stops starting calls early and finishes with flagged estimates | Simpler, and a job is never lost | Checkpoints per candidate, the permission `sqs:SendMessage` for the worker role, a continuation message |
+| 2 | After a throttle the job halves its parallelism and recovers slowly. A last pass retries the failed candidates | The parallelism is halved down to 2 and is not raised again in the run. No last pass | Less code for a first version | A slow recovery rule and a retry pass |
+| 3 | 4 attempts and a 30 second call timeout | 6 attempts and a 25 second timeout | Gap 3 of section 8 of the connect plan asked for a longer retry | Change the blueprint, or change the defaults |
+| 4 | A checkpoint after each candidate | One checkpoint per candidate at the end, in rank order | The summaries need every total first | Write the Fit results as they arrive and update them after the summaries |
+| 5 | OpenSearch Serverless as the vector database | An index file in S3, searched in memory | Variant A with a pool of 98 profiles, and OpenSearch bills by the hour | The OpenSearch build check and a decision on its cost to the customer |
+| 6 | A model reads the job description and suggests requirements | The engine uses the app's current extractor | The first variant measures Fit | An extraction call with the text model, which the customer's suggested priorities need |
+| 7 | Summaries on demand and reuse of a stored result by hash | Not built | Both are optional in the blueprint | A route `POST /jobs/{id}/summaries`, a button in the app and a hash of the request |
