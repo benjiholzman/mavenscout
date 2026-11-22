@@ -14,7 +14,7 @@ POC environment, us-east-1. Five jobs ran with the engine in AWS: three posted t
 | Cost on the bill | Not yet for 2026-11-21 | Cost Explorer lags, the jobs are not in it, `cost-measurement.log` P4 and P5 |
 | Quality of the ranking against the manual one | No | Not run here. The engineer's results are reported in the report, section 5.4 |
 | Repeat noise of Fit | Partly | Four comparisons of repeated or related runs, `job-records.log`. Too few for a conclusion |
-| Written summaries | Failed in the five jobs, fixed and checked live afterwards | All 25 fell back to the template text in the jobs, `job-records.log`. The fix of pull request 79 was checked on 40 real candidates, 38 accepted, `summary-live-check.log` |
+| Written summaries | Failed in the five jobs, fixed and checked live afterwards | All 25 fell back to the template text in the jobs, `job-records.log`. The fix of pull request 79 was checked on 40 real candidates in two sets of two runs, 37 to 38 accepted, and the prompt of pull request 78 on the same candidates got 33, `summary-live-check.log` |
 | Organization names in the index text | Yes | `check-artifact.log` |
 | Throttling, a hung call, the run deadline and the dead letter queue path in a live run | No | They cannot be forced against the customer account. They are tested with injected errors in the engine tests |
 | Authentication of the API | Not applicable | The API has none, by the blueprint's accepted risk |
@@ -35,7 +35,7 @@ POC environment, us-east-1. Five jobs ran with the engine in AWS: three posted t
 | Third API job | DONE, 98 ranked, 10.7 s, no fallback | `api-run-3.log` |
 | The five jobs | 3 DONE, 2 PARTIAL, 0 throttles, 0 retries, 0 Fit fallbacks, 5 of 5 summaries fell back in every job | `job-records.log` P1 |
 | Cost of a job | About 0.008 USD for 98 candidates, 114,080 tokens in and 4,661 out | `job-records.log` P1, `cost-measurement.log` P1 |
-| Written summaries after the fix | 38 of 40 accepted, 33 at the first try, none with a dash, 43 to 60 words. Not deployed until pull request 79 is merged | `summary-live-check.log` |
+| Written summaries after the fix | 37 to 38 of 40 accepted, 31 to 33 at the first try, none with a dash, 43 to 60 words. Pull request 78, measured the same way, 33 of 40. Not deployed until a summary pull request is merged | `summary-live-check.log` |
 | Run from the app | 97 of 97 ranked, same top five as the API, no unscored notice | `ui-run.log`, `ui-run-screenshots/` |
 | What the app saved in the customer database | A new ad hoc run with 97 results. The ranking saved in an opening was not touched | `ui-run.log` P2 |
 | Pull requests and applies | Pull requests 55 to 72 merged, 0 resources destroyed in any apply, two failed runs fixed | `pipeline.log` |
