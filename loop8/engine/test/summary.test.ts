@@ -219,12 +219,12 @@ test('the first request has no feedback block and the retry request adds the rej
   assert.ok(!requests[0].includes('<rejected_reply>') && !requests[0].includes('<what_was_wrong>'))
   assert.ok(requests[1].startsWith(requests[0]))
   assert.ok(requests[1].includes(`<rejected_reply>\n"${rejected}"\n</rejected_reply>`))
-  assert.ok(requests[1].includes('1. The reply had 74 words. Write it again as exactly two sentences of about 24 words each, and cut the less important details.'))
+  assert.ok(requests[1].includes('1. The reply had 74 words. Cut it to about 50 words by removing the least important details, and keep the rest of the text as it is.'))
 })
 
 test('the retry names each problem of the rejected reply', async () => {
   const cases: [string, string][] = [
-    [words(30), 'The reply had 30 words. Write it again as exactly three sentences of about 16 words each.'],
+    [words(30), 'The reply had 30 words. Add a short sentence on the strongest evidence or on the priorities, so the text reaches about 50 words, and keep the rest as it is.'],
     [words(45, ' a weak match'), 'The reply named the band "Weak match". The band is "Strong match", so name only that band or none.'],
     [words(25) + ` ${LONG_DASH} ` + words(25), 'The reply used a dash as punctuation. Write it again with commas, full stops or the word "and", and no dash.'],
     [`- ${words(25)}\n- ${words(25)}`, 'The reply used a list marker. Write one paragraph with no list.'],
@@ -256,8 +256,8 @@ test('a model that overshoots to too few words is corrected in the third try, wh
   assert.equal(r.text, words(48))
   assert.equal(seen.length, 3)
   assert.equal(r.inputTokens, 300)
-  assert.ok(seen[1].includes('The reply had 74 words. Write it again as exactly two sentences of about 24 words each'))
-  assert.ok(seen[2].includes('The reply had 30 words. Write it again as exactly three sentences of about 16 words each.'))
+  assert.ok(seen[1].includes('The reply had 74 words. Cut it to about 50 words by removing the least important details, and keep the rest of the text as it is.'))
+  assert.ok(seen[2].includes('The reply had 30 words. Add a short sentence on the strongest evidence or on the priorities, so the text reaches about 50 words, and keep the rest as it is.'))
   assert.ok(seen[2].includes(`<rejected_reply>\n"${words(30)}"\n</rejected_reply>`))
   assert.ok(!seen[2].includes(words(74)))
 })

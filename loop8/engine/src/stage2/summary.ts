@@ -65,9 +65,9 @@ export type SummaryProblem =
 function describe(problem: SummaryProblem, band: Band): string {
   switch (problem.code) {
     case 'too_long':
-      return `The reply had ${problem.words} words. Write it again as exactly two sentences of about 24 words each, and cut the less important details.`
+      return `The reply had ${problem.words} words. Cut it to about 50 words by removing the least important details, and keep the rest of the text as it is.`
     case 'too_short':
-      return `The reply had ${problem.words} words. Write it again as exactly three sentences of about 16 words each.`
+      return `The reply had ${problem.words} words. Add a short sentence on the strongest evidence or on the priorities, so the text reaches about 50 words, and keep the rest as it is.`
     case 'other_band':
       return `The reply named the band "${problem.label}". The band is "${BAND_LABELS[band]}", so name only that band or none.`
     case 'dash':
