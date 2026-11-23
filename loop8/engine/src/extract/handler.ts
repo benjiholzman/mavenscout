@@ -9,7 +9,8 @@ import { createAwsStore } from '../shared/aws-store'
 import { DEFAULT_LIMITS } from '../shared/limits'
 import { log } from '../shared/log'
 import { createExtractCompleter, EXTRACT_CALL_TIMEOUT_MS } from './complete'
-import { extractFromJd } from './extract'
+import { extractFromJd, type ExtractionStats } from './extract'
+import { EXTRACTION_PROMPT_VERSION } from './prompt'
 import { handleExtract, type ExtractOutcome } from './route'
 
 const region = process.env.AWS_REGION ?? 'us-east-1'
@@ -32,6 +33,7 @@ export async function handler(
     deadlineAt: startedAt + context.getRemainingTimeInMillis() - RESPONSE_MARGIN_MS,
   })
   let degraded = false
+  let stats: ExtractionStats | null = null
   try {
     const res = await handleExtract(toApiRequest(event), {
       counter: store,
@@ -43,11 +45,15 @@ export async function handler(
           onFallback: () => {
             degraded = true
           },
+          onStats: (s) => {
+            stats = s
+          },
         })
         return { extracted, degraded, model: settings.extractModel }
       },
     })
-    // One line per call. It never carries the job description or the reply of the model.
+    // One line per call. It never carries the job description or the reply of the model, only counts. The
+    // counts show what the validation did with the names the model returned, which the answer does not.
     const body = res.body as Partial<ExtractOutcome>
     log('extract_done', {
       jobId: 'n/a',
@@ -57,6 +63,8 @@ export async function handler(
       durationMs: Date.now() - startedAt,
       ...completer.usage(),
       expertise: body.extracted ? body.extracted.expertise.length : null,
+      promptVersion: EXTRACTION_PROMPT_VERSION,
+      modelNames: stats,
     })
     return toHttpResponse(res)
   } catch (e) {

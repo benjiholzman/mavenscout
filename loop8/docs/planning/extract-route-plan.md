@@ -146,3 +146,8 @@ Sections 3.1, 3.2 and 3.3 as planned, in issue 86. The extract route logic is in
 2. The route settings of the stage and the budget action update are not checked until the plan of Terraform is read on the pull request. Assumptions 2 and 6 of section 4 stay open.
 3. The IAM condition `ForAllValues:StringLike` on `dynamodb:LeadingKeys` is covered by the module test, but its effect is only proven by a policy simulation after the apply. It is added to criterion 4.
 4. The worker code changes in the plan of pull request 87, which section 5 first denied. The worker shares `DEFAULT_LIMITS` with the other functions and that object has a new field, `extractDailyCap`, that the worker never reads. Its behavior does not change, and the claim in section 5 was corrected.
+
+### 8.4 The first real extraction and what followed
+
+After the apply of pull request 87, one real extraction was made on the deployed route for sample ToR 01. It answered 200 in 2.5 seconds with `degraded` false and Nova Pro, with 3,306 input tokens and 121 output tokens, which is 0.003 dollars at the AWS price list (0.0008 and 0.0032 per 1,000 tokens, us-east-1, published 2026-11-11). It found 10 of 13 expected terms, the same as the keyword extractor. Three local model calls showed that the model had returned names with the hint of the list line and that the validation dropped them. That is the subject of issue 88 and of `loop8/docs/planning/extract-format-fix-plan.md`. The measurement of criterion 7 is not done here: it is done there, with all five ToRs.
+

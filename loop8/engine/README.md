@@ -121,13 +121,23 @@ The route `POST /extract` reads a pasted job description once and answers in the
 |---|---|
 | Request | `{ jdText, ctx }`, where `ctx` carries the expertise list, the known locations and the known languages. At most 15,000 characters of text and 524,288 bytes of body. A bad body answers 400 or 413 and does not use the daily cap |
 | Response | `{ extracted, degraded, model }`. `extracted` has expertise, locations and languages, each a suggestion only. Never a Must have, never the employer. `model` is the model id that was asked. `degraded` is true when the model failed or its reply could not be read and `extracted` is the keyword result |
-| Model call | The same text model client and retry rules as Fit, with a 10 second timeout per call and at most one retry. A retry does not start when less than a call timeout remains before the deadline of the Lambda (25 seconds, less a 2 second margin for the response). The model reply is checked against the known lists, a wrong name is dropped, and the result is joined with the keyword result so recall can only rise |
+| Prompt | Version `extract-v2`. The list is sent as lines `Name (hint, hint)`. Rule 1 says that the parentheses are hints and not part of the name, and asks to read the context, the tasks and the deliverables. It uses no example taken from a sample ToR |
+| Model call | The same text model client and retry rules as Fit, with a 10 second timeout per call and at most one retry. A retry does not start when less than a call timeout remains before the deadline of the Lambda (25 seconds, less a 2 second margin for the response). The model reply is checked against the known lists and the result is joined with the keyword result so recall can only rise. A name is tried exactly, then as an old name, and then without one trailing parenthesis, because a model may copy the whole line of the list. A name that matches none is dropped |
 | Failure | A model that fails does not fail the route. It answers 200 with the keyword result and `degraded` true, and the app shows suggestions as before. The Lambda answers 500 only when the function itself fails, for example when the counter table cannot be reached |
 | Daily cap | 300 extractions a day (`extractDailyCap` in `src/shared/limits.ts`), counted in the jobs table under the key `DAY#extract-<day>`, separate from the daily job cap. The next call answers 429 with the code `daily_cap`, and the app client does not retry that code. The count includes calls whose model failed |
 | Route throttle | 1 request a second with a burst of 3 for this route, set in Terraform (`extract_rate_limit`, `extract_burst_limit`). Estimates, adjust after the first runs |
 | Role | The extract role has logs, `bedrock:InvokeModel` on the extraction model and `dynamodb:UpdateItem` on the keys `DAY#extract-*` of the jobs table. It has no bucket, queue or secret access. It is part of the budget cut at 150 percent |
-| Logs | One `extract_done` line per call: status, model, degraded, duration, model calls, tokens and the number of expertise suggestions. The job description and the reply of the model are never logged |
+| Logs | One `extract_done` line per call: status, model, degraded, duration, model calls, tokens, the number of expertise suggestions, the prompt version and `modelNames`, the counts of what the validation did with the names the model returned (returned, exact, old name, hint removed, dropped, and returned and kept for locations and languages). The job description and the reply of the model are never logged, and neither is a returned name |
 | Measured | Not measured yet. The recall against the keyword result, the latency and the cost per call are recorded in the plan after the first runs |
+
+## Comparing models for the extraction
+
+`npm run extract-compare -- --models=<id>[,<id>]` runs the real extraction code on the five sample ToRs with each model and scores it against `docs/samples/expectations.json`, next to the keyword extractor. Plan: `loop8/docs/planning/extract-format-fix-plan.md`.
+
+1. Without `--confirm-live` it prints the number of planned calls (ToRs times models) and makes none: no database read and no model call.
+2. With `--confirm-live --max-calls=<n>` it makes the calls. `n` must be at least the planned number, so the approved number of calls is written in the command. The calls are paid by the customer.
+3. It needs AWS credentials in the environment that may invoke the models, and the Supabase values of the root `.env` to read the expertise list, the locations and the languages (read only).
+4. It prints, for each model, the recall of the expected terms, the suggestions that were not expected, the degraded answers, the tokens and the counts of the validation, and writes the table to `loop8/internal/`. It never prints a job description or a model reply. The cost is computed from the tokens and the AWS price list, not by the script.
 
 ## Retries
 

@@ -32,10 +32,50 @@ import type { CompleteFn } from './complete'
 import { parseExtraction } from './parse'
 import { buildExtractionPrompt } from './prompt'
 
+/** What the validation did with the names the model returned. Counts only, never text. */
+export interface ExtractionStats {
+  expertise: {
+    returned: number
+    /** The name was on the list as returned. */
+    exact: number
+    /** The name was an old name of an item on the list, as returned. */
+    legacy: number
+    /** The name matched only after its trailing hint in parentheses was removed. */
+    hintRemoved: number
+    /** The name matched nothing and was dropped. */
+    dropped: number
+  }
+  locations: { returned: number; kept: number }
+  languages: { returned: number; kept: number }
+}
+
 export interface ExtractDeps {
   complete: CompleteFn
   /** Called when the model failed and the result is the deterministic floor. */
   onFallback?: (message: string) => void
+  /** Called with the counts of the validation when the model answered. */
+  onStats?: (stats: ExtractionStats) => void
+}
+
+/** The list sends each name followed by its hints in parentheses, and a model may copy the whole line. */
+const TRAILING_HINT = /\s*\([^)]*\)\s*$/
+
+/** The canonical name of a name the model returned, or null. The exact name is tried first, so a real name
+ *  that contains a parenthesis could never be broken by the removal of the hint. */
+function resolveExpertise(
+  index: ReturnType<typeof buildExpertiseIndex>,
+  name: string,
+): { canonical: string; how: 'exact' | 'legacy' | 'hintRemoved' } | null {
+  if (index.byName.has(name)) return { canonical: name, how: 'exact' }
+  const old = index.legacy.get(name)
+  if (old) return { canonical: old, how: 'legacy' }
+  const bare = name.replace(TRAILING_HINT, '').trim()
+  if (bare !== name && bare !== '') {
+    if (index.byName.has(bare)) return { canonical: bare, how: 'hintRemoved' }
+    const bareOld = index.legacy.get(bare)
+    if (bareOld) return { canonical: bareOld, how: 'hintRemoved' }
+  }
+  return null
 }
 
 /** Lowercase lookup from an option list back to its canonical spelling. */
@@ -87,9 +127,15 @@ export async function extractFromJd(
   // Validate expertise names against the controlled vocabulary: keep a canonical
   // name, map an old name to the item that absorbed it, drop anything unknown.
   const modelExpertise = new Set<string>()
+  const expertiseStats = { returned: raw.expertise.length, exact: 0, legacy: 0, hintRemoved: 0, dropped: 0 }
   for (const name of raw.expertise) {
-    const canonical = index.byName.has(name) ? name : index.legacy.get(name)
-    if (canonical) modelExpertise.add(canonical)
+    const found = resolveExpertise(index, name)
+    if (!found) {
+      expertiseStats.dropped++
+      continue
+    }
+    expertiseStats[found.how]++
+    modelExpertise.add(found.canonical)
   }
 
   // Union expertise: keep every floor tag, then fill the remaining rows with
@@ -114,6 +160,12 @@ export async function extractFromJd(
   const languageCanon = canonicalMap(ctx.languageOptions)
   const modelLocations = raw.locations.map((v) => locationCanon.get(v.trim().toLowerCase())).filter((v): v is string => !!v)
   const modelLanguages = raw.languages.map((v) => languageCanon.get(v.trim().toLowerCase())).filter((v): v is string => !!v)
+
+  deps.onStats?.({
+    expertise: expertiseStats,
+    locations: { returned: raw.locations.length, kept: modelLocations.length },
+    languages: { returned: raw.languages.length, kept: modelLanguages.length },
+  })
 
   return {
     expertise,
