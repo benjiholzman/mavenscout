@@ -10,6 +10,7 @@
     "local": "esbuild scripts/run-local.ts --bundle --platform=node --format=esm --packages=external --outfile=.local-dist/run-local.mjs && node .local-dist/run-local.mjs",
     "check-artifact": "esbuild scripts/check-artifact.ts --bundle --platform=node --format=esm --packages=external --outfile=.local-dist/check-artifact.mjs && node .local-dist/check-artifact.mjs",
     "serve": "esbuild scripts/serve-local.ts --bundle --platform=node --format=esm --packages=external --outfile=.local-dist/serve-local.mjs && node .local-dist/serve-local.mjs",
+    "extract-compare": "esbuild scripts/extract-compare.ts --bundle --platform=node --format=esm --packages=external --outfile=.local-dist/extract-compare.mjs && node .local-dist/extract-compare.mjs",
     "compare": "esbuild scripts/compare.ts --bundle --platform=node --format=esm --packages=external --outfile=.local-dist/compare.mjs && node .local-dist/compare.mjs",
     "make-sample-index": "esbuild scripts/make-sample-index.ts --bundle --platform=node --format=esm --packages=external --outfile=.local-dist/make-sample-index.mjs && node .local-dist/make-sample-index.mjs"
   },
