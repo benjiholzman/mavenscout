@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Built and checked offline on 2026-11-23 (section 8), waiting for the review of the project lead. Not pushed. The series of live calls of criterion 4 is not done |
+| Status | Built, checked offline and measured on 2026-11-23 (section 8) |
 | Phase | P2 (job description parsing) |
 | Task | Fix the extraction so that the names the model returns are not lost to a format mismatch, log what the model returned, and add a script that measures the extraction with each candidate model on the five sample ToRs |
 | Owner | Guillermo Sandoval |
@@ -114,5 +114,26 @@ The same ToR 01 with the same 3,306 input tokens produced 121 output tokens in o
 ### 8.4 Open points
 
 1. The baseline calls the engine without being asked to whenever the `.env` has the URL. A guard that requires an explicit flag would remove the risk of spending by accident. It is outside this task and needs a decision.
-2. The price of Nova 2 Lite must be read before the series, to state its cost.
+2. The price of Nova 2 Lite was read before the series (section 8.5).
+
+### 8.5 The series of live calls (criterion 4)
+
+Run on 2026-11-23 with `npm run extract-compare -- --models=us.amazon.nova-pro-v1:0,us.amazon.nova-2-lite-v1:0 --confirm-live --max-calls=10`, prompt `extract-v2`, the five sample ToRs, one run for each ToR and model.
+
+| Extractor | Recall of 62 | Suggestions not on the expected list | Degraded | Input tokens | Output tokens | Names returned | Hint removed | Dropped | Mean time | Cost per call |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Keyword extractor | 53 | 7 | | | | | | | | none |
+| Nova Pro | 54 | 12 | 0 | 16,384 | 379 | 29 | 0 | 0 | 1.6 s | 0.0029 |
+| Nova 2 Lite | 55 | 10 | 0 | 16,518 | 427 | 33 | 0 | 0 | 1.2 s | 0.0013 |
+
+The cost per call comes from the measured tokens and the AWS price list read on 2026-11-23 (us-east-1, on demand): Nova Pro 0.0008 per 1,000 input tokens and 0.0032 per 1,000 output tokens, Nova 2 Lite 0.00033 and 0.00275. The whole series cost 0.021 dollars. Recall by ToR: keyword 10, 10, 9, 12 and 12, Nova Pro 10, 11, 9, 12 and 12, Nova 2 Lite 10, 12, 9, 12 and 12.
+
+What the series shows:
+
+1. The format fix works. With the new prompt neither model returned a name with a hint (0 removed and 0 dropped out of 62 names), so the removal of the hint did not run. It stays as a guard for a model that copies the line.
+2. The recall part of the target (above 53 of 62) is met by both, by 1 and by 2 terms. The part about no new false positives is not met. Nova Pro adds 5 suggestions that the keyword extractor does not (Monitoring & Evaluation, Social Protection, Economic Inclusion & Livelihoods, Peacebuilding and Public Financial Management) and Nova 2 Lite adds 3 (Economic Inclusion & Livelihoods, Food Security and Financial Sector Development). Whether they are wrong is a judgment. The expected lists are short, and some of these look relevant to their ToR, such as Food Security and Financial Sector Development for an agri-finance ToR.
+3. The gain is in ToR 02 only. In the other four the models found the same terms as the keyword extractor. The expected terms that both models missed are Gender Mainstreaming, Workshop Facilitation and Policy Briefs in ToR 01, Workshop Facilitation in ToR 02, Refugees & Forced Displacement and Humanitarian Response in ToR 03, and Monitoring & Evaluation in ToR 04.
+4. The answers vary between runs. In the diagnostic of the same day Nova 2 Lite found Gender Mainstreaming for ToR 01, and in this series it did not. A difference of one or two terms between 53, 54 and 55 is inside that variance, so one series does not show that one model is better than the other, or that either beats the keyword extractor.
+5. Before the change, the deployed code with Nova Pro found 54 of 62 (section 8.3). With this change Nova Pro finds 54 of 62, so there is no regression.
+6. Nova 2 Lite costs less than half as much for each call, answers faster and adds fewer suggestions, with one more term found. If a model runs the extraction before Sol is enabled, it is the candidate, with low confidence. Changing it is the two Terraform variables in a separate pull request. A second series would show the variance.
 
