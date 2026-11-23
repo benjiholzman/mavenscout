@@ -207,15 +207,23 @@ export interface RemoteExtractOptions {
   fetch?: typeof fetch
   sleep?: (ms: number) => Promise<void>
   now?: () => number
+  /** Runs when the engine cannot read the job description (any error). The app
+   *  passes the local keyword extractor so "Read job description" never breaks.
+   *  Left unset, the error is thrown, which is what the baseline harness wants
+   *  because it must measure the engine and not the fallback. */
+  fallback?: ExtractRequirementsFn
 }
 
-/** Hard ceiling for the whole extraction, matching the 60s rule (decision D-02). */
-const EXTRACT_BUDGET_MS = 60000
+/** Ceiling for retrying network errors and 5xx answers. Extraction is a
+ *  synchronous click, so this is also the longest the manager waits before the
+ *  fallback runs. A browser reports a 404 from API Gateway without CORS headers
+ *  as a network error, so a missing route costs this whole budget. */
+const EXTRACT_BUDGET_MS = 10000
 
 export function createRemoteExtract(opts: RemoteExtractOptions): ExtractRequirementsFn {
   const base = opts.baseUrl.replace(/\/+$/, '')
 
-  return async (jdText: string, ctx: ExtractionContext): Promise<ExtractedRequirements> => {
+  const viaEngine = async (jdText: string, ctx: ExtractionContext): Promise<ExtractedRequirements> => {
     const doFetch = opts.fetch ?? globalThis.fetch.bind(globalThis)
     const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
     const now = opts.now ?? Date.now
@@ -250,7 +258,7 @@ export function createRemoteExtract(opts: RemoteExtractOptions): ExtractRequirem
       }
       // A client error other than 429, or a 501 (the engine build has no
       // extraction route), will not fix itself: surface it now rather than
-      // retrying a permanent failure for the whole 60s budget.
+      // retrying a permanent failure for the whole budget.
       if ((res.status >= 400 && res.status < 500 && res.status !== 429) || res.status === 501) {
         const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
         throw new Error(`Engine rejected extraction: ${body.error ?? res.status} ${body.message ?? ''}`.trim())
@@ -258,6 +266,17 @@ export function createRemoteExtract(opts: RemoteExtractOptions): ExtractRequirem
       if (now() >= deadline) throw timedOut()
       await sleep(interval)
       interval = Math.min(interval * GROWTH, MAX_INTERVAL_MS)
+    }
+  }
+
+  const fallback = opts.fallback
+  if (!fallback) return viaEngine
+  return async (jdText, ctx) => {
+    try {
+      return await viaEngine(jdText, ctx)
+    } catch (err) {
+      console.warn(`engine extraction unavailable (${err instanceof Error ? err.message : String(err)}); using the local extractor`)
+      return fallback(jdText, ctx)
     }
   }
 }

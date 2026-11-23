@@ -113,11 +113,12 @@ export const placeholderExtract: ExtractRequirementsFn = async (jdText, ctx) => 
 /**
  * The app's extraction entry point. With VITE_ENGINE_URL set it reads the job
  * description through Loop8's engine (Sol maps paraphrases onto the expertise
- * list); unset, it runs the deterministic placeholder above exactly as before.
+ * list) and falls back to the deterministic placeholder above if the engine
+ * fails; unset, it runs the placeholder exactly as before.
  * The variable is read inside the call because the baseline harness bundles this
  * file for Node, where import.meta.env does not exist.
  */
 export const extractRequirements: ExtractRequirementsFn = (jdText, ctx) => {
   const baseUrl = import.meta.env?.VITE_ENGINE_URL
-  return baseUrl ? createRemoteExtract({ baseUrl })(jdText, ctx) : placeholderExtract(jdText, ctx)
+  return baseUrl ? createRemoteExtract({ baseUrl, fallback: placeholderExtract })(jdText, ctx) : placeholderExtract(jdText, ctx)
 }

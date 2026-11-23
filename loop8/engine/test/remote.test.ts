@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRemoteRankPool } from '../../../src/lib/matching/remote'
+import { createRemoteExtract, createRemoteRankPool } from '../../../src/lib/matching/remote'
 import type { Profile } from '../../../src/types/db'
-import type { Requirement } from '../../../src/lib/matching/types'
+import type { ExtractedRequirements, ExtractionContext, Requirement } from '../../../src/lib/matching/types'
 
 const pool = [{ id: 'p2' }, { id: 'p1' }, { id: 'p2' }] as unknown as Profile[]
 const reqs = [] as Requirement[]
@@ -206,4 +206,82 @@ test('429 and 5xx poll responses are retried', async () => {
     return happy(c, n)
   })
   assert.deepEqual(await rank('jd1', reqs, pool), resultBody.results)
+})
+
+// ---- Extraction client and its fallback ---------------------------------------
+
+const jd = 'We need a water sanitation expert in Kenya.'
+const ctx = { taxonomy: { categories: [], items: [] }, locationOptions: [], languageOptions: [] } as ExtractionContext
+const fromEngine = { expertise: [{ name: 'WASH' }], locations: [], languages: [], hiring_organization: null } as unknown as ExtractedRequirements
+const fromFallback = { expertise: [], locations: [], languages: [], hiring_organization: null } as ExtractedRequirements
+
+function setupExtract(handler: Handler, withFallback = true) {
+  const calls: Call[] = []
+  let clock = 0
+  const sleeps: number[] = []
+  let fallbackCalls = 0
+  const fetchFn = (async (url: string, init?: RequestInit) => {
+    calls.push({
+      url, method: init?.method ?? 'GET',
+      headers: (init?.headers ?? {}) as Record<string, string>,
+      body: (init?.body as string | undefined) ?? null,
+    })
+    const r = handler(calls[calls.length - 1], calls.length)
+    if (r instanceof Error) throw r
+    return { status: r.status, ok: r.status >= 200 && r.status < 300, json: async () => r.body }
+  }) as unknown as typeof fetch
+  const extract = createRemoteExtract({
+    baseUrl: 'http://engine',
+    fetch: fetchFn,
+    sleep: async (ms) => { sleeps.push(ms); clock += ms },
+    now: () => clock,
+    fallback: withFallback ? async () => { fallbackCalls++; return fromFallback } : undefined,
+  })
+  return { calls, sleeps, extract, fallbackCalls: () => fallbackCalls, elapsed: () => clock }
+}
+
+test('extract posts once to /extract and returns the engine result without using the fallback', async () => {
+  const { extract, calls, fallbackCalls } = setupExtract(() => ({ status: 200, body: { extracted: fromEngine } }))
+  assert.deepEqual(await extract(jd, ctx), fromEngine)
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].url, 'http://engine/extract')
+  assert.equal(calls[0].method, 'POST')
+  assert.equal(fallbackCalls(), 0)
+})
+
+test('extract falls back at once on a 404, a 501 or a 400 without retrying', async () => {
+  for (const status of [404, 501, 400]) {
+    const { extract, calls, sleeps, fallbackCalls } = setupExtract(() => ({ status, body: { error: 'nope' } }))
+    assert.deepEqual(await extract(jd, ctx), fromFallback)
+    assert.equal(calls.length, 1)
+    assert.equal(sleeps.length, 0)
+    assert.equal(fallbackCalls(), 1)
+  }
+})
+
+test('extract falls back when the engine answers 200 without an extraction', async () => {
+  const { extract, fallbackCalls } = setupExtract(() => ({ status: 200, body: {} }))
+  assert.deepEqual(await extract(jd, ctx), fromFallback)
+  assert.equal(fallbackCalls(), 1)
+})
+
+test('extract retries a 503 and uses the engine result when the next answer is good', async () => {
+  const { extract, sleeps, fallbackCalls } = setupExtract((_c, n) =>
+    n === 1 ? { status: 503 } : { status: 200, body: { extracted: fromEngine } })
+  assert.deepEqual(await extract(jd, ctx), fromEngine)
+  assert.deepEqual(sleeps, [1000])
+  assert.equal(fallbackCalls(), 0)
+})
+
+test('extract retries network errors for at most 10 s and then falls back', async () => {
+  const { extract, calls, elapsed, fallbackCalls } = setupExtract(() => new TypeError('Failed to fetch'))
+  assert.deepEqual(await extract(jd, ctx), fromFallback)
+  assert.ok(calls.length > 1, 'network errors are retried')
+  assert.ok(elapsed() >= 10000 && elapsed() < 10000 + 5000, `waited ${elapsed()} ms`)
+  assert.equal(fallbackCalls(), 1)
+})
+
+test('extract without a fallback still throws, so the baseline measures the engine', async () => {
+  const { extract } = setupExtract(() => ({ status: 404, body: { error: 'not_found' } }), false)
+  await assert.rejects(() => extract(jd, ctx), /Engine rejected extraction: not_found/)
 })
