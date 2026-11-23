@@ -33,15 +33,22 @@ function vocabularyLines(index: ExpertiseIndex): string {
   return lines.join('\n')
 }
 
+/** Written to the log with every extraction, so a result can be tied to the prompt that produced it. */
+export const EXTRACTION_PROMPT_VERSION = 'extract-v2'
+
 export const EXTRACTION_SYSTEM = [
   'You read a job description for an international development consultant role and',
   'return the requirements it states, as strict JSON and nothing else.',
   '',
   'Rules:',
-  '1. expertise: choose only names from the EXPERTISE LIST below. Map the wording',
-  '   in the job description to the closest name on the list, including when the',
-  '   description uses different words for the same idea. Do not invent names and',
-  '   do not return a name that is not on the list. Omit the field if nothing fits.',
+  '1. expertise: choose only names from the EXPERTISE LIST below. Each line of the',
+  '   list is a name, sometimes followed by hints in parentheses. The hints help you',
+  '   recognize the topic and are not part of the name: return only the name before',
+  '   the parenthesis, spelled exactly as in the list. Read the whole description,',
+  '   including the context, the tasks and the deliverables, and return every name',
+  '   on the list that the role needs, also when the description uses different',
+  '   words for the same idea. Do not invent names and do not return a name that is',
+  '   not on the list. Omit the field if nothing fits.',
   '2. locations: choose only values from the LOCATION OPTIONS below, and only when',
   '   the role requires the consultant to be based in, located in, or travel to',
   '   that place. Do not return a place that is named only because the programme,',

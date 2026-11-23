@@ -1,6 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { extractFromJd } from '../src/extract/extract'
+import type { ExtractionStats } from '../src/extract/extract'
+import { buildExtractionPrompt, EXTRACTION_PROMPT_VERSION, EXTRACTION_SYSTEM } from '../src/extract/prompt'
+import { buildExpertiseIndex } from '../../../src/lib/expertise'
 import { parseExtraction } from '../src/extract/parse'
 import type { CompleteFn } from '../src/extract/complete'
 import { MAX_TAG_ROWS } from '../../../src/lib/matching/config'
@@ -127,4 +130,86 @@ test('parseExtraction tolerates a fenced reply and fills missing keys', () => {
 
 test('parseExtraction throws when there is no JSON object', () => {
   assert.throws(() => parseExtraction('no json here'), /no JSON object/)
+})
+
+// ---- Names the model returns with the hint of the list line ----
+
+const replyOf = (expertise: string[], locations: string[] = [], languages: string[] = []) =>
+  JSON.stringify({ expertise, locations, languages })
+
+async function run(expertise: string[], context: ExtractionContext = ctx, locations: string[] = [], languages: string[] = []) {
+  let stats: ExtractionStats | null = null
+  const out = await extractFromJd('A role with no keyword that matches.', context, {
+    complete: fakeComplete(replyOf(expertise, locations, languages)),
+    onStats: (st) => {
+      stats = st
+    },
+  })
+  return { out, stats: stats as ExtractionStats | null }
+}
+
+test('a name returned with the hint of its list line is kept as the name', async () => {
+  const { out, stats } = await run(['Workshop Facilitation (facilitation, workshops)', 'Nutrition (food security)'])
+  const names = out.expertise.map((e) => e.name)
+  assert.ok(names.includes('Workshop Facilitation'))
+  assert.ok(names.includes('Nutrition'))
+  assert.deepEqual(stats?.expertise, { returned: 2, exact: 0, legacy: 0, hintRemoved: 2, dropped: 0 })
+})
+
+test('an invented name is dropped even when it has a hint, and only a trailing parenthesis is removed', async () => {
+  const { out, stats } = await run(['Quantum Physics (qp)', 'Nutrition (food) and more', '(Nutrition)'])
+  assert.deepEqual(out.expertise, [])
+  assert.equal(stats?.expertise.dropped, 3)
+  assert.equal(stats?.expertise.hintRemoved, 0)
+})
+
+test('an old name with a hint maps to the item that absorbed it', async () => {
+  const { out, stats } = await run(['Outcome Evaluation (outcome, results)'])
+  assert.deepEqual(out.expertise.map((e) => e.name), ['Impact Evaluation'])
+  assert.deepEqual(stats?.expertise, { returned: 1, exact: 0, legacy: 0, hintRemoved: 1, dropped: 0 })
+})
+
+test('the exact name wins over the name without its parenthesis', async () => {
+  const withParen: TaxonomyItem[] = [
+    ...items,
+    { id: 'i4', category_id: 'c2', name: 'Monitoring', sort_order: 3, kind: 'method', aliases: [], legacy_names: [] },
+    { id: 'i5', category_id: 'c2', name: 'Monitoring (M&E)', sort_order: 4, kind: 'method', aliases: [], legacy_names: [] },
+  ]
+  const context: ExtractionContext = { ...ctx, taxonomy: { categories, items: withParen } }
+  const { out, stats } = await run(['Monitoring (M&E)'], context)
+  assert.deepEqual(out.expertise.map((e) => e.name), ['Monitoring (M&E)'])
+  assert.deepEqual(stats?.expertise, { returned: 1, exact: 1, legacy: 0, hintRemoved: 0, dropped: 0 })
+})
+
+test('the counts tell exact, old name, hint removed and dropped apart, and locations and languages', async () => {
+  const { stats } = await run(
+    ['Nutrition', 'Outcome Evaluation', 'Workshop Facilitation (workshops)', 'Not A Real Item'],
+    ctx,
+    ['Ethiopia', 'Mars'],
+    ['amharic'],
+  )
+  assert.deepEqual(stats, {
+    expertise: { returned: 4, exact: 1, legacy: 1, hintRemoved: 1, dropped: 1 },
+    locations: { returned: 2, kept: 1 },
+    languages: { returned: 1, kept: 1 },
+  })
+})
+
+test('no counts are reported when the model failed or its reply is not usable', async () => {
+  let called = 0
+  const onStats = () => void called++
+  await extractFromJd('Nutrition work.', ctx, { complete: async () => { throw new Error('throttled') }, onStats })
+  await extractFromJd('Nutrition work.', ctx, { complete: fakeComplete('no json here'), onStats })
+  assert.equal(called, 0)
+})
+
+test('the prompt explains the parentheses of the list, has a version id and uses no example of a sample ToR', () => {
+  assert.equal(EXTRACTION_PROMPT_VERSION, 'extract-v2')
+  assert.match(EXTRACTION_SYSTEM, /hints in parentheses/)
+  assert.match(EXTRACTION_SYSTEM, /not part of the name/)
+  assert.match(EXTRACTION_SYSTEM, /tasks and the deliverables/)
+  assert.doesNotMatch(EXTRACTION_SYSTEM, /validation workshop|policy brief|gender|nutrition/i)
+  const prompt = buildExtractionPrompt({ jdText: 'a job', index: buildExpertiseIndex(categories, items), locationOptions: ['Ethiopia'], languageOptions: ['English'] })
+  assert.equal(prompt.system, EXTRACTION_SYSTEM)
+  assert.match(prompt.user, /EXPERTISE LIST/)
 })
