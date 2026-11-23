@@ -285,3 +285,54 @@ test('extract without a fallback still throws, so the baseline measures the engi
   const { extract } = setupExtract(() => ({ status: 404, body: { error: 'not_found' } }), false)
   await assert.rejects(() => extract(jd, ctx), /Engine rejected extraction: not_found/)
 })
+
+test('extract fails at once on a daily_cap 429, and uses the fallback when there is one', async () => {
+  const cap: Handler = () => ({ status: 429, body: { error: 'daily_cap', message: 'The daily extraction limit has been reached' } })
+  const { extract, calls, sleeps } = setupExtract(cap, false)
+  await assert.rejects(() => extract(jd, ctx), /Engine rejected extraction: daily_cap/)
+  assert.equal(calls.length, 1)
+  assert.equal(sleeps.length, 0)
+  const withFallback = setupExtract(cap)
+  assert.deepEqual(await withFallback.extract(jd, ctx), fromFallback)
+  assert.equal(withFallback.calls.length, 1)
+  assert.equal(withFallback.sleeps.length, 0)
+})
+
+test('extract retries a throttle 429 that is not the daily cap', async () => {
+  const { extract, sleeps } = setupExtract((_c, n) =>
+    n === 1 ? { status: 429, body: { message: 'Too Many Requests' } } : { status: 200, body: { extracted: fromEngine } })
+  assert.deepEqual(await extract(jd, ctx), fromEngine)
+  assert.deepEqual(sleeps, [1000])
+})
+
+test('extract reports degraded and the model of each answer through onResult', async () => {
+  const seen: Array<{ degraded: boolean; model: string | null }> = []
+  const answers = [
+    { extracted: fromEngine, degraded: false, model: 'us.amazon.nova-pro-v1:0' },
+    { extracted: fromFallback, degraded: true, model: 'us.amazon.nova-pro-v1:0' },
+    { extracted: fromEngine },
+  ]
+  let n = 0
+  const extract = createRemoteExtract({
+    baseUrl: 'http://engine',
+    fetch: (async () => ({ status: 200, ok: true, json: async () => answers[n++] })) as unknown as typeof fetch,
+    onResult: (info) => void seen.push(info),
+  })
+  for (let i = 0; i < answers.length; i++) await extract(jd, ctx)
+  assert.deepEqual(seen, [
+    { degraded: false, model: 'us.amazon.nova-pro-v1:0' },
+    { degraded: true, model: 'us.amazon.nova-pro-v1:0' },
+    { degraded: false, model: null },
+  ])
+})
+
+test('extract does not call onResult when the engine failed', async () => {
+  let called = 0
+  const extract = createRemoteExtract({
+    baseUrl: 'http://engine',
+    fetch: (async () => ({ status: 404, ok: false, json: async () => ({ error: 'not_found' }) })) as unknown as typeof fetch,
+    onResult: () => void called++,
+  })
+  await assert.rejects(() => extract(jd, ctx))
+  assert.equal(called, 0)
+})

@@ -214,36 +214,9 @@ test('idempotency key that is too long or has odd characters gives 400', async (
   assert.equal((await handleApi(post(valid, 'A-b_c.d:1'.replace('_', '.')), deps)).status, 202)
 })
 
-// ---- POST /extract (the ingestion module) ----
-const emptyExtracted = { expertise: [], locations: [], languages: [], hiring_organization: null }
-const ctx = { taxonomy: { categories: [], items: [] }, locationOptions: [], languageOptions: [] }
-const postExtract = (body: unknown): ApiRequest => ({
-  method: 'POST', path: '/extract', headers: {},
-  body: typeof body === 'string' || body === null ? body : JSON.stringify(body),
-})
-
-test('POST /extract without an extract dep gives 501', async () => {
+test('POST /extract is not a route of the api, which calls no model', async () => {
   const { deps } = setup()
-  const r = await handleApi(postExtract({ jdText: 'a job description', ctx }), deps)
-  assert.equal(r.status, 501)
-  assert.equal((r.body as { error: string }).error, 'extraction_unavailable')
-})
-
-test('POST /extract validates the body', async () => {
-  const { deps } = setup()
-  const withExtract = { ...deps, extract: async () => emptyExtracted }
-  assert.equal((await handleApi(postExtract('nope'), withExtract)).status, 400)
-  assert.equal((await handleApi(postExtract({ ctx }), withExtract)).status, 400)
-  assert.equal((await handleApi(postExtract({ jdText: '  ', ctx }), withExtract)).status, 400)
-  assert.equal((await handleApi(postExtract({ jdText: 'hi' }), withExtract)).status, 400)
-  const long = await handleApi(postExtract({ jdText: 'x'.repeat(15001), ctx }), withExtract)
-  assert.equal(long.status, 413)
-})
-
-test('POST /extract returns the suggestions', async () => {
-  const { deps } = setup()
-  const extracted = { ...emptyExtracted, languages: [{ value: 'English', mentions: 1 }] }
-  const r = await handleApi(postExtract({ jdText: 'English required', ctx }), { ...deps, extract: async () => extracted })
-  assert.equal(r.status, 200)
-  assert.deepEqual((r.body as { extracted: unknown }).extracted, extracted)
+  const r = await handleApi({ method: 'POST', path: '/extract', headers: {}, body: '{}' }, deps)
+  assert.equal(r.status, 404)
+  assert.equal((r.body as { error: string }).error, 'not_found')
 })

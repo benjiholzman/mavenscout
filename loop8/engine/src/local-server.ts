@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { handleApi } from './api/app'
-import { createSolComplete } from './bedrock/sol'
 import { loadSettings } from './core/settings'
 import { createStubEngine, stubOptionsFromEnv } from './engine/stub'
+import { createExtractCompleter, EXTRACT_CALL_TIMEOUT_MS } from './extract/complete'
 import { extractFromJd } from './extract/extract'
+import { handleExtract, type ExtractRouteDeps } from './extract/route'
+import { createBedrockTextModel } from './models/text-model'
 import { DEFAULT_LIMITS } from './shared/limits'
 import { log } from './shared/log'
 import { createMemoryStore } from './shared/memory-store'
@@ -40,18 +42,31 @@ export function createLocalServer(env: Record<string, string | undefined>): { se
       })
     },
   }
-  // Extraction calls Sol when AWS credentials are present; without them the call
+  const api = { store, queue, settings, limits: DEFAULT_LIMITS, now: Date.now, newId: () => randomUUID() }
+
+  // Extraction calls the text model when AWS credentials are present; without them the call
   // fails and extractFromJd degrades to the deterministic floor, so the local
   // server still answers /extract offline.
-  const complete = createSolComplete(settings.extractModel)
-  const api = {
-    store,
-    queue,
-    settings,
+  const textModel = createBedrockTextModel({ requestTimeoutMs: EXTRACT_CALL_TIMEOUT_MS })
+  const extractRoute: ExtractRouteDeps = {
+    counter: store,
     limits: DEFAULT_LIMITS,
     now: Date.now,
-    newId: () => randomUUID(),
-    extract: (jdText: string, ctx: Parameters<typeof extractFromJd>[1]) => extractFromJd(jdText, ctx, { complete }),
+    extract: async (jdText, ctx) => {
+      let degraded = false
+      const { complete } = createExtractCompleter({
+        textModel,
+        modelId: settings.extractModel,
+        deadlineAt: Date.now() + 25_000,
+      })
+      const extracted = await extractFromJd(jdText, ctx, {
+        complete,
+        onFallback: () => {
+          degraded = true
+        },
+      })
+      return { extracted, degraded, model: settings.extractModel }
+    },
   }
 
   const cors = {
@@ -82,7 +97,8 @@ export function createLocalServer(env: Record<string, string | undefined>): { se
       }
       const headers: Record<string, string | undefined> = {}
       for (const [k, v] of Object.entries(req.headers)) headers[k.toLowerCase()] = Array.isArray(v) ? v.join(',') : v
-      const out = await handleApi({ method, path, headers, body: await readBody(req) }, api)
+      const apiReq = { method, path, headers, body: await readBody(req) }
+      const out = method === 'POST' && path === '/extract' ? await handleExtract(apiReq, extractRoute) : await handleApi(apiReq, api)
       send(res, out.status, JSON.stringify(out.body))
     } catch (e) {
       log('local_server_error', { jobId: 'n/a', message: e instanceof Error ? e.message : String(e) })

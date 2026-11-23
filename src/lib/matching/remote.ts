@@ -212,6 +212,9 @@ export interface RemoteExtractOptions {
    *  Left unset, the error is thrown, which is what the baseline harness wants
    *  because it must measure the engine and not the fallback. */
   fallback?: ExtractRequirementsFn
+  /** Called with what the engine reported about each extraction it answered, so a measurement can tell a
+   *  model result from the keyword result. Not called when the engine failed. */
+  onResult?: (info: { degraded: boolean; model: string | null }) => void
 }
 
 /** Ceiling for retrying network errors and 5xx answers. Extraction is a
@@ -252,9 +255,22 @@ export function createRemoteExtract(opts: RemoteExtractOptions): ExtractRequirem
         body: JSON.stringify({ jdText, ctx }),
       })
       if (res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { extracted?: ExtractedRequirements }
+        const body = (await res.json().catch(() => ({}))) as {
+          extracted?: ExtractedRequirements
+          degraded?: boolean
+          model?: string
+        }
         if (!body.extracted) throw new Error('Engine returned no extraction')
+        opts.onResult?.({ degraded: body.degraded === true, model: typeof body.model === 'string' ? body.model : null })
         return body.extracted
+      }
+      // The daily cap lasts until tomorrow, so retrying it for the budget would only make the manager wait.
+      // Any other 429 is a throttle of the API and is retried below.
+      if (res.status === 429) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+        if (body.error === 'daily_cap') {
+          throw new Error(`Engine rejected extraction: ${body.error} ${body.message ?? ''}`.trim())
+        }
       }
       // A client error other than 429, or a 501 (the engine build has no
       // extraction route), will not fix itself: surface it now rather than

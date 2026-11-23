@@ -34,6 +34,12 @@ mock_provider "aws" {
       invoke_arn = "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/mock/invocations"
     }
   }
+
+  mock_resource "aws_apigatewayv2_api" {
+    defaults = {
+      execution_arn = "arn:aws:execute-api:us-east-1:000000000000:mockapi"
+    }
+  }
 }
 
 variables {
@@ -233,5 +239,157 @@ run "failure_alarms_notify_the_alerts_topic" {
   assert {
     condition     = aws_cloudwatch_metric_alarm.worker_duration.threshold == 150000 && aws_cloudwatch_metric_alarm.worker_duration.threshold < aws_lambda_function.worker.timeout * 1000
     error_message = "The duration alarm must fire below the worker timeout"
+  }
+}
+
+run "extract_function_role_and_route_use_the_prefix" {
+  command = plan
+
+  assert {
+    condition     = aws_lambda_function.extract.function_name == "mavenscout-engine-extract" && aws_iam_role.extract.name == "mavenscout-engine-extract-role" && aws_cloudwatch_log_group.extract.name == "/aws/lambda/mavenscout-engine-extract"
+    error_message = "Every name must start with the prefix the apply role allows"
+  }
+
+  assert {
+    condition     = aws_apigatewayv2_route.extract.route_key == "POST /extract"
+    error_message = "The extraction route is POST /extract"
+  }
+
+  assert {
+    condition     = aws_lambda_permission.extract_api_gateway.principal == "apigateway.amazonaws.com" && endswith(aws_lambda_permission.extract_api_gateway.source_arn, "/*/POST/extract")
+    error_message = "API Gateway may invoke the extract Lambda for the extraction route only"
+  }
+
+  assert {
+    condition     = endswith(aws_lambda_permission.api_gateway.source_arn, "/*/*/jobs*")
+    error_message = "The permission of the api Lambda stays limited to the job routes"
+  }
+}
+
+run "extract_stays_inside_the_limit_of_the_api" {
+  command = plan
+
+  assert {
+    condition     = aws_lambda_function.extract.timeout == 25 && aws_lambda_function.extract.timeout < 30
+    error_message = "An HTTP API cuts an integration at 30 seconds, so the extract timeout must stay below it"
+  }
+
+  assert {
+    condition     = aws_lambda_function.extract.memory_size == 512 && aws_lambda_function.extract.runtime == "nodejs22.x" && aws_lambda_function.extract.handler == "index.handler"
+    error_message = "The extract Lambda has the memory and runtime of the plan"
+  }
+
+  assert {
+    condition     = aws_lambda_function.api.timeout == 10 && aws_lambda_function.worker.timeout == 180
+    error_message = "The api and the worker keep their timeouts"
+  }
+}
+
+run "extraction_has_its_own_lower_throttle" {
+  command = plan
+
+  assert {
+    condition     = length([for r in aws_apigatewayv2_stage.default.route_settings : r if r.route_key == "POST /extract" && r.throttling_rate_limit == 1 && r.throttling_burst_limit == 3]) == 1
+    error_message = "POST /extract must have its own throttling, lower than the other routes"
+  }
+
+  assert {
+    condition     = aws_apigatewayv2_stage.default.default_route_settings[0].throttling_rate_limit == 5 && aws_apigatewayv2_stage.default.default_route_settings[0].throttling_burst_limit == 10
+    error_message = "The other routes keep the default throttling"
+  }
+}
+
+run "extract_role_has_only_logs_the_named_model_and_one_counter_key" {
+  command = plan
+
+  variables {
+    extract_profile_model_ids = ["amazon.nova-pro-v1:0"]
+    profile_regions           = ["us-east-1", "us-east-2", "us-west-2"]
+  }
+
+  assert {
+    condition     = toset([for s in data.aws_iam_policy_document.extract.statement : s.sid]) == toset(["Logs", "InvokeExtractModel", "ExtractDailyCounter"])
+    error_message = "The extract role has exactly three statements: logs, the model and the counter"
+  }
+
+  assert {
+    condition     = [for s in data.aws_iam_policy_document.extract.statement : s.actions if s.sid == "InvokeExtractModel"][0] == toset(["bedrock:InvokeModel"])
+    error_message = "The model statement must allow only bedrock:InvokeModel"
+  }
+
+  assert {
+    condition     = length([for s in data.aws_iam_policy_document.extract.statement : s.resources if s.sid == "InvokeExtractModel"][0]) == 4 && contains([for s in data.aws_iam_policy_document.extract.statement : s.resources if s.sid == "InvokeExtractModel"][0], "arn:aws:bedrock:us-east-1:000000000000:inference-profile/us.amazon.nova-pro-v1:0")
+    error_message = "The profile of the account and the model in three regions, and nothing else"
+  }
+
+  assert {
+    condition     = [for s in data.aws_iam_policy_document.extract.statement : s.actions if s.sid == "ExtractDailyCounter"][0] == toset(["dynamodb:UpdateItem"]) && [for s in data.aws_iam_policy_document.extract.statement : s.resources if s.sid == "ExtractDailyCounter"][0] == toset([var.table_arn])
+    error_message = "The counter statement may only update items of the jobs table"
+  }
+
+  assert {
+    condition     = toset([for s in data.aws_iam_policy_document.extract.statement : [for c in s.condition : c.values if c.variable == "dynamodb:LeadingKeys" && c.test == "ForAllValues:StringLike"][0] if s.sid == "ExtractDailyCounter"][0]) == toset(["DAY#extract-*"])
+    error_message = "The counter statement must be limited to the keys DAY#extract-*"
+  }
+
+  assert {
+    condition     = alltrue([for s in data.aws_iam_policy_document.extract.statement : !anytrue([for a in s.actions : startswith(a, "s3:") || startswith(a, "sqs:") || startswith(a, "secretsmanager:") || a == "dynamodb:GetItem" || a == "dynamodb:PutItem" || a == "dynamodb:Query"])])
+    error_message = "The extract role has no bucket, queue, secret or job item access"
+  }
+
+  assert {
+    condition     = alltrue([for s in data.aws_iam_policy_document.extract.statement : alltrue([for r in s.resources : r != "*"]) if contains(["InvokeExtractModel", "ExtractDailyCounter"], s.sid)])
+    error_message = "The model and counter statements may not use a wildcard resource"
+  }
+
+  assert {
+    condition     = alltrue([for s in data.aws_iam_policy_document.api.statement : !anytrue([for a in s.actions : startswith(a, "bedrock:")])])
+    error_message = "The api role still has no model access"
+  }
+}
+
+run "extract_role_has_no_model_access_unless_a_model_is_named" {
+  command = plan
+
+  assert {
+    condition     = alltrue([for s in data.aws_iam_policy_document.extract.statement : !anytrue([for a in s.actions : startswith(a, "bedrock:")])])
+    error_message = "With no model named the extract role has no model access"
+  }
+}
+
+run "extract_settings_reach_only_the_extract_function" {
+  command = plan
+
+  variables {
+    extract_model = "us.amazon.nova-pro-v1:0"
+  }
+
+  assert {
+    condition     = aws_lambda_function.extract.environment[0].variables["EXTRACT_MODEL"] == "us.amazon.nova-pro-v1:0" && aws_lambda_function.extract.environment[0].variables["JOBS_TABLE"] == "mock-table"
+    error_message = "The extract function needs the model id and the table name"
+  }
+
+  assert {
+    condition     = !contains(keys(aws_lambda_function.extract.environment[0].variables), "JOBS_BUCKET") && !contains(keys(aws_lambda_function.extract.environment[0].variables), "JOBS_QUEUE_URL")
+    error_message = "The extract function knows neither the bucket nor the queue"
+  }
+
+  assert {
+    condition     = !contains(keys(aws_lambda_function.api.environment[0].variables), "EXTRACT_MODEL") && !contains(keys(aws_lambda_function.worker.environment[0].variables), "EXTRACT_MODEL")
+    error_message = "Only the extract function gets EXTRACT_MODEL"
+  }
+}
+
+run "extract_alarms_notify_the_alerts_topic" {
+  command = plan
+
+  assert {
+    condition     = alltrue([for a in [aws_cloudwatch_metric_alarm.extract_errors, aws_cloudwatch_metric_alarm.extract_duration] : a.alarm_actions == toset(["arn:aws:sns:us-east-1:000000000000:mock-topic"])])
+    error_message = "Every extract alarm must notify the alerts topic"
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.extract_duration.threshold == 20000 && aws_cloudwatch_metric_alarm.extract_duration.threshold < aws_lambda_function.extract.timeout * 1000
+    error_message = "The duration alarm must fire below the extract timeout"
   }
 }

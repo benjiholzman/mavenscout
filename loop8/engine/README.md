@@ -45,13 +45,14 @@ Read the live numbers with these two facts in mind:
 
 ## Packaging
 
-`npm run build` produces two zip files in `dist/`, one for the API function and one for the worker function. In both, the handler is `index.handler`. Deployment follows `loop8/docs/runbooks/poc-environment.md`, Part D.
+`npm run build` produces three zip files in `dist/`, one for the API function, one for the worker function and one for the extract function. In all of them, the handler is `index.handler`. The API zip contains no model client: extraction runs in its own function. Deployment follows `loop8/docs/runbooks/poc-environment.md`, Part D.
 
 ## Environment variables
 
 1. Infrastructure: `JOBS_TABLE`, `JOBS_BUCKET`, `JOBS_QUEUE_URL` and `AWS_REGION`.
 2. Job settings: `ENGINE_VARIANT`, `FIT_MODEL`, `TEXT_MODEL`, `EMBED_MODEL`, `FIT_CAP`, `SUMMARY_COUNT`, `PARALLEL_CALLS`, `THRESHOLD` and `PROMPT_VERSION`. The API function reads them when a job is created and saves them with the job, and the worker runs the job with those saved values. Set them on the API function. Setting them on the worker changes nothing about the calls a job makes. Each has a default, so none is required.
-3. Stub engine controls: `STUB_DELAY_MS` adds a delay in milliseconds for each profile, `STUB_FAILURE_RATE` is the share of profiles (0 to 1) that fall back, and `STUB_CRASH=true` makes the engine throw. All are off when unset. They apply to the worker and to `npm run local`.
+3. Extract function: `JOBS_TABLE` (for the daily counter only), `EXTRACT_MODEL` and `AWS_REGION`. It has no bucket and no queue. Without `EXTRACT_MODEL` the code default is GPT-6 Sol, which is blocked for this account, so Terraform sets it (`extract_model`, Nova Pro for now).
+4. Stub engine controls: `STUB_DELAY_MS` adds a delay in milliseconds for each profile, `STUB_FAILURE_RATE` is the share of profiles (0 to 1) that fall back, and `STUB_CRASH=true` makes the engine throw. All are off when unset. They apply to the worker and to `npm run local`.
 
 ## Choosing the engine
 
@@ -112,6 +113,22 @@ The summary of each of the top `SUMMARY_COUNT` candidates is written after the r
 
 Measured with Nova Lite on 20 real candidates per run: 37 to 38 of 40 summaries accepted, 31 to 33 at the first try, none with a dash. The first version in production had 0 of 25 accepted. On a real job on the deployed engine the top five summaries were real text, 51 to 60 words.
 
+## Extraction of the job description
+
+The route `POST /extract` reads a pasted job description once and answers in the same request with the suggestions the manager sees as chips. Its own Lambda serves it, so the API function still calls no model. Plan: `loop8/docs/planning/extract-route-plan.md`.
+
+| What | Behavior |
+|---|---|
+| Request | `{ jdText, ctx }`, where `ctx` carries the expertise list, the known locations and the known languages. At most 15,000 characters of text and 524,288 bytes of body. A bad body answers 400 or 413 and does not use the daily cap |
+| Response | `{ extracted, degraded, model }`. `extracted` has expertise, locations and languages, each a suggestion only. Never a Must have, never the employer. `model` is the model id that was asked. `degraded` is true when the model failed or its reply could not be read and `extracted` is the keyword result |
+| Model call | The same text model client and retry rules as Fit, with a 10 second timeout per call and at most one retry. A retry does not start when less than a call timeout remains before the deadline of the Lambda (25 seconds, less a 2 second margin for the response). The model reply is checked against the known lists, a wrong name is dropped, and the result is joined with the keyword result so recall can only rise |
+| Failure | A model that fails does not fail the route. It answers 200 with the keyword result and `degraded` true, and the app shows suggestions as before. The Lambda answers 500 only when the function itself fails, for example when the counter table cannot be reached |
+| Daily cap | 300 extractions a day (`extractDailyCap` in `src/shared/limits.ts`), counted in the jobs table under the key `DAY#extract-<day>`, separate from the daily job cap. The next call answers 429 with the code `daily_cap`, and the app client does not retry that code. The count includes calls whose model failed |
+| Route throttle | 1 request a second with a burst of 3 for this route, set in Terraform (`extract_rate_limit`, `extract_burst_limit`). Estimates, adjust after the first runs |
+| Role | The extract role has logs, `bedrock:InvokeModel` on the extraction model and `dynamodb:UpdateItem` on the keys `DAY#extract-*` of the jobs table. It has no bucket, queue or secret access. It is part of the budget cut at 150 percent |
+| Logs | One `extract_done` line per call: status, model, degraded, duration, model calls, tokens and the number of expertise suggestions. The job description and the reply of the model are never logged |
+| Measured | Not measured yet. The recall against the keyword result, the latency and the cost per call are recorded in the plan after the first runs |
+
 ## Retries
 
 When the worker catches an error that a retry might fix, it releases its lease on the job and makes the SQS message visible again after 10 seconds (`retryDelaySeconds` in `src/shared/limits.ts`), instead of waiting for the full visibility timeout of 1,080 seconds. It shortens the wait only if the lease was released, because a worker that finds the lease still held skips the message and SQS then deletes it. A crash the worker cannot catch, such as a Lambda timeout, still waits the full visibility timeout. Each retry counts as a receive, so after the fifth receive the job is failed and the message goes to the dead letter queue as before. A `TerminalError` fails the job at once and is never retried. The worker role needs `sqs:ChangeMessageVisibility`, which runbook Part D already grants. The worker takes the queue URL from `JOBS_QUEUE_URL` when it is set and otherwise builds it from the `eventSourceARN` of the SQS record (`aws` and `aws-us-gov` partitions only); if neither gives a URL, no fast retry is requested and the message waits for its visibility timeout.
@@ -133,6 +150,8 @@ It posts `samples/sample-job.json` twice with one idempotency key and expects th
 To connect the app, set `VITE_ENGINE_URL=http://127.0.0.1:8787` in the app's `.env` and restart the Vite dev server. Use 127.0.0.1 and not `localhost`, because the server binds 127.0.0.1 only and on Windows `localhost` can resolve to ::1 first. The app still needs its own Supabase settings to load profiles, because the engine only ranks the profile ids it is sent.
 
 This works with `npm run dev`, with the app on `http://localhost:5173`, which is the origin the server allows by default. `npm run dev:lan` is not supported, because it serves the app over HTTPS and a browser blocks an HTTPS page from calling this HTTP server. If Vite starts on another port, for example 5174 because 5173 is busy, set `LOCAL_ALLOW_ORIGIN` to that origin, such as `LOCAL_ALLOW_ORIGIN=http://localhost:5174`.
+
+The local server also answers `POST /extract`. With AWS credentials it calls the extraction model. Without them the call fails and the answer is the keyword result with `degraded` true, so the app can be tried offline.
 
 The stub options work here too. `STUB_DELAY_MS` adds a delay in milliseconds for each profile, `STUB_FAILURE_RATE` is the share of profiles (0 to 1) that fall back, and `STUB_CRASH=true` makes the engine throw so the job ends as failed.
 

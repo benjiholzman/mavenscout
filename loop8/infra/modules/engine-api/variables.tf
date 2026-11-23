@@ -9,7 +9,7 @@ variable "region" {
 }
 
 variable "dist_dir" {
-  description = "Folder with the esbuild output of loop8/engine, api/index.mjs and worker/index.mjs"
+  description = "Folder with the esbuild output of loop8/engine, api/index.mjs, worker/index.mjs and extract/index.mjs"
   type        = string
 }
 
@@ -133,7 +133,7 @@ variable "fit_model" {
 }
 
 variable "text_model" {
-  description = "Model id the API gives to jobs for extraction and summaries. Empty keeps the engine default"
+  description = "Model id the API gives to jobs for summaries. Empty keeps the engine default. Extraction has its own variable, extract_model"
   type        = string
   default     = ""
 }
@@ -148,4 +148,40 @@ variable "worker_error_alarm_seconds" {
   description = "Duration in seconds above which the worker alarm fires. Set below the worker timeout so a long run is seen before it is cut"
   type        = number
   default     = 150
+}
+
+variable "extract_model" {
+  description = "Model id of the extraction, given to the extract Lambda as EXTRACT_MODEL. Empty keeps the engine default, which is GPT-6 Sol and is blocked for this account"
+  type        = string
+  default     = ""
+}
+
+variable "extract_profile_model_ids" {
+  description = "Foundation models the extract Lambda may call through the cross region inference profile. It needs the profile and the foundation model in every region the profile routes to. Empty gives the role no model access"
+  type        = list(string)
+  default     = []
+}
+
+variable "extract_memory_mb" {
+  description = "Memory of the extract Lambda in MB. Estimate, adjust after the first runs"
+  type        = number
+  default     = 512
+}
+
+variable "extract_rate_limit" {
+  description = "Throttling of POST /extract in requests per second. Estimate, adjust after the first runs"
+  type        = number
+  default     = 1
+}
+
+variable "extract_burst_limit" {
+  description = "Throttling burst of POST /extract. Estimate, adjust after the first runs"
+  type        = number
+  default     = 3
+}
+
+variable "extract_error_alarm_seconds" {
+  description = "Duration in seconds above which the extract alarm fires. Set below the extract timeout of 25 seconds"
+  type        = number
+  default     = 20
 }

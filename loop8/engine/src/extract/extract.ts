@@ -28,11 +28,14 @@ import type {
   ExtractionContext,
 } from '../../../../src/lib/matching/types'
 import { log } from '../shared/log'
-import { parseExtraction, type CompleteFn } from '../bedrock/sol'
+import type { CompleteFn } from './complete'
+import { parseExtraction } from './parse'
 import { buildExtractionPrompt } from './prompt'
 
 export interface ExtractDeps {
   complete: CompleteFn
+  /** Called when the model failed and the result is the deterministic floor. */
+  onFallback?: (message: string) => void
 }
 
 /** Lowercase lookup from an option list back to its canonical spelling. */
@@ -75,7 +78,9 @@ export async function extractFromJd(
     )
     raw = parseExtraction(reply)
   } catch (err) {
-    log('extract_model_fallback', { jobId: 'n/a', message: err instanceof Error ? err.message : String(err) })
+    const message = err instanceof Error ? err.message : String(err)
+    log('extract_model_fallback', { jobId: 'n/a', message })
+    deps.onFallback?.(message)
     return floor
   }
 

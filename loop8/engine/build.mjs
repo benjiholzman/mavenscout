@@ -9,6 +9,7 @@ rmSync('dist', { recursive: true, force: true })
 for (const [name, entry] of [
   ['api', 'src/api/handler.ts'],
   ['worker', 'src/worker/handler.ts'],
+  ['extract', 'src/extract/handler.ts'],
 ]) {
   await build({
     entryPoints: [entry],

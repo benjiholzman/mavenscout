@@ -4,6 +4,7 @@ export interface Limits {
   maxDeepScored: number
   maxRequirements: number
   dailyJobCap: number
+  extractDailyCap: number
   leaseMs: number
   maxAttempts: number
   retryDelaySeconds: number
@@ -15,6 +16,8 @@ export const DEFAULT_LIMITS: Limits = {
   maxDeepScored: 200,
   maxRequirements: 100,
   dailyJobCap: 100,
+  // Extractions of the route POST /extract in a day, counted under their own key. Estimate, adjust after the first runs.
+  extractDailyCap: 300,
   // Timing rule: worker Lambda timeout (180000) < leaseMs < SQS visibility timeout (1080000).
   // A lease shorter than the Lambda timeout lets a second worker start while the first still runs.
   // A visibility timeout shorter than the lease redelivers the message before the lease can expire.

@@ -1,6 +1,7 @@
-# Compute and front door of the engine: the two Lambdas, their roles, the queue
-# to worker mapping and the HTTP API. The worker role may call the named models
-# and read the named secrets, and nothing else. The worker runs the stub unless
+# Compute and front door of the engine: the three Lambdas (api, worker and extract), their roles,
+# the queue to worker mapping and the HTTP API. The worker role may call the named models
+# and read the named secrets, and nothing else. The extract role may call the extraction model and
+# write one counter key, and nothing else. The worker runs the stub unless
 # engine_mode sets ENGINE (loop8/docs/planning/worker-engine-connect-plan.md).
 
 data "aws_caller_identity" "current" {}
@@ -22,6 +23,12 @@ data "archive_file" "worker" {
   output_path = "${path.root}/.build/worker.zip"
 }
 
+data "archive_file" "extract" {
+  type        = "zip"
+  source_file = "${var.dist_dir}/extract/index.mjs"
+  output_path = "${path.root}/.build/extract.zip"
+}
+
 # ---------------------------------------------------------------------------
 # Log groups
 # ---------------------------------------------------------------------------
@@ -37,6 +44,13 @@ resource "aws_cloudwatch_log_group" "worker" {
   #checkov:skip=CKV_AWS_338:14 days of retention is enough for a POC
   #checkov:skip=CKV_AWS_158:the default log encryption is enough for demo logs
   name              = "/aws/lambda/${var.name_prefix}-worker"
+  retention_in_days = 14
+}
+
+resource "aws_cloudwatch_log_group" "extract" {
+  #checkov:skip=CKV_AWS_338:14 days of retention is enough for a POC
+  #checkov:skip=CKV_AWS_158:the default log encryption is enough for demo logs
+  name              = "/aws/lambda/${var.name_prefix}-extract"
   retention_in_days = 14
 }
 
@@ -96,6 +110,49 @@ locals {
       )
     ]),
   )
+}
+
+# The extraction model, through its inference profile, as for the worker.
+locals {
+  extract_model_resources = flatten([
+    for id in var.extract_profile_model_ids : concat(
+      ["arn:aws:bedrock:${var.region}:${data.aws_caller_identity.current.account_id}:inference-profile/${var.profile_prefix}.${id}"],
+      [for r in var.profile_regions : "arn:aws:bedrock:${r}::foundation-model/${id}"],
+    )
+  ])
+}
+
+# The extract role has logs, the extraction model and one counter key of the jobs table, and nothing
+# else: no bucket, no queue, no secret. The counter keys start with DAY#extract-, so the role cannot
+# touch a job item or the daily job counter.
+data "aws_iam_policy_document" "extract" {
+  statement {
+    sid       = "Logs"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.extract.arn}:*"]
+  }
+
+  dynamic "statement" {
+    for_each = length(local.extract_model_resources) > 0 ? [1] : []
+
+    content {
+      sid       = "InvokeExtractModel"
+      actions   = ["bedrock:InvokeModel"]
+      resources = local.extract_model_resources
+    }
+  }
+
+  statement {
+    sid       = "ExtractDailyCounter"
+    actions   = ["dynamodb:UpdateItem"]
+    resources = [var.table_arn]
+
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["DAY#extract-*"]
+    }
+  }
 }
 
 data "aws_iam_policy_document" "worker" {
@@ -179,6 +236,17 @@ resource "aws_iam_role_policy" "worker" {
   policy = data.aws_iam_policy_document.worker.json
 }
 
+resource "aws_iam_role" "extract" {
+  name               = "${var.name_prefix}-extract-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_trust.json
+}
+
+resource "aws_iam_role_policy" "extract" {
+  name   = "${var.name_prefix}-extract"
+  role   = aws_iam_role.extract.id
+  policy = data.aws_iam_policy_document.extract.json
+}
+
 # ---------------------------------------------------------------------------
 # Lambdas
 # ---------------------------------------------------------------------------
@@ -245,6 +313,36 @@ resource "aws_lambda_function" "worker" {
   depends_on = [aws_cloudwatch_log_group.worker, aws_iam_role_policy.worker]
 }
 
+# Reads one job description with a model and answers in the same request. The timeout stays below the
+# 30 seconds that API Gateway allows for an HTTP API integration, with room for two model tries of
+# 10 seconds (loop8/docs/planning/extract-route-plan.md).
+resource "aws_lambda_function" "extract" {
+  #checkov:skip=CKV_AWS_50:X-Ray tracing adds cost and the structured logs of the Lambda are enough for the POC
+  #checkov:skip=CKV_AWS_115:reserved concurrency would take from the account limit, the route throttling and the daily cap bound the load
+  #checkov:skip=CKV_AWS_116:a failed call is returned to the caller, which falls back to the keyword extractor, so there is nothing to dead letter
+  #checkov:skip=CKV_AWS_117:the function calls AWS services only, a VPC adds cost and no protection here
+  #checkov:skip=CKV_AWS_173:environment variables hold a table name and a model id, not secrets
+  #checkov:skip=CKV_AWS_272:code signing is not used in the POC
+  function_name    = "${var.name_prefix}-extract"
+  role             = aws_iam_role.extract.arn
+  runtime          = "nodejs22.x"
+  handler          = "index.handler"
+  filename         = data.archive_file.extract.output_path
+  source_code_hash = data.archive_file.extract.output_base64sha256
+  timeout          = 25
+  memory_size      = var.extract_memory_mb
+
+  environment {
+    variables = merge({
+      JOBS_TABLE = var.table_name
+      },
+      var.extract_model != "" ? { EXTRACT_MODEL = var.extract_model } : {},
+    )
+  }
+
+  depends_on = [aws_cloudwatch_log_group.extract, aws_iam_role_policy.extract]
+}
+
 # One job per invocation. The cap protects the model quotas once models are connected.
 resource "aws_lambda_event_source_mapping" "worker" {
   event_source_arn = var.queue_arn
@@ -257,8 +355,8 @@ resource "aws_lambda_event_source_mapping" "worker" {
 }
 
 # ---------------------------------------------------------------------------
-# HTTP API with two routes. Route throttling is the main protection while the
-# sign in of the app is mocked.
+# HTTP API with three routes. Route throttling is the main protection while the
+# sign in of the app is mocked. POST /extract also has a daily cap in its Lambda.
 # ---------------------------------------------------------------------------
 
 resource "aws_apigatewayv2_api" "engine" {
@@ -293,6 +391,20 @@ resource "aws_apigatewayv2_route" "get_job" {
   target    = "integrations/${aws_apigatewayv2_integration.api.id}"
 }
 
+resource "aws_apigatewayv2_integration" "extract" {
+  api_id                 = aws_apigatewayv2_api.engine.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.extract.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "extract" {
+  #checkov:skip=CKV_AWS_309:sign in is mocked in the app, so there is no identity to check. The protection is throttling, the daily cap of 300 extractions and the 150 percent budget cut of the extract role
+  api_id    = aws_apigatewayv2_api.engine.id
+  route_key = "POST /extract"
+  target    = "integrations/${aws_apigatewayv2_integration.extract.id}"
+}
+
 resource "aws_apigatewayv2_stage" "default" {
   #checkov:skip=CKV_AWS_76:access logging is not needed in the POC, the Lambda logs each request
   api_id      = aws_apigatewayv2_api.engine.id
@@ -303,6 +415,13 @@ resource "aws_apigatewayv2_stage" "default" {
     throttling_rate_limit  = var.api_rate_limit
     throttling_burst_limit = var.api_burst_limit
   }
+
+  # Extraction spends on every call, so it has its own, lower limits.
+  route_settings {
+    route_key              = aws_apigatewayv2_route.extract.route_key
+    throttling_rate_limit  = var.extract_rate_limit
+    throttling_burst_limit = var.extract_burst_limit
+  }
 }
 
 resource "aws_lambda_permission" "api_gateway" {
@@ -311,6 +430,14 @@ resource "aws_lambda_permission" "api_gateway" {
   function_name = aws_lambda_function.api.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.engine.execution_arn}/*/*/jobs*"
+}
+
+resource "aws_lambda_permission" "extract_api_gateway" {
+  statement_id  = "apigw-invoke-extract"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.extract.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.engine.execution_arn}/*/POST/extract"
 }
 
 # ---------------------------------------------------------------------------
@@ -359,6 +486,43 @@ resource "aws_cloudwatch_metric_alarm" "worker_duration" {
   period              = 300
   evaluation_periods  = 1
   threshold           = var.worker_error_alarm_seconds * 1000
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [var.alerts_topic_arn]
+}
+
+# ---------------------------------------------------------------------------
+# Failure alarms of the extract Lambda. A model that fails does not raise an error here, because the
+# function answers with the keyword result and degraded true. An error means the function itself failed,
+# for example the counter table was not reachable, and a duration close to the timeout means the model
+# tries are using all the time.
+# ---------------------------------------------------------------------------
+
+resource "aws_cloudwatch_metric_alarm" "extract_errors" {
+  alarm_name          = "${var.name_prefix}-extract-errors"
+  alarm_description   = "The extract Lambda returned an error in the last 5 minutes"
+  namespace           = "AWS/Lambda"
+  metric_name         = "Errors"
+  dimensions          = { FunctionName = aws_lambda_function.extract.function_name }
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [var.alerts_topic_arn]
+}
+
+resource "aws_cloudwatch_metric_alarm" "extract_duration" {
+  alarm_name          = "${var.name_prefix}-extract-duration"
+  alarm_description   = "An extraction took more than ${var.extract_error_alarm_seconds} seconds, close to the ${aws_lambda_function.extract.timeout} second timeout"
+  namespace           = "AWS/Lambda"
+  metric_name         = "Duration"
+  dimensions          = { FunctionName = aws_lambda_function.extract.function_name }
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = var.extract_error_alarm_seconds * 1000
   comparison_operator = "GreaterThanThreshold"
   treat_missing_data  = "notBreaching"
   alarm_actions       = [var.alerts_topic_arn]

@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { extractFromJd } from '../src/extract/extract'
-import { parseExtraction } from '../src/bedrock/sol'
-import type { CompleteFn } from '../src/bedrock/sol'
+import { parseExtraction } from '../src/extract/parse'
+import type { CompleteFn } from '../src/extract/complete'
 import { MAX_TAG_ROWS } from '../../../src/lib/matching/config'
 import type { ExtractionContext } from '../../../src/lib/matching/types'
 import type { TaxonomyCategory, TaxonomyItem } from '../../../src/types/db'
@@ -62,6 +62,17 @@ test('a model failure degrades to the deterministic floor', async () => {
   }
   const out = await extractFromJd(jd, ctx, { complete: failing })
   assert.deepEqual(out.expertise.map((e) => e.name), ['Nutrition'])
+})
+
+test('onFallback is called when the model fails or its reply is not usable, and not when it works', async () => {
+  const jd = 'We run nutrition programmes in the region.'
+  const messages: string[] = []
+  const onFallback = (m: string) => void messages.push(m)
+  await extractFromJd(jd, ctx, { complete: async () => { throw new Error('throttled') }, onFallback })
+  await extractFromJd(jd, ctx, { complete: fakeComplete('no json here'), onFallback })
+  assert.equal(messages.length, 2)
+  await extractFromJd(jd, ctx, { complete: fakeComplete('{"expertise":["Nutrition"],"locations":[],"languages":[]}'), onFallback })
+  assert.equal(messages.length, 2)
 })
 
 test('locations are validated against the options, case-insensitively, and unknowns dropped', async () => {
