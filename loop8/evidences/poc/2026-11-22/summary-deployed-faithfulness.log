@@ -1,0 +1,14 @@
+# The same check of the five sample ToRs on the deployed engine after pull request 82 (overclaim fix) was merged and applied.
+# Date: 2026-11-22, after the apply (0 added, 1 changed, 0 destroyed). Context: ToR 01 to 05, their fixed requirement rows, the 98 approved and active individuals, index 13d7674312434864, Nova Lite for Fit and text, prompt summary-v2 with the overclaim check.
+
+### P1 The five sample ToRs through the deployed engine, 25 top five summaries checked against the stored data
+$ ENGINE_URL=<api> SUPABASE_URL=<database> SUPABASE_ANON_KEY=<key> node faithful.mjs   (script saved next to this log)
+top five summaries checked: 25, template fallback: 4, real text: 21
+numbers match the data: 21 of 21 (wrong: 0)
+claims that every priority was met while one was not: 0
+Fit sentence naming an excluded attribute (location, language, career level, employer): 0
+start with "The candidate ranks": 21 of 21; use the word "proven": 10 of 21
+words: min 42 max 60 average 52.3
+
+ISSUES:
+RESULT: 21 real summaries and 4 template fallbacks (2 before the fix). Numbers right in 21 of 21, no summary that says every priority was met while a row was not (5 of 23 before), no Fit sentence naming an excluded attribute. 21 of 21 start with The candidate ranks and 10 of 21 use the word proven (18 of 23 before). More fallbacks is the cost of rejecting the claim, and the template is the safe text.

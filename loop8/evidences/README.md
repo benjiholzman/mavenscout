@@ -36,6 +36,7 @@ The only environment so far is `poc`, the temporary POC environment in the custo
 | [poc/2026-11-21](poc/2026-11-21/) | [pipeline.log](poc/2026-11-21/pipeline.log) | Merged pull requests, pipeline runs and the result of each apply |
 | [poc/2026-11-21](poc/2026-11-21/) | [ui-run.log](poc/2026-11-21/ui-run.log) | The ranking started from the app, its screenshots and what it saved in the customer database |
 | [poc/2026-11-22](poc/2026-11-22/) | [section-summary-faithfulness.md](poc/2026-11-22/section-summary-faithfulness.md) | Do the written summaries say what the data says: a check before and after a fix |
+| [poc/2026-11-22](poc/2026-11-22/) | [summary-deployed-faithfulness.log](poc/2026-11-22/summary-deployed-faithfulness.log) | The same check on the deployed engine after the overclaim fix: 21 real summaries, none that overclaims |
 | [poc/2026-11-22](poc/2026-11-22/) | [summary-faithfulness-check.log](poc/2026-11-22/summary-faithfulness-check.log) | The five sample ToRs through the deployed engine, 25 summaries checked against the stored data, and the live check after the fix |
 
 The report that uses these logs is [first-real-runs-report.md](../docs/reports/first-real-runs-report.md).

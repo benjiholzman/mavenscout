@@ -10,7 +10,7 @@ POC environment, us-east-1. A check of the top five summaries written by the eng
 | A claim that every priority was met against the stored rows | Yes | The same check, rows with outcome partial or not met, P1 |
 | Fit explained by location, language, career level or employer | Yes | A search of the sentence that names Fit, P1 |
 | The fix on real candidates | Yes, on the summary step only | 20 real candidates per run with Nova Lite, P2 and P3 |
-| The fix inside a deployed job | Not yet | It needs the fix merged and applied |
+| The fix inside a deployed job | Yes | The same check on the deployed engine after the apply, `summary-deployed-faithfulness.log` |
 | Whether the text is true in every detail (an invented skill or a wrong place) | No | It would need a person to read the evidence of each candidate. Only what the numbers and rows can prove was checked |
 | How a customer reads the tone | No | A judgment, not a measure |
 | Other models than Nova Lite | No | The agreed models are not enabled for the account |
@@ -24,9 +24,12 @@ POC environment, us-east-1. A check of the top five summaries written by the eng
 | Summary says every priority was met while a row was partly met or not met | 5 of 23 (22 percent) before the fix | P1 |
 | Summaries that start with The candidate ranks, and that use the word proven | 23 of 23 and 18 of 23 before the fix | P1 |
 | Live check after the fix | 38 of 40 accepted (95 percent), 35 at the first try, no first reply overclaimed | P2, P3, P4 |
+| Deployed engine after the fix: summaries that say every priority was met while a row was not | 0 of 21 real summaries (5 of 23 before) | `summary-deployed-faithfulness.log` P1 |
+| Deployed engine after the fix: numbers right, Fit sentences naming an excluded attribute | 21 of 21 and 0 | `summary-deployed-faithfulness.log` P1 |
+| Deployed engine after the fix: template fallbacks, and the word proven | 4 of 25 (2 before) and 10 of 21 (18 of 23 before) | `summary-deployed-faithfulness.log` P1 |
 | Summaries with proven, extensive or impressive after the fix | 8 of 38 | P2, P3, P4 |
 | Summaries that start with The candidate ranks after the fix | 34 of 38 | P2, P3, P4 |
 
 ## Not run
 
-The same check on the deployed engine after the fix, a read of the text against the evidence by a person, and the check with the agreed models.
+A read of the text against the evidence by a person, and the check with the agreed models.
