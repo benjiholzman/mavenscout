@@ -73,20 +73,20 @@ Decisions of the project lead on 2026-11-23. Each one follows the recommendation
 Assumptions:
 
 1. The API Gateway integration timeout for HTTP APIs is 30 seconds, its default and maximum, and it cannot be raised. Confirmed on 2026-11-23 in the AWS quotas page for HTTP APIs.
-2. A setting for one route in the stage limits that route separately from the default settings. To confirm by reading the stage after the apply.
+2. A setting for one route in the stage limits that route separately from the default settings. The plan of pull request 87 adds the route settings of `POST /extract` to the stage in place (rate 1, burst 3). Whether the route is limited apart from the default is confirmed by reading the stage after the apply.
 3. CORS is configured for the whole API, so the new route answers with the CORS headers. The preflight already answers 204 for any path, measured on 2026-11-23, and the 404 without headers was caused by the missing route.
 4. One extraction with Nova Pro takes a few seconds for a job description of up to 15,000 characters with the expertise list in the prompt. Unknown until measured, and the 25 second timeout and 10 second call timeout depend on it.
 5. The apply role may create the new Lambda, role, policy, log group and alarms by the prefix `mavenscout-engine-*`, and may pass the role to Lambda and Budgets. Confirmed on 2026-11-23 by reading `loop8/infra/bootstrap/bootstrap.yaml`. The bootstrap stack does not change.
-6. The plan of Terraform may show the budget action at 150 percent as a replacement and not an update in place. If it does, the plan is read before any approval, because the action is the cost cut.
+6. The plan of Terraform may show the budget action at 150 percent as a replacement and not an update in place. If it does, the plan is read before any approval, because the action is the cost cut. Resolved on 2026-11-23: the plan of pull request 87 shows an update in place that adds the extract role.
 
 ## 5. Impact analysis
 
 1. Cost. Each pasted job description is one model call. The tokens per call are unknown, so no figure is written here. With the cap of 300 calls a day the worst day is bounded, and the figure is computed after the measurement from the measured tokens and the AWS price list. The Lambda itself costs cents.
 2. Security. A new route that spends money and has no authentication. Limits: its own throttle, the daily cap, a role that can only call the extraction model and write one counter key, the 150 percent cut, and logs that never carry the text. The residual risk is up to the cap in calls a day by anyone with the URL, the same accepted risk as `POST /jobs`, and Chad must tell the customer.
 3. Personal data. A job description can name an organization and people. It is sent to a model in the customer account and not stored: the extract role has no S3 access and the counter holds no text.
-4. Existing paths. The `api` Lambda code changes, because the extraction code leaves it. The ranking path is covered by the existing tests of `createJob` and `getJob`, and the worker bundle does not change.
+4. Existing paths. The `api` Lambda code changes, because the extraction code leaves it. The ranking path is covered by the existing tests of `createJob` and `getJob`, and the worker code changes only because it shares `DEFAULT_LIMITS` with the other functions, which has a new field the worker never reads.
 5. The app. Only `remote.ts` changes, for the 429 case, plus the baseline script. The fallback of commit `8e064ab` stays as the floor.
-6. Terraform. New resources: Lambda, role and its policy, log group, integration, route, permission, three alarms. In place changes expected: the stage, the budget action role policy, the 150 percent action. Read the plan for anything else.
+6. Terraform. New resources: Lambda, role and its policy, log group, integration, route, permission, four alarms (two for the Lambda and two Bedrock throttle alarms for Nova Pro). In place changes expected: the stage, the budget action role policy, the 150 percent action and the code of the api and worker Lambdas. Read the plan for anything else.
 7. Time. The apply runs on merge. Until the apply, the app behaves as today.
 8. Reversal. Revert the pull request: the pipeline removes the route and the Lambda, and the app falls back to the keyword extractor without change.
 
@@ -138,9 +138,11 @@ Sections 3.1, 3.2 and 3.3 as planned, in issue 86. The extract route logic is in
 | Checkov | 231 passed, 0 failed, 35 skipped. The new skips follow the ones of the api function and routes, each with its reason |
 | Size of the zips | `api.zip` 326,486 bytes (it was 512 KB after pull request 85 and 324 KB before), `extract.zip` 498,704 bytes, `worker.zip` 542,585 bytes |
 | Bedrock SDK in the bundles | None in `dist/api/index.mjs`. It is in the extract and worker bundles |
+| Terraform plan of pull request 87 | 11 to add, 5 to change, 0 to destroy. The budget action at 150 percent is updated in place and gains the extract role. The stage gains the route settings of `POST /extract`. The code of the api and worker Lambdas changes |
 
 ### 8.3 Differences from the plan
 
 1. `scripts/ranking-baseline.ts` wrote the engine URL into the generated report (`docs/samples/ranking-baseline-engine.md`) and the console. The repository is public, so the URL is no longer written or printed. This came with pull request 85 and was found while adding the `degraded` count.
 2. The route settings of the stage and the budget action update are not checked until the plan of Terraform is read on the pull request. Assumptions 2 and 6 of section 4 stay open.
 3. The IAM condition `ForAllValues:StringLike` on `dynamodb:LeadingKeys` is covered by the module test, but its effect is only proven by a policy simulation after the apply. It is added to criterion 4.
+4. The worker code changes in the plan of pull request 87, which section 5 first denied. The worker shares `DEFAULT_LIMITS` with the other functions and that object has a new field, `extractDailyCap`, that the worker never reads. Its behavior does not change, and the claim in section 5 was corrected.
