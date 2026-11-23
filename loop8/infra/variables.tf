@@ -116,7 +116,7 @@ variable "engine_fit_model" {
 }
 
 variable "engine_text_model" {
-  description = "Model id the API gives to every job for extraction and summaries. Same single model as Fit in variant A"
+  description = "Model id the API gives to every job for summaries. Same single model as Fit in variant A. Extraction has its own variable, extract_model"
   type        = string
   default     = "us.amazon.nova-lite-v1:0"
 }
@@ -140,7 +140,37 @@ variable "engine_mode" {
 }
 
 variable "bedrock_throttle_alarm_models" {
-  description = "Model ids whose Bedrock invocation throttles raise an alarm. The profile id and the model id of Nova Lite, as for the token alarms"
+  description = "Model ids whose Bedrock invocation throttles raise an alarm. The profile id and the model id of Nova Lite and Nova Pro, as for the token alarms"
   type        = list(string)
-  default     = ["us.amazon.nova-lite-v1:0", "amazon.nova-lite-v1:0"]
+  default     = ["us.amazon.nova-lite-v1:0", "amazon.nova-lite-v1:0", "us.amazon.nova-pro-v1:0", "amazon.nova-pro-v1:0"]
+}
+
+variable "extract_model" {
+  description = "Model id of the extraction of the job description, given to the extract Lambda. Nova Pro is the temporary text model while GPT-6 Sol is blocked for this account. Change it together with extract_profile_model_ids"
+  type        = string
+  default     = "us.amazon.nova-pro-v1:0"
+}
+
+variable "extract_profile_model_ids" {
+  description = "Foundation models the extract Lambda may call through the US inference profile. A subset of invoke_profile_model_ids"
+  type        = list(string)
+  default     = ["amazon.nova-pro-v1:0"]
+}
+
+variable "extract_memory_mb" {
+  description = "Memory of the extract Lambda in MB. Estimate, adjust after the first runs"
+  type        = number
+  default     = 512
+}
+
+variable "extract_rate_limit" {
+  description = "Throttling of POST /extract in requests per second. Every call spends on a model, so it is lower than the other routes. Estimate, adjust after the first runs"
+  type        = number
+  default     = 1
+}
+
+variable "extract_burst_limit" {
+  description = "Throttling burst of POST /extract. Estimate, adjust after the first runs"
+  type        = number
+  default     = 3
 }

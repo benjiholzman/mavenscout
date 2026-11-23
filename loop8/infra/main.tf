@@ -9,7 +9,7 @@ module "cost_guard" {
   engineer_role_names  = concat(var.engineer_role_names, [module.bedrock_invoke.role_name])
   bedrock_alarm_models = var.bedrock_alarm_models
 
-  worker_role_names             = [module.engine_api.worker_role_name]
+  worker_role_names             = [module.engine_api.worker_role_name, module.engine_api.extract_role_name]
   bedrock_throttle_alarm_models = var.bedrock_throttle_alarm_models
 }
 
@@ -66,6 +66,13 @@ module "engine_api" {
   supabase_secret_id       = module.engine_secrets.secret_ids["supabase"]
   index_artifact_key       = var.index_artifact_key
   engine_mode              = var.engine_mode
+
+  # The extract Lambda may call this model and nothing else
+  extract_model             = var.extract_model
+  extract_profile_model_ids = var.extract_profile_model_ids
+  extract_memory_mb         = var.extract_memory_mb
+  extract_rate_limit        = var.extract_rate_limit
+  extract_burst_limit       = var.extract_burst_limit
 
   # Settings the API gives to every job
   fit_model   = var.engine_fit_model

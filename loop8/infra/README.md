@@ -16,7 +16,7 @@
 3. `modules/cost-guard/`: the alert topic, the monthly budget, the deny action and the token alarms, with an offline test.
 4. `modules/bedrock-invoke/`: the managed policy that allows `bedrock:InvokeModel` on Titan V2, Luna and Sol and the role that carries it, with an offline test. The engineers assume the role, see the runbook B3c.
 5. `modules/engine-data/`: the jobs bucket, the job state table, the jobs queue with its dead letter queue and the alarm, with an offline test.
-6. `modules/engine-api/`: the api and worker Lambdas, their roles, the queue mapping and the HTTP API with throttling, with an offline test. The plan and apply jobs build `loop8/engine` first, because Terraform packages its output.
+6. `modules/engine-api/`: the api, worker and extract Lambdas, their roles, the queue mapping and the HTTP API with throttling, with an offline test. The plan and apply jobs build `loop8/engine` first, because Terraform packages its output.
 7. `modules/engine-secrets/`: empty Secrets Manager secrets, with an offline test. The value is added by hand with `scripts/put-secret.sh`, see the runbook B2.
 8. `scripts/`: `checkov_github_oidc.py`, the Checkov adapter that understands the immutable GitHub subject, and `put-secret.sh`, which uploads a secret value without showing it.
 9. `.checkov.yaml`, `.tflint.hcl`: linter settings. The pre-commit file is `loop8/.pre-commit-config.yaml`.

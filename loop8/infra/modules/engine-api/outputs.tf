@@ -8,3 +8,8 @@ output "worker_role_name" {
   description = "Role of the worker Lambda"
   value       = aws_iam_role.worker.name
 }
+
+output "extract_role_name" {
+  description = "Role of the extract Lambda"
+  value       = aws_iam_role.extract.name
+}
