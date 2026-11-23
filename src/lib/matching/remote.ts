@@ -1,4 +1,11 @@
-import type { JdMatchResult, RankPoolFn, Requirement } from './types'
+import type {
+  ExtractedRequirements,
+  ExtractionContext,
+  ExtractRequirementsFn,
+  JdMatchResult,
+  RankPoolFn,
+  Requirement,
+} from './types'
 
 // ============================================================================
 // Client for the ranking engine API (loop8/engine). The app calls rankPool as
@@ -185,5 +192,91 @@ export function createRemoteRankPool(opts: RemoteOptions): RankPoolFn {
       await pause()
     }
     throw timedOut()
+  }
+}
+
+// ============================================================================
+// Extraction client. Unlike ranking, extraction is synchronous: the manager
+// pastes a job description and expects suggestion chips at once, so this posts
+// the text to the engine's /extract route and returns the result in one call.
+// The engine reads the job description once and never per candidate.
+// ============================================================================
+
+export interface RemoteExtractOptions {
+  baseUrl: string
+  fetch?: typeof fetch
+  sleep?: (ms: number) => Promise<void>
+  now?: () => number
+  /** Runs when the engine cannot read the job description (any error). The app
+   *  passes the local keyword extractor so "Read job description" never breaks.
+   *  Left unset, the error is thrown, which is what the baseline harness wants
+   *  because it must measure the engine and not the fallback. */
+  fallback?: ExtractRequirementsFn
+}
+
+/** Ceiling for retrying network errors and 5xx answers. Extraction is a
+ *  synchronous click, so this is also the longest the manager waits before the
+ *  fallback runs. A browser reports a 404 from API Gateway without CORS headers
+ *  as a network error, so a missing route costs this whole budget. */
+const EXTRACT_BUDGET_MS = 10000
+
+export function createRemoteExtract(opts: RemoteExtractOptions): ExtractRequirementsFn {
+  const base = opts.baseUrl.replace(/\/+$/, '')
+
+  const viaEngine = async (jdText: string, ctx: ExtractionContext): Promise<ExtractedRequirements> => {
+    const doFetch = opts.fetch ?? globalThis.fetch.bind(globalThis)
+    const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
+    const now = opts.now ?? Date.now
+    const deadline = now() + EXTRACT_BUDGET_MS
+    const timedOut = () => new Error('The engine did not read the job description in time')
+
+    // Retries network errors with backoff inside the budget.
+    const send = async (url: string, init?: RequestInit) => {
+      let backoff = START_INTERVAL_MS
+      for (;;) {
+        try {
+          return await doFetch(url, init)
+        } catch (err) {
+          if (now() >= deadline) throw err instanceof Error ? err : timedOut()
+          await sleep(backoff)
+          backoff = Math.min(backoff * GROWTH, MAX_INTERVAL_MS)
+        }
+      }
+    }
+
+    let interval = START_INTERVAL_MS
+    for (;;) {
+      const res = await send(`${base}/extract`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jdText, ctx }),
+      })
+      if (res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { extracted?: ExtractedRequirements }
+        if (!body.extracted) throw new Error('Engine returned no extraction')
+        return body.extracted
+      }
+      // A client error other than 429, or a 501 (the engine build has no
+      // extraction route), will not fix itself: surface it now rather than
+      // retrying a permanent failure for the whole budget.
+      if ((res.status >= 400 && res.status < 500 && res.status !== 429) || res.status === 501) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+        throw new Error(`Engine rejected extraction: ${body.error ?? res.status} ${body.message ?? ''}`.trim())
+      }
+      if (now() >= deadline) throw timedOut()
+      await sleep(interval)
+      interval = Math.min(interval * GROWTH, MAX_INTERVAL_MS)
+    }
+  }
+
+  const fallback = opts.fallback
+  if (!fallback) return viaEngine
+  return async (jdText, ctx) => {
+    try {
+      return await viaEngine(jdText, ctx)
+    } catch (err) {
+      console.warn(`engine extraction unavailable (${err instanceof Error ? err.message : String(err)}); using the local extractor`)
+      return fallback(jdText, ctx)
+    }
   }
 }

@@ -9,7 +9,7 @@ function job(jobId: string, over: Partial<JobItem> = {}): JobItem {
   return {
     jobId, state: 'QUEUED', createdAt: 1, inputKey: `in/${jobId}.json`,
     settings: {
-      variant: 'v', fitModel: 'f', textModel: 't', embedModel: 'e',
+      variant: 'v', fitModel: 'f', textModel: 't', extractModel: 'x', embedModel: 'e',
       summaryCount: 1, parallelCalls: 1, threshold: null, promptVersion: 'p', fitCap: 1,
     },
     progress: { done: 0, total: 3 }, fallbacks: [], record: [], expiresAt: 999, ...over,

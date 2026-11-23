@@ -37,7 +37,7 @@ function job(): JobItem {
   return {
     jobId: 'j1', state: 'QUEUED', createdAt: 1, inputKey: 'in/j1.json',
     settings: {
-      variant: 'v', fitModel: 'f', textModel: 't', embedModel: 'e',
+      variant: 'v', fitModel: 'f', textModel: 't', extractModel: 'x', embedModel: 'e',
       summaryCount: 1, parallelCalls: 1, threshold: null, promptVersion: 'p', fitCap: 1,
     },
     progress: { done: 0, total: 3 }, fallbacks: [], record: [], expiresAt: 5_000_000,
