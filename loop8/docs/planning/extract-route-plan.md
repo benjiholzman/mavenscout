@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Approved by the project lead on 2026-11-23, with the decisions of section 4 as recommended. Nothing is built yet |
+| Status | Approved by the project lead on 2026-11-23, with the decisions of section 4 as recommended. Built and checked offline on 2026-11-23 (section 8), waiting for the review of the project lead. Not applied to AWS and not measured |
 | Phase | P2 (job description parsing), closing the gap left by pull request 85 |
 | Task | Add the `POST /extract` route and a separate `extract` Lambda so the extraction code merged in pull request 85 can run, with its limits, alarms and cost cut, and measure it |
 | Owner | Guillermo Sandoval |
@@ -117,3 +117,30 @@ Assumptions:
 11. Chad receives the results and the security note for the customer.
 
 Not part of this task: the AI suggestions of Important and Must have (point 4), the monthly cap per manager (point 5), summaries on demand, and the change to the agreed models when AWS enables them.
+
+## 8. Build record
+
+Written on 2026-11-23 after the offline checks. The checks that need AWS (the apply, the read only checks, the measurements of criteria 3 to 8) are not done, and no figure of quality, latency or cost exists yet.
+
+### 8.1 What was built
+
+Sections 3.1, 3.2 and 3.3 as planned, in issue 86. The extract route logic is in `src/extract/route.ts`, the handler in `src/extract/handler.ts`, the model call in `src/extract/complete.ts` and the reply parser in `src/extract/parse.ts`. `src/bedrock/sol.ts` is deleted. The api code (`src/api/app.ts`, `src/api/handler.ts`) is as it was before pull request 85, without the extraction.
+
+### 8.2 Offline checks
+
+| Check | Result |
+|---|---|
+| Engine type check and tests | Pass, 446 of 446. The new tests cover the route (validation, the cap of 300 with the 301st answering 429, count per day and separate from the job cap, a counter failure not hidden), the model call (retry once, no retry near the deadline, tokens counted, empty reply) and the fallback flag |
+| App type check and build | Pass |
+| App client tests | Pass: a `daily_cap` 429 fails at once, another 429 is retried, `onResult` reports `degraded` and `model` |
+| Terraform format, validate and module tests | Pass. engine-api 17 of 17, the other four modules unchanged and passing |
+| tflint | One warning that was already there (`enable_opensearch` is declared and unused) |
+| Checkov | 231 passed, 0 failed, 35 skipped. The new skips follow the ones of the api function and routes, each with its reason |
+| Size of the zips | `api.zip` 326,486 bytes (it was 512 KB after pull request 85 and 324 KB before), `extract.zip` 498,704 bytes, `worker.zip` 542,585 bytes |
+| Bedrock SDK in the bundles | None in `dist/api/index.mjs`. It is in the extract and worker bundles |
+
+### 8.3 Differences from the plan
+
+1. `scripts/ranking-baseline.ts` wrote the engine URL into the generated report (`docs/samples/ranking-baseline-engine.md`) and the console. The repository is public, so the URL is no longer written or printed. This came with pull request 85 and was found while adding the `degraded` count.
+2. The route settings of the stage and the budget action update are not checked until the plan of Terraform is read on the pull request. Assumptions 2 and 6 of section 4 stay open.
+3. The IAM condition `ForAllValues:StringLike` on `dynamodb:LeadingKeys` is covered by the module test, but its effect is only proven by a policy simulation after the apply. It is added to criterion 4.
