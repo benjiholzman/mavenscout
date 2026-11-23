@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Plan, waiting for the review of the project lead. Written before the code |
+| Status | Built and checked offline on 2026-11-23 (section 8), waiting for the review of the project lead. Not pushed. The series of live calls of criterion 4 is not done |
 | Phase | P2 (job description parsing) |
 | Task | Fix the extraction so that the names the model returns are not lost to a format mismatch, log what the model returned, and add a script that measures the extraction with each candidate model on the five sample ToRs |
 | Owner | Guillermo Sandoval |
@@ -86,3 +86,33 @@ Decisions that come after the measurement, not before:
 9. A separate pull request for the model change, if the measurement supports one.
 
 Not part of this task: the model change in Terraform, the AI suggestions of Important and Must have, the monthly cap per manager, and summaries on demand.
+
+## 8. Build record
+
+Written on 2026-11-23 after the offline checks. The series of live calls of criterion 4, the push, the Terraform plan and the single call after the merge are not done.
+
+### 8.1 What was built
+
+Section 3 as planned: the hint removal and the counts in `src/extract/extract.ts`, the prompt rule and the version id `extract-v2` in `src/extract/prompt.ts`, the counts and the prompt version in the `extract_done` line of `src/extract/handler.ts`, the script `scripts/extract-compare.ts` with its pure part in `src/eval/extract-compare.ts` and the command `npm run extract-compare`, the tests, and the documentation.
+
+### 8.2 Offline checks
+
+| Check | Result |
+|---|---|
+| Engine type check and tests | Pass, 457 of 457. 7 new tests for the extraction (the hint kept as the name, an invented name dropped, only a trailing parenthesis removed, an old name with a hint, the exact name winning over the stripped one, the counts, no counts when the model failed, the prompt text and version) and 4 for the comparison arguments and score |
+| App build | Pass |
+| `npm run extract-compare` without `--confirm-live` | Prints 10 planned calls for two models and five ToRs, and says that no database read and no model call was made. With `--confirm-live` and no `--max-calls` it refuses |
+| Bundles | The `api` and worker bundles are identical to those of `loop8-develop` (same SHA-256). Only the `extract` bundle changes |
+| `npm run baseline` without the engine | Same scores as the committed run: extraction recall 53 of 62, 14 of 14 expected profiles in the top 10 and top 5. The regenerated file differs from the committed one only in the wording of its header, the run date and a row count of the database, so it is not part of this change |
+
+### 8.3 The baseline through the deployed engine before this change
+
+The baseline harness uses the engine whenever `VITE_ENGINE_URL` is in the `.env` of the repository, and not only when it is in the shell. A run on 2026-11-23 before this change, with the deployed code (Nova Pro, the old prompt and the exact validation), made 5 real extractions and found 54 of 62 expected terms, with no extraction degraded. The keyword extractor alone finds 53 of 62. The expertise found out of the expected, by ToR: tor-01 6 of 9, tor-02 7 of 9, tor-03 5 of 7, tor-04 8 of 9 and tor-05 8 of 8. The 5 calls used 16,059 input tokens and 367 output tokens, which is 0.014 dollars at the AWS price list of 2026-11-11. This is the figure to compare the series of criterion 4 with.
+
+The same ToR 01 with the same 3,306 input tokens produced 121 output tokens in one call and 71 in another, at temperature 0, so the answer of the model varies between runs. One run per model is therefore a first reading, and the series should be read with that in mind.
+
+### 8.4 Open points
+
+1. The baseline calls the engine without being asked to whenever the `.env` has the URL. A guard that requires an explicit flag would remove the risk of spending by accident. It is outside this task and needs a decision.
+2. The price of Nova 2 Lite must be read before the series, to state its cost.
+
