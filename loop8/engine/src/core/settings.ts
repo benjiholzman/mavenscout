@@ -1,6 +1,13 @@
 import type { Settings } from './types'
 
 export const DEFAULT_FIT_CAP = 200
+/** How many of the top judged candidates get the components call. 0 turns it off. */
+export const DEFAULT_COMPONENTS_COUNT = 20
+
+/** The components count of saved settings. A job saved before componentsCount existed carries none,
+ *  and a value that is not a non-negative integer is ignored: the default applies in both cases. */
+export const componentsCountOf = (value: unknown): number =>
+  (Number.isInteger(value) && (value as number) >= 0 ? (value as number) : DEFAULT_COMPONENTS_COUNT)
 
 function int(env: Record<string, string | undefined>, key: string, fallback: number): number {
   const raw = env[key]
@@ -33,5 +40,6 @@ export function loadSettings(env: Record<string, string | undefined>): Settings 
     threshold: threshold(env),
     promptVersion: str('PROMPT_VERSION', 'v0'),
     fitCap: int(env, 'FIT_CAP', DEFAULT_FIT_CAP),
+    componentsCount: int(env, 'COMPONENTS_COUNT', DEFAULT_COMPONENTS_COUNT),
   }
 }

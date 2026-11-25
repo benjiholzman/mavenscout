@@ -1,5 +1,6 @@
-// Shared retry for model calls that can be throttled. Used by the Fit call and
-// the summaries call. Never logs anything: errors can carry request details.
+// Shared retry for model calls that can be throttled. Used by the Fit call, the
+// components call and the summaries call. Never logs anything: errors can carry
+// request details.
 
 export interface RetryOptions {
   retries?: number

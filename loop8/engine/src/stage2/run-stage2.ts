@@ -1,35 +1,41 @@
 // Stage 2 of the semantic engine: the Fit call for the first fitCap shortlisted
 // candidates, scoring for every candidate with scoring data, then summaries for
-// the top summaryCount by total. A failed Fit, score or summary falls back for
-// that candidate only and the job continues, unless every Fit call of the run
-// failed: then the job stops (see fitFailure). Flags are written into the
+// the top summaryCount by total and, in the same pool of calls, the components
+// call for the top componentsCount candidates with a Fit call in this run (with
+// the work places, which never reach Fit). A failed Fit, score or summary falls
+// back for that candidate only and the job continues, unless every Fit call of
+// the run failed: then the job stops (see fitFailure). A failed components call
+// only leaves the candidate without components. Flags are written into the
 // narrative text; model error text never is. A failed Fit call logs its error
 // name only. Nothing here logs profile, fragment, query, prompt, model output
 // or error message text.
 //
 // Time: with ctx.deadlineAt the run stops starting model calls early enough to save its results before
 // the Lambda times out. Candidates not reached keep their estimate with their own note, summaries not
-// reached use the template text (see FINISH_RESERVE_MS). After a throttle the calls in flight are cut.
+// reached use the template text and components calls not reached leave no components (see
+// FINISH_RESERVE_MS). After a throttle the calls in flight are cut.
 //
 // Resume: the Fit targets are fixed by search order (done candidates are skipped
 // but keep their place), and each candidate is checkpointed once, after the
 // summaries, in rank order with the summarized candidates first. The done
 // candidates of an interrupted run are therefore a rank order prefix whose
-// summaries were already attempted, so each of them uses up a summary place.
+// summaries were already attempted, so each of them uses up a summary place and
+// a components place.
 
 import { buildNarrative } from '../../../../src/lib/matching/narrative'
 import { scoreBreakdown } from '../../../../src/lib/matching/display'
 import type { CandidateInput } from '../../../../src/lib/matching/fit'
 import { TerminalError } from '../core/errors'
 import { rankResults } from '../core/run'
-import { DEFAULT_FIT_CAP } from '../core/settings'
-import type { EngineContext, JdMatchResult, Requirement } from '../core/types'
+import { componentsCountOf, DEFAULT_FIT_CAP } from '../core/settings'
+import type { EngineContext, FitComponents, JdMatchResult, Requirement } from '../core/types'
 import type { ScoringData } from '../data/supabase'
 import type { TextModel } from '../models/text-model'
 import { scoreCandidate } from '../scoring/score'
 import type { Candidate } from '../search/cosine'
 import { log } from '../shared/log'
-import { judgeFit } from './fit'
+import { judgeComponents } from './components'
+import { judgeFit, type FitInput } from './fit'
 import { DeadlineError, isRetryable, isThrottling, REQUEST_TIMEOUT_MS, ReplyError } from './retry'
 import { writeSummary } from './summary'
 
@@ -53,6 +59,10 @@ export interface Stage2Options {
   scoringData: (ids: string[]) => Promise<ScoringData>
   /** The embedded query text: the job description with exclusions removed. */
   jdQuery: string
+  /** The places the job description names, from the stored extraction. Sent to the components call
+   *  only, never to Fit. When empty, regional_experience is null whatever the model replied; when not
+   *  empty, a null reply is stored as 0. */
+  workPlaces: string[]
   requirements: Requirement[]
   /** Passed to the model calls; tests use it to skip retry waits. */
   callOptions?: { retries?: number; sleep?: (ms: number) => Promise<void>; random?: () => number }
@@ -69,7 +79,8 @@ const SUMMARY_FALLBACK_NOTE = 'A written summary was not available, so this is t
 // Time kept at the end of the Lambda run, in milliseconds. The deadline is the end of the Lambda time
 // (EngineContext.deadlineAt). No new summary attempt starts in the last FINISH_RESERVE_MS plus one request
 // timeout: the reserve is for saving the results, the timeout is for a call that started just before.
-// No new Fit attempt starts SUMMARY_WINDOW_MS before that, so the summaries still have time.
+// No new Fit attempt starts SUMMARY_WINDOW_MS before that, so the summaries still have time. The
+// components calls run in the same window as the summaries and stop at the same time.
 // Estimates, not measurements: saving up to 200 results was not timed.
 const FINISH_RESERVE_MS = 20_000
 const SUMMARY_WINDOW_MS = 30_000
@@ -158,6 +169,17 @@ function isConfigError(err: unknown): boolean {
   return typeof message === 'string' && message.includes('not available for this account')
 }
 
+// Fit further than this from every non-null component counts as a mismatch. It only feeds the metric.
+const COMPONENT_MISMATCH_POINTS = 25
+
+/** True when Fit is more than COMPONENT_MISMATCH_POINTS above the highest or below the lowest
+ *  non-null component. Components that are all null are no mismatch. */
+function isComponentMismatch(fit: number, c: FitComponents): boolean {
+  const v = [c.technical_skills, c.domain_expertise, c.regional_experience].filter((x): x is number => x !== null)
+  if (v.length === 0) return false
+  return fit > Math.max(...v) + COMPONENT_MISMATCH_POINTS || fit < Math.min(...v) - COMPONENT_MISMATCH_POINTS
+}
+
 const isTruncated = (err: unknown): boolean => err instanceof ReplyError && err.code === 'fit_output_truncated'
 
 /** When every attempted Fit call failed, the error that stops the job: terminal when the cause is the
@@ -179,6 +201,8 @@ interface Scored {
   flag: string
   template: string
   reason: string
+  /** The Fit call input, only when Fit was judged in this run: the components call reuses it. */
+  fitInput?: FitInput
 }
 
 export async function runStage2(items: Stage2Item[], ctx: EngineContext, o: Stage2Options): Promise<void> {
@@ -194,6 +218,7 @@ export async function runStage2(items: Stage2Item[], ctx: EngineContext, o: Stag
   // Done candidates are a rank order prefix written summarized first, so each
   // of them already used a summary place (written or fallen back).
   const summarySlots = Math.max(0, settings.summaryCount - (items.length - todo.length))
+  const componentSlots = Math.max(0, componentsCountOf(settings.componentsCount) - (items.length - todo.length))
 
   const data = await o.scoringData(todo.map((i) => i.candidate.profileId))
   const inputs = new Map(data.candidates.map((c) => [c.profile.id, c]))
@@ -208,7 +233,7 @@ export async function runStage2(items: Stage2Item[], ctx: EngineContext, o: Stag
   // assesses the same set and makes at most fitCap calls.
   const inCap = new Set(items.filter((i) => i.shortlisted).slice(0, cap).map((i) => i.candidate.profileId))
   const targets = present.filter((i) => inCap.has(i.candidate.profileId))
-  const fits = new Map<string, { fit: number; reason: string }>()
+  const fits = new Map<string, { fit: number; reason: string; input: FitInput }>()
   const failed = new Set<string>()
   const skipped = new Set<string>()
   const fitErrors: unknown[] = []
@@ -228,12 +253,13 @@ export async function runStage2(items: Stage2Item[], ctx: EngineContext, o: Stag
       skipped.add(id)
       return
     }
+    const input: FitInput = {
+      jdQuery: o.jdQuery,
+      fragments: item.candidate.topFragments.map(({ fragment: f }) => ({ fragmentId: f.fragmentId, type: f.type, text: f.text })),
+    }
     try {
-      const out = await judgeFit(fitModel, settings.fitModel, {
-        jdQuery: o.jdQuery,
-        fragments: item.candidate.topFragments.map(({ fragment: f }) => ({ fragmentId: f.fragmentId, type: f.type, text: f.text })),
-      }, o.callOptions)
-      fits.set(id, { fit: out.fit, reason: out.reason })
+      const out = await judgeFit(fitModel, settings.fitModel, input, o.callOptions)
+      fits.set(id, { fit: out.fit, reason: out.reason, input })
       fitUsage.tokensIn += out.inputTokens
       fitUsage.tokensOut += out.outputTokens
     } catch (err) {
@@ -287,24 +313,35 @@ export async function runStage2(items: Stage2Item[], ctx: EngineContext, o: Stag
         must_haves_passed: s.must_haves_passed,
         narrative: join(flag, template),
       }
-      scored.push({ item, result, flag, template, reason: judged?.reason ?? '' })
+      scored.push({ item, result, flag, template, reason: judged?.reason ?? '', fitInput: judged?.input })
     } catch {
       await ctx.fallback(id, 'score_failed')
     }
   }
   ctx.record('score', { durationMs: Date.now() - scoreStart })
 
-  // Summaries for the summary places left, in rank order.
+  // Summaries for the summary places left, and components calls for the components places left, both in
+  // rank order. They run together in one pool of calls and one time window, summaries first because they
+  // are the longer calls, so the components add as little time to the run as possible.
   const byId = new Map(scored.map((s) => [s.result.profile_id, s]))
   const ranked = rankResults(scored.map((s) => s.result)).map((r) => byId.get(r.profile_id) as Scored)
   const top = ranked.slice(0, summarySlots)
+  const componentTargets = ranked.filter((s) => s.fitInput !== undefined).slice(0, componentSlots)
   const texts = new Map<string, string>()
   const sumUsage = { tokensIn: 0, tokensOut: 0, fallbacks: 0 }
   const sumStats: CallStats = { throttles: 0, retries: 0 }
   const sumModel = guarded(o.textModel, summaryStop, now, sumStats)
   let sumSkipped = 0
-  const sumStart = Date.now()
-  await inPool(top, limitOf(settings.parallelCalls), async (s) => {
+  const components = new Map<string, FitComponents>()
+  const compUsage = { tokensIn: 0, tokensOut: 0, fallbacks: 0 }
+  const compStats: CallStats = { throttles: 0, retries: 0 }
+  const compModel = guarded(o.textModel, summaryStop, now, compStats)
+  let compSkipped = 0
+  const windowStart = Date.now()
+  let sumEnd = windowStart
+  let compEnd = windowStart
+
+  const summarize = async (s: Scored): Promise<void> => {
     const r = s.result
     try {
       const out = await writeSummary(sumModel, settings.textModel, {
@@ -327,9 +364,63 @@ export async function runStage2(items: Stage2Item[], ctx: EngineContext, o: Stag
       sumUsage.tokensOut += spent.outputTokens
       sumUsage.fallbacks++
     }
-  })
-  ctx.record('summary', { durationMs: Date.now() - sumStart, calls: top.length, ...sumUsage, ...sumStats, skipped: sumSkipped })
+    sumEnd = Date.now()
+  }
+
+  // The same work description and fragments as the candidate's Fit call, plus the work places. A failure
+  // never fails the candidate or the job: the candidate is only left without components. With no work
+  // places there is nothing to judge regional experience on, so it is null whatever the model replied.
+  // With work places a null reply means the evidence shows no work there, so it is stored as 0.
+  const workPlaces = o.workPlaces
+  const regionalOf = (v: number | null): number | null => (workPlaces.length === 0 ? null : v ?? 0)
+  const judgeParts = async (s: Scored): Promise<void> => {
+    try {
+      const out = await judgeComponents(compModel, settings.fitModel, { ...(s.fitInput as FitInput), workPlaces }, o.callOptions)
+      components.set(s.result.profile_id, { ...out.components, regional_experience: regionalOf(out.components.regional_experience) })
+      compUsage.tokensIn += out.inputTokens
+      compUsage.tokensOut += out.outputTokens
+    } catch (err) {
+      // Out of time, before the call or while waiting to retry: not a model failure.
+      if (err instanceof DeadlineError) {
+        compSkipped++
+      } else {
+        const spent = tokensOf(err)
+        compUsage.tokensIn += spent.inputTokens
+        compUsage.tokensOut += spent.outputTokens
+        compUsage.fallbacks++
+      }
+    }
+    compEnd = Date.now()
+  }
+
+  const calls = [
+    ...top.map((s) => () => summarize(s)),
+    ...componentTargets.map((s) => () => judgeParts(s)),
+  ]
+  await inPool(calls, limitOf(settings.parallelCalls), (call) => call())
+  // Now from the start of the window shared with the components calls to the end of the last summary.
+  ctx.record('summary', { durationMs: sumEnd - windowStart, calls: top.length, ...sumUsage, ...sumStats, skipped: sumSkipped })
   if (sumSkipped > 0) log('summary_deadline_hit', { jobId: o.jobId, skipped: sumSkipped })
+
+  // Over this run's components calls only, so a resumed job does not count a candidate twice. A call
+  // that ended (was not skipped) without components counts as missing.
+  let componentMismatch = 0
+  for (const s of componentTargets) {
+    const c = components.get(s.result.profile_id)
+    if (c && isComponentMismatch(s.result.fit_score, c)) componentMismatch++
+  }
+  const compCalls = componentTargets.length - compSkipped
+  ctx.record('components', {
+    durationMs: compEnd - windowStart, calls: compCalls, ...compUsage, ...compStats, skipped: compSkipped,
+    componentsMissing: compCalls - components.size, componentMismatch,
+  })
+  if (compSkipped > 0) log('components_deadline_hit', { jobId: o.jobId, skipped: compSkipped })
+
+  // Components ride on the result only; Fit, total, band and order are already fixed.
+  for (const s of ranked) {
+    const c = components.get(s.result.profile_id)
+    if (c) s.result.fit_components = c
+  }
 
   // One checkpoint per candidate, in rank order, so the summarized ones come first.
   for (const [i, s] of ranked.entries()) {

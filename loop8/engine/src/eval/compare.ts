@@ -30,7 +30,8 @@ import { EMPTY_SEARCH } from '../../../../src/lib/requirements/model'
 import { applyMustHaves } from '../../../../src/lib/requirements/mustHaves'
 import type { AvailabilityTrack, PortfolioItem, TaxonomyCategory, TaxonomyItem } from '../../../../src/types/db'
 import { runEngine } from '../core/run'
-import type { Engine, Settings } from '../core/types'
+import { componentsCountOf } from '../core/settings'
+import type { Engine, PhaseRecord, Settings } from '../core/types'
 import type { ReferenceLists, ScoringData } from '../data/supabase'
 import { createFakeEmbed, createFakeTextModel, FAKE_MODEL_VERSION, fakeVector } from '../engine/local-fakes'
 import { createSemanticEngine } from '../engine/semantic'
@@ -347,6 +348,10 @@ export interface RankOutput {
   rows: RankedRow[]
   /** Profile ids the ranker could not score (the engine's fallbacks). */
   fallbackIds: string[]
+  /** The engine's fit phase record. Absent on the manual side and when the engine made no Fit call. */
+  fit?: PhaseRecord
+  /** The engine's components phase record. Absent on the manual side and when the engine made no components call. */
+  components?: PhaseRecord
 }
 
 export type Ranker = (input: RankInput) => Promise<RankOutput>
@@ -403,7 +408,17 @@ export function aiRanker(o: AiRankerOptions): Ranker {
       engine,
       { settings: o.settings, existing: [], saveCheckpoint: async () => {}, saveFallback: async () => {} },
     )
-    return { rows: out.results.map(rowOf), fallbackIds: [...new Set(out.fallbacks.map((f) => f.profileId))] }
+    // A phase record is kept only when the engine made at least one call in that phase.
+    const made = (phase: CallPhase) => {
+      const r = out.record.find((x) => x.phase === phase)
+      return r && (r.calls ?? 0) > 0 ? { [phase]: r } : {}
+    }
+    return {
+      rows: out.results.map(rowOf),
+      fallbackIds: [...new Set(out.fallbacks.map((f) => f.profileId))],
+      ...made('fit'),
+      ...made('components'),
+    }
   }
 }
 
@@ -536,6 +551,25 @@ export interface CompareReport {
   hard: HardResult[]
   /** tor: the customer's ToR set (primary). hard: the Loop8 hard set. */
   summary: { tor: SetSummary; hard: SetSummary }
+  /** The AI side's fit and components phase records summed per set; null when no run of the set has one. */
+  fitCalls: { tor: PhaseTotals | null; hard: PhaseTotals | null }
+  componentsCalls: { tor: PhaseTotals | null; hard: PhaseTotals | null }
+}
+
+/** The engine phases whose call records the report sums. */
+export type CallPhase = 'fit' | 'components'
+
+/** One set's records of one phase, summed. Counts only, never model text. */
+export interface PhaseTotals {
+  /** Runs of the set that carry a record of the phase. */
+  runs: number
+  calls: number
+  tokensIn: number
+  tokensOut: number
+  fallbacks: number
+  skipped: number
+  componentsMissing: number
+  componentMismatch: number
 }
 
 const FAKE_DIMENSIONS = 1024
@@ -601,6 +635,26 @@ function setSummary(cases: CaseResult[], kind: CompareCase['kind']): SetSummary 
   return { manual: summarize(of.flatMap((c) => c.manual)), ai: summarize(of.flatMap((c) => c.ai)) }
 }
 
+/** The records of one phase over one set's AI runs summed, or null when none of them has one. */
+export function phaseTotals(runs: TorRun[], set: CompareCase['kind'], phase: CallPhase): PhaseTotals | null {
+  const recs = runs.filter((r) => r.set === set).flatMap((r) => {
+    const x = r.ai[phase]
+    return x ? [x] : []
+  })
+  if (recs.length === 0) return null
+  const sum = (k: Exclude<keyof PhaseTotals, 'runs'>) => recs.reduce((n, f) => n + (f[k] ?? 0), 0)
+  return {
+    runs: recs.length,
+    calls: sum('calls'),
+    tokensIn: sum('tokensIn'),
+    tokensOut: sum('tokensOut'),
+    fallbacks: sum('fallbacks'),
+    skipped: sum('skipped'),
+    componentsMissing: sum('componentsMissing'),
+    componentMismatch: sum('componentMismatch'),
+  }
+}
+
 // ---- the baseline check ---------------------------------------------------------------
 
 export interface Count {
@@ -643,6 +697,7 @@ interface PlanCounts {
   queries: number
   embeds: number
   textCalls: number
+  componentsCalls: number
 }
 
 /** Planned live calls, counted from the inputs alone. The text call count is an upper bound and
@@ -650,17 +705,21 @@ interface PlanCounts {
 function livePlanCounts(pool: Pool, torCount: number, hardTorCount: number, settings: Settings): PlanCounts {
   const fixtureFragments = pool.entries.filter((e) => e.fixture).reduce((n, e) => n + toFragments(e.source).length, 0)
   const queries = torCount + hardTorCount
+  const judged = { tor: Math.min(settings.fitCap, pool.demoCount), hard: Math.min(settings.fitCap, pool.entries.length) }
+  // The components call goes only to judged candidates, up to COMPONENTS_COUNT in each run.
+  const perRun = componentsCountOf(settings.componentsCount)
+  const componentsCalls = torCount * Math.min(perRun, judged.tor) + hardTorCount * Math.min(perRun, judged.hard)
   const textCalls =
-    torCount * (Math.min(settings.fitCap, pool.demoCount) + settings.summaryCount) +
-    hardTorCount * (Math.min(settings.fitCap, pool.entries.length) + settings.summaryCount)
-  return { fixtureFragments, queries, embeds: fixtureFragments + queries, textCalls }
+    torCount * (judged.tor + settings.summaryCount) + hardTorCount * (judged.hard + settings.summaryCount) + componentsCalls
+  return { fixtureFragments, queries, embeds: fixtureFragments + queries, textCalls, componentsCalls }
 }
 
 function planText(c: PlanCounts, torCount: number, hardTorCount: number, settings: Settings): string {
   return (
     `${c.embeds} embed calls (${c.fixtureFragments} fixture fragments, ${c.queries} queries), ` +
-    `at most ${c.textCalls} text model calls before retries (${torCount} customer ToR runs and ${hardTorCount} hard set runs, ` +
-    `up to ${settings.fitCap} Fit and ${settings.summaryCount} summaries each; throttling retries are not counted)`
+    `at most ${c.textCalls} text model calls before retries, ${c.componentsCalls} of them components calls ` +
+    `(${torCount} customer ToR runs and ${hardTorCount} hard set runs, ` +
+    `up to ${settings.fitCap} Fit, ${componentsCountOf(settings.componentsCount)} components and ${settings.summaryCount} summaries each; throttling retries are not counted)`
   )
 }
 
@@ -776,6 +835,8 @@ export async function runCompare(inputs: CompareInputs): Promise<{ markdown: str
     cases: results,
     hard,
     summary,
+    fitCalls: { tor: phaseTotals(runs, 'tor', 'fit'), hard: phaseTotals(runs, 'hard', 'fit') },
+    componentsCalls: { tor: phaseTotals(runs, 'tor', 'components'), hard: phaseTotals(runs, 'hard', 'components') },
   }
   return { markdown: renderMarkdown(report, inputs.now), report }
 }
@@ -861,8 +922,47 @@ export function renderMarkdown(r: CompareReport, now: Date): string {
       out.push(`| ${c.case.id} | ${t.handle} | ${t.role} | ${at(mm)} | ${scores(mm)} | ${at(aa)} | ${scores(aa)} | ${yes(mm.passed)} | ${yes(aa.passed)} |`)
     })
   }
-  out.push('')
+  out.push('', ...callSections(r))
   return out.join('\n')
+}
+
+/** The Fit calls and Components calls sections. Hidden in fake mode, where the fake model reports no
+ *  tokens, so its rows would read like measurements; a section is left out when no set has its record. */
+function callSections(r: CompareReport): string[] {
+  if (r.models === 'fake') return []
+  const perCall = (n: number, calls: number) => Math.round(n / calls)
+  const head = '| Set | Runs | Calls | Tokens in | Tokens out | Tokens in per call | Tokens out per call | Fallbacks |'
+  const base = (k: string, t: PhaseTotals) =>
+    `| ${k} | ${t.runs} | ${t.calls} | ${t.tokensIn} | ${t.tokensOut} | ${perCall(t.tokensIn, t.calls)} | ${perCall(t.tokensOut, t.calls)} | ${t.fallbacks} |`
+  const section = (
+    totals: CompareReport['fitCalls'], title: string, text: string, extraHead: string, extra: (t: PhaseTotals) => string,
+  ): string[] => {
+    const sets = (['tor', 'hard'] as const).flatMap((k) => {
+      const t = totals[k]
+      return t ? [{ k, t }] : []
+    })
+    if (sets.length === 0) return []
+    return [
+      `## ${title}`,
+      '',
+      text,
+      '',
+      `${head}${extraHead}`,
+      `|---|---|---|---|---|---|---|---|${'---|'.repeat(extraHead.split('|').length - 1)}`,
+      ...sets.map(({ k, t }) => `${base(k, t)}${extra(t)}`),
+      '',
+    ]
+  }
+  return [
+    ...section(r.fitCalls, 'Fit calls', 'The fit phase record of the engine, summed over the AI runs of each set. Tokens are as the model reported them.', '', () => ''),
+    ...section(
+      r.componentsCalls,
+      'Components calls',
+      'The components phase record of the engine, summed over the AI runs of each set. Skipped: candidates not judged because the run was out of time. Compare runs have no deadline, so Skipped is always 0 here.',
+      ' Skipped | Components missing | Component mismatches |',
+      (t) => ` ${t.skipped} | ${t.componentsMissing} | ${t.componentMismatch} |`,
+    ),
+  ]
 }
 
 /** An error code safe to print: our own codes only, never a message that could quote a URL or a key. */

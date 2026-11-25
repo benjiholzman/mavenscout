@@ -11,6 +11,7 @@ import type { QueryExclusions } from '../search/query'
 import { loadSettings } from '../core/settings'
 import type { Extraction, ScoringData } from '../data/supabase'
 import type { TextModel } from '../models/text-model'
+import { COMPONENTS_PROMPT_VERSION } from '../stage2/components'
 import { FIT_PROMPT_VERSION } from '../stage2/fit'
 import { SUMMARY_PROMPT_VERSION } from '../stage2/summary'
 import { runStage2 } from '../stage2/run-stage2'
@@ -26,7 +27,8 @@ export interface SemanticEngineOptions {
   /** Stage 2. Without it the engine returns similarity estimates only. Needs scoringData. */
   textModel?: TextModel
   scoringData?: (ids: string[]) => Promise<ScoringData>
-  /** The stored extraction of the job description, read for query exclusions. */
+  /** The stored extraction of the job description, read for query exclusions and for the work places
+   *  of the components call. */
   extraction?: (jdId: string) => Promise<Extraction>
   /** The ids reported in modelIds before any job has run. Once rank starts, modelIds report the
    *  ids in the job's settings, which are the ids the calls use. */
@@ -87,6 +89,23 @@ export function exclusionsFromExtraction(extraction: Extraction | null | undefin
   })
 }
 
+/** The places the job description names, for the components call only: the stored extraction's
+ *  location values, trimmed, without empty values, de-duplicated ignoring case (the first spelling
+ *  is kept). A value such as "City, Country" stays whole. Never the manager's location rows, which
+ *  say where a candidate is based. Without an extraction the list is empty. */
+export function workPlacesFromExtraction(extraction: Extraction | null | undefined): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const value of valuesOf(extraction?.extracted?.locations)) {
+    const place = value.trim()
+    const key = place.toLowerCase()
+    if (place === '' || seen.has(key)) continue
+    seen.add(key)
+    out.push(place)
+  }
+  return out
+}
+
 export function createSemanticEngine(opts: SemanticEngineOptions): Engine {
   const { artifact, embed, exclude, textModel, scoringData } = opts
   if (textModel && !scoringData) throw new Error('scoring_data_required')
@@ -100,7 +119,7 @@ export function createSemanticEngine(opts: SemanticEngineOptions): Engine {
         ? { embed: artifact.modelVersion, fit: used.fit, text: used.text, index: artifact.indexVersion }
         : { embed: artifact.modelVersion, fit: 'similarity-estimate', index: artifact.indexVersion }
     },
-    promptVersion: textModel ? `${FIT_PROMPT_VERSION}+${SUMMARY_PROMPT_VERSION}` : 'none',
+    promptVersion: textModel ? `${FIT_PROMPT_VERSION}+${COMPONENTS_PROMPT_VERSION}+${SUMMARY_PROMPT_VERSION}` : 'none',
     async rank(job: RankJob, ctx: EngineContext): Promise<void> {
       used = { fit: ctx.settings.fitModel, text: ctx.settings.textModel }
       if (!job.jdText || job.jdText.trim() === '') throw new TerminalError('jd_text_required')
@@ -168,7 +187,10 @@ export function createSemanticEngine(opts: SemanticEngineOptions): Engine {
         await runStage2(
           [...result.shortlist.map((c) => item(c, true)), ...result.below.map((c) => item(c, false))],
           ctx,
-          { jobId: job.jobId, textModel, scoringData, jdQuery: queryText, requirements: job.requirements, callOptions: opts.callOptions, now: opts.now },
+          {
+            jobId: job.jobId, textModel, scoringData, jdQuery: queryText, workPlaces: workPlacesFromExtraction(extraction),
+            requirements: job.requirements, callOptions: opts.callOptions, now: opts.now,
+          },
         )
       } else {
         for (const c of result.shortlist) await emit(c, false, 'shortlisted')

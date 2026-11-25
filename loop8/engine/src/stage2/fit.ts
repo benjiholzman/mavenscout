@@ -33,11 +33,11 @@ Reply with JSON only, no other text, in this shape:
 {"fit": <integer 0 to 100>, "fragmentIds": [<labels of the evidence you used, such as "E1">], "reason": "<at most 25 words>"}`
 
 /** JSON for the prompt, with "<" escaped so text cannot forge a block tag. */
-const asData = (v: unknown): string => JSON.stringify(v).replace(/</g, '\\u003c')
+export const asData = (v: unknown): string => JSON.stringify(v).replace(/</g, '\\u003c')
 
 /** Evidence labels E1, E2, ... in fragment order. Real fragment ids can carry
  *  the candidate's name (a profile slug), so they never reach the prompt. */
-const labelsFor = (n: number): string[] => Array.from({ length: n }, (_, i) => `E${i + 1}`)
+export const labelsFor = (n: number): string[] => Array.from({ length: n }, (_, i) => `E${i + 1}`)
 
 export function buildFitPrompt(input: FitInput): { system: string; user: string } {
   const labels = labelsFor(input.fragments.length)
