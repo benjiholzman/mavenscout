@@ -11,7 +11,7 @@ import { buildExpertiseIndex } from '../../../src/lib/expertise'
 import { buildOrgIndex } from '../../../src/lib/organizations'
 import type { ExtractedRequirements, Requirement } from '../../../src/lib/matching/types'
 import type { TaxonomyCategory, TaxonomyItem } from '../../../src/types/db'
-import { loadSettings } from '../src/core/settings'
+import { DEFAULT_COMPONENTS_COUNT, loadSettings } from '../src/core/settings'
 import type { ReferenceLists, ScoringData } from '../src/data/supabase'
 import { createFakeEmbed, createFakeTextModel, fakeVector } from '../src/engine/local-fakes'
 import { createSemanticEngine } from '../src/engine/semantic'
@@ -28,15 +28,18 @@ import {
   normalizeDemoProfile,
   parseBaselineFixed,
   parseCompareArgs,
+  phaseTotals,
   printLivePlan,
   REFERENCE_DATE,
+  renderMarkdown,
   runCompare,
   runRankings,
   safeError,
   taxonomyFromIndex,
   tiedPairsTop10,
 } from '../src/eval/compare'
-import type { CompareInputs, RankedRow, Ranker, TorSpec } from '../src/eval/compare'
+import type { CompareInputs, RankedRow, Ranker, TorRun, TorSpec } from '../src/eval/compare'
+import type { Engine, PhaseRecord, Usage } from '../src/core/types'
 import { toFragments } from '../src/index/fragments'
 import { demoKey, fromDemoSeed } from '../src/index/source'
 
@@ -591,10 +594,20 @@ test('live mode without --confirm-live prints the planned counts only, with no r
   assert.equal(printed.length, 1)
   const fixtureFragments = fixtures.flatMap((f) => toFragments(f.source)).length
   // 2 listed demo profiles; the ToR runs rank them, the hard runs rank them plus the 5 fixtures.
-  const textCalls =
-    3 * (Math.min(settings.fitCap, 2) + settings.summaryCount) + 3 * (Math.min(settings.fitCap, 2 + fixtures.length) + settings.summaryCount)
+  // Components calls go to the judged candidates only, so a run makes at most as many as it judges.
+  const judged = { tor: Math.min(settings.fitCap, 2), hard: Math.min(settings.fitCap, 2 + fixtures.length) }
+  const perRun = settings.componentsCount ?? DEFAULT_COMPONENTS_COUNT
+  assert.equal(perRun, 20)
+  const components = 3 * Math.min(perRun, judged.tor) + 3 * Math.min(perRun, judged.hard)
+  const textCalls = 3 * (judged.tor + settings.summaryCount) + 3 * (judged.hard + settings.summaryCount) + components
+  assert.equal(components, 3 * 2 + 3 * (2 + fixtures.length))
   assert.match(printed[0], new RegExp(`${fixtureFragments + 6} embed calls`))
-  assert.match(printed[0], new RegExp(`at most ${textCalls} text model calls`))
+  assert.match(printed[0], new RegExp(`at most ${textCalls} text model calls before retries, ${components} of them components calls`))
+  assert.match(printed[0], new RegExp(`up to ${settings.fitCap} Fit, ${perRun} components and ${settings.summaryCount} summaries each`))
+  // COMPONENTS_COUNT=0 plans no components call.
+  const off: string[] = []
+  printLivePlan({ tors: tors(), demoProfiles: demoProfiles(), fixtures, settings: { ...settings, componentsCount: 0 }, print: (l) => off.push(l) })
+  assert.match(off[0], new RegExp(`at most ${textCalls - components} text model calls before retries, 0 of them components calls`))
   assert.match(printed[0], /--confirm-live/)
   assert.ok(!printed[0].includes('SENTINEL'))
 })
@@ -664,4 +677,170 @@ test('a fixture handle mismatch throws a code the runner prints as is', () => {
     return true
   })
   assert.equal(safeError(new Error('https://example.org secret')), 'Error')
+})
+
+// ---- Fit and components calls ---------------------------------------------------
+
+/** An engine that ranks nothing and only writes the given phase records. */
+function recordingEngine(records: { phase: string; usage: Usage }[]): Engine {
+  return {
+    modelIds: {},
+    promptVersion: 'test',
+    async rank(_job, ctx) {
+      for (const r of records) ctx.record(r.phase, r.usage)
+    },
+  }
+}
+
+const FIT_USAGE: Usage = { durationMs: 1200, calls: 4, tokensIn: 4002, tokensOut: 601, fallbacks: 1, throttles: 0, retries: 0, skipped: 0 }
+const COMPONENTS_USAGE: Usage = {
+  durationMs: 900, calls: 3, tokensIn: 4200, tokensOut: 225, fallbacks: 1, skipped: 2, throttles: 0, retries: 0,
+  componentsMissing: 1, componentMismatch: 1,
+}
+
+async function rankWith(records: { phase: string; usage: Usage }[]) {
+  const pool = buildPool(demoProfiles(), [], NOW)
+  const ranker = aiRanker({
+    artifact: artifactOf(pool.entries, 32),
+    embed: createFakeEmbed(32),
+    textModel: createFakeTextModel(),
+    settings: loadSettings({}),
+    exclude: { orgNames: [], languages: [] },
+    createEngine: () => recordingEngine(records),
+  })
+  return ranker({ torId: 'tor-01', rawText: JD, extracted: null, requirements: reqs(), survivors: pool.entries.map((e) => e.candidate), expertise, orgs: buildOrgIndex([]) })
+}
+
+test('the AI ranker returns the engine fit and components phase records on the run', async () => {
+  const out = await rankWith([
+    { phase: 'score', usage: { durationMs: 1 } },
+    { phase: 'fit', usage: FIT_USAGE },
+    { phase: 'components', usage: COMPONENTS_USAGE },
+  ])
+  assert.deepEqual(out.fit, { phase: 'fit', ...FIT_USAGE })
+  assert.deepEqual(out.components, { phase: 'components', ...COMPONENTS_USAGE })
+})
+
+test('the AI ranker carries no fit or components record when the engine made no such call', async () => {
+  const none = await rankWith([{ phase: 'score', usage: { durationMs: 1 } }])
+  assert.ok(!('fit' in none))
+  assert.ok(!('components' in none))
+  const zero = await rankWith([
+    { phase: 'fit', usage: { durationMs: 0, calls: 0, tokensIn: 0, tokensOut: 0, skipped: 3 } },
+    { phase: 'components', usage: { durationMs: 0, calls: 0, tokensIn: 0, tokensOut: 0 } },
+  ])
+  assert.ok(!('fit' in zero))
+  assert.ok(!('components' in zero))
+  const fitOnly = await rankWith([{ phase: 'fit', usage: FIT_USAGE }])
+  assert.ok('fit' in fitOnly)
+  assert.ok(!('components' in fitOnly))
+  const manual = await manualRanker()({
+    torId: 'tor-01', rawText: JD, extracted: null, requirements: reqs(),
+    survivors: buildPool(demoProfiles(), [], NOW).entries.map((e) => e.candidate), expertise, orgs: buildOrgIndex([]),
+  })
+  assert.ok(!('fit' in manual))
+  assert.ok(!('components' in manual))
+})
+
+const rec = (phase: string, u: Partial<Usage>): PhaseRecord => ({ phase, durationMs: 0, ...u })
+
+function torRun(set: 'tor' | 'hard', tor: string, fit?: PhaseRecord, components?: PhaseRecord): TorRun {
+  const empty = { rows: [], fallbackIds: [] }
+  return {
+    set, tor, pool: 0, survivorIds: new Set(), manual: empty,
+    ai: { ...empty, ...(fit ? { fit } : {}), ...(components ? { components } : {}) },
+  }
+}
+
+test('phase totals sum the fit and components records of each set separately', () => {
+  const runs = [
+    torRun('tor', 'tor-01',
+      rec('fit', { calls: 4, tokensIn: 4000, tokensOut: 600, fallbacks: 1 }),
+      rec('components', { calls: 3, tokensIn: 4200, tokensOut: 230, fallbacks: 1, skipped: 2, componentsMissing: 1, componentMismatch: 0 })),
+    torRun('tor', 'tor-03',
+      rec('fit', { calls: 3, tokensIn: 3001, tokensOut: 401, fallbacks: 0 }),
+      rec('components', { calls: 2, tokensIn: 2801, tokensOut: 150, fallbacks: 0, skipped: 0, componentsMissing: 0, componentMismatch: 2 })),
+    torRun('tor', 'tor-05'),
+    torRun('hard', 'tor-01', rec('fit', { calls: 2, tokensIn: 100, tokensOut: 50 })),
+  ]
+  assert.deepEqual(phaseTotals(runs, 'tor', 'fit'), {
+    runs: 2, calls: 7, tokensIn: 7001, tokensOut: 1001, fallbacks: 1, skipped: 0, componentsMissing: 0, componentMismatch: 0,
+  })
+  assert.deepEqual(phaseTotals(runs, 'tor', 'components'), {
+    runs: 2, calls: 5, tokensIn: 7001, tokensOut: 380, fallbacks: 1, skipped: 2, componentsMissing: 1, componentMismatch: 2,
+  })
+  assert.deepEqual(phaseTotals(runs, 'hard', 'fit'), {
+    runs: 1, calls: 2, tokensIn: 100, tokensOut: 50, fallbacks: 0, skipped: 0, componentsMissing: 0, componentMismatch: 0,
+  })
+  assert.equal(phaseTotals(runs, 'hard', 'components'), null)
+  assert.equal(phaseTotals([torRun('tor', 'tor-01')], 'tor', 'fit'), null)
+})
+
+test('the report carries the fit and components totals of each set from the engine records', async () => {
+  const out = await runCompare(inputs())
+  for (const set of ['tor', 'hard'] as const) {
+    assert.deepEqual(out.report.fitCalls[set], phaseTotals(out.report.runs, set, 'fit'))
+    assert.deepEqual(out.report.componentsCalls[set], phaseTotals(out.report.runs, set, 'components'))
+  }
+  // Concrete values from the fake engine: every run makes Fit calls, and the fake model reports no tokens.
+  for (const set of ['tor', 'hard'] as const) {
+    const fit = out.report.fitCalls[set]
+    assert.ok(fit, `fit totals for the ${set} set`)
+    assert.equal(fit.runs, out.report.runs.filter((r) => r.set === set).length)
+    assert.ok(fit.calls > 0)
+    assert.equal(fit.tokensIn, 0)
+    assert.equal(fit.tokensOut, 0)
+  }
+})
+
+const FIT_TOTALS = { runs: 2, calls: 7, tokensIn: 7001, tokensOut: 1001, fallbacks: 1, skipped: 0, componentsMissing: 0, componentMismatch: 0 }
+const COMPONENTS_TOTALS = { runs: 2, calls: 5, tokensIn: 7001, tokensOut: 380, fallbacks: 1, skipped: 2, componentsMissing: 1, componentMismatch: 2 }
+
+test('a live report has a Fit calls and a Components calls section with the totals and the tokens per call', async () => {
+  const out = await runCompare(inputs())
+  const report = {
+    ...out.report,
+    models: 'live' as const,
+    fitCalls: { tor: FIT_TOTALS, hard: null },
+    componentsCalls: { tor: COMPONENTS_TOTALS, hard: null },
+  }
+  const md = renderMarkdown(report, NOW)
+  assert.match(md, /\n## Fit calls\n/)
+  assert.ok(md.includes('| Set | Runs | Calls | Tokens in | Tokens out | Tokens in per call | Tokens out per call | Fallbacks |\n'))
+  assert.ok(md.includes('| tor | 2 | 7 | 7001 | 1001 | 1000 | 143 | 1 |\n'))
+  assert.match(md, /\n## Components calls\n/)
+  assert.ok(md.includes('Compare runs have no deadline, so Skipped is always 0 here.'))
+  assert.ok(md.includes(
+    '| Set | Runs | Calls | Tokens in | Tokens out | Tokens in per call | Tokens out per call | Fallbacks | Skipped | Components missing | Component mismatches |\n',
+  ))
+  assert.ok(md.includes('| tor | 2 | 5 | 7001 | 380 | 1400 | 76 | 1 | 2 | 1 | 2 |\n'))
+  assert.ok(!/\n\| hard \| \d+ \| \d+ \| \d+ \| \d+ \| \d+ \| \d+ \| \d+ \|/.test(md), 'no row for a set without a record')
+  assert.ok(md.indexOf('## Per case') < md.indexOf('## Fit calls'), 'the new sections come after the existing ones')
+  assert.ok(md.indexOf('## Fit calls') < md.indexOf('## Components calls'))
+})
+
+test('a live report without components records has a Fit calls section and no Components calls section', async () => {
+  const out = await runCompare(inputs())
+  const md = renderMarkdown({ ...out.report, models: 'live', fitCalls: { tor: FIT_TOTALS, hard: null }, componentsCalls: { tor: null, hard: null } }, NOW)
+  assert.ok(md.includes('## Fit calls'))
+  assert.ok(!md.includes('Components calls'))
+})
+
+test('without records, or in fake mode, the markdown is the existing output with no new section', async () => {
+  const out = await runCompare(inputs())
+  const nothing = { fitCalls: { tor: null, hard: null }, componentsCalls: { tor: null, hard: null } }
+  const withTotals = { fitCalls: { tor: FIT_TOTALS, hard: null }, componentsCalls: { tor: COMPONENTS_TOTALS, hard: null } }
+  const liveWith = renderMarkdown({ ...out.report, models: 'live', ...withTotals }, NOW)
+  const liveWithout = renderMarkdown({ ...out.report, models: 'live', ...nothing }, NOW)
+  assert.ok(!liveWithout.includes('Fit calls'))
+  assert.ok(!liveWithout.includes('Components calls'))
+  assert.ok(!liveWithout.includes('per call'))
+  // The existing output, byte for byte, then one blank line and the new sections.
+  assert.equal(liveWith.slice(0, liveWith.indexOf('## Fit calls')), `${liveWithout}\n`)
+  // Fake models report no tokens, so the sections are hidden even with totals on the report.
+  assert.equal(out.report.models, 'fake')
+  const fakeWith = renderMarkdown({ ...out.report, ...withTotals }, NOW)
+  assert.equal(fakeWith, renderMarkdown({ ...out.report, ...nothing }, NOW))
+  assert.equal(out.markdown, fakeWith)
+  assert.ok(!out.markdown.includes('Fit calls'))
 })
