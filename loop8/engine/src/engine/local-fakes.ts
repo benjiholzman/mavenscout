@@ -35,9 +35,20 @@ export function createFakeEmbed(dimensions: number): EmbedText {
 
 const SUMMARY = Array.from({ length: 45 }, (_, i) => `word${i}`).join(' ')
 
-/** Answers the Fit call with a score from a hash of the prompt, and the summary call with fixed text. */
+/** Answers the components call and the Fit call with scores from a hash of the prompt, and the
+ *  summary call with fixed text. Both judging prompts start with "You judge", so the components
+ *  prompt is told apart by the key it asks for, which the Fit prompt never names. */
 export function createFakeTextModel(): TextModel {
   return async (req) => {
+    if (req.system.startsWith('You judge') && req.system.includes('"technical_skills"')) {
+      const h = hash(req.user)
+      const components = {
+        technical_skills: 20 + (h % 71),
+        domain_expertise: 20 + ((h >>> 8) % 71),
+        sector_regional_experience: h % 5 === 0 ? null : 20 + ((h >>> 16) % 71),
+      }
+      return { text: JSON.stringify(components), inputTokens: 0, outputTokens: 0 }
+    }
     if (req.system.startsWith('You judge')) {
       const fit = 30 + (hash(req.user) % 61)
       return { text: JSON.stringify({ fit, fragmentIds: ['E1'], reason: 'fake local model' }), inputTokens: 0, outputTokens: 0 }

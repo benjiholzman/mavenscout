@@ -11,6 +11,7 @@ import type { QueryExclusions } from '../search/query'
 import { loadSettings } from '../core/settings'
 import type { Extraction, ScoringData } from '../data/supabase'
 import type { TextModel } from '../models/text-model'
+import { COMPONENTS_PROMPT_VERSION } from '../stage2/components'
 import { FIT_PROMPT_VERSION } from '../stage2/fit'
 import { SUMMARY_PROMPT_VERSION } from '../stage2/summary'
 import { runStage2 } from '../stage2/run-stage2'
@@ -100,7 +101,7 @@ export function createSemanticEngine(opts: SemanticEngineOptions): Engine {
         ? { embed: artifact.modelVersion, fit: used.fit, text: used.text, index: artifact.indexVersion }
         : { embed: artifact.modelVersion, fit: 'similarity-estimate', index: artifact.indexVersion }
     },
-    promptVersion: textModel ? `${FIT_PROMPT_VERSION}+${SUMMARY_PROMPT_VERSION}` : 'none',
+    promptVersion: textModel ? `${FIT_PROMPT_VERSION}+${COMPONENTS_PROMPT_VERSION}+${SUMMARY_PROMPT_VERSION}` : 'none',
     async rank(job: RankJob, ctx: EngineContext): Promise<void> {
       used = { fit: ctx.settings.fitModel, text: ctx.settings.textModel }
       if (!job.jdText || job.jdText.trim() === '') throw new TerminalError('jd_text_required')

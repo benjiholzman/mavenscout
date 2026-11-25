@@ -1,10 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { DEFAULT_FIT_CAP, loadSettings } from '../src/core/settings'
+import { componentsCountOf, DEFAULT_COMPONENTS_COUNT, DEFAULT_FIT_CAP, loadSettings } from '../src/core/settings'
 
 test('defaults are variant A on Luna', () => {
   const s = loadSettings({})
-  assert.deepEqual(s, { variant: 'A', fitModel: 'us.openai.gpt-6-luna', textModel: 'us.openai.gpt-6-luna', extractModel: 'us.openai.gpt-6-sol', embedModel: 'amazon.titan-embed-text-v2:0', summaryCount: 5, parallelCalls: 16, threshold: null, promptVersion: 'v0', fitCap: 200 })
+  assert.deepEqual(s, { variant: 'A', fitModel: 'us.openai.gpt-6-luna', textModel: 'us.openai.gpt-6-luna', extractModel: 'us.openai.gpt-6-sol', embedModel: 'amazon.titan-embed-text-v2:0', summaryCount: 5, parallelCalls: 16, threshold: null, promptVersion: 'v0', fitCap: 200, componentsCount: 20 })
 })
 test('the Fit cap default is 200, equal to the stage 1 cap', () => {
   assert.equal(DEFAULT_FIT_CAP, 200)
@@ -28,4 +28,16 @@ test('FIT_CAP is parsed and validated', () => {
   assert.equal(loadSettings({ FIT_CAP: '7' }).fitCap, 7)
   assert.equal(loadSettings({ FIT_CAP: '0' }).fitCap, 0)
   assert.throws(() => loadSettings({ FIT_CAP: 'x' }), /Invalid setting FIT_CAP/)
+})
+test('COMPONENTS_COUNT defaults to 20, is parsed, and 0 turns the components call off', () => {
+  assert.equal(DEFAULT_COMPONENTS_COUNT, 20)
+  assert.equal(loadSettings({ COMPONENTS_COUNT: '7' }).componentsCount, 7)
+  assert.equal(loadSettings({ COMPONENTS_COUNT: '0' }).componentsCount, 0)
+  assert.throws(() => loadSettings({ COMPONENTS_COUNT: 'x' }), /Invalid setting COMPONENTS_COUNT/)
+  assert.throws(() => loadSettings({ COMPONENTS_COUNT: '-1' }), /Invalid setting COMPONENTS_COUNT/)
+})
+test('componentsCountOf keeps a non-negative integer and applies the default otherwise', () => {
+  assert.equal(componentsCountOf(7), 7)
+  assert.equal(componentsCountOf(0), 0)
+  for (const v of [undefined, null, -1, 2.5, '7', Number.NaN]) assert.equal(componentsCountOf(v), DEFAULT_COMPONENTS_COUNT)
 })

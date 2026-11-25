@@ -213,12 +213,26 @@ interface ResultBase {
   must_haves_passed: { requirement_id: string; label: string }[]
 }
 
+/** Capability parts of Fit, judged in a separate call from the same evidence
+ *  as Fit. They explain Fit and never build it. Each is 0 to 100, or null when
+ *  the work description gives nothing to judge that part on. */
+export interface FitComponents {
+  technical_skills: number | null
+  domain_expertise: number | null
+  sector_regional_experience: number | null
+}
+
 /** A job-description run's result: what the engine returns. */
 export interface JdMatchResult extends ResultBase {
   total_score: number // 0–100: round((1 − w) × fit_score + 100 × w × earned ÷ possible)
   band: Band
   fit_score: number // 0–100
   narrative: string // ~100 words, PLACEHOLDER template
+  /** Only on the top candidates (COMPONENTS_COUNT, 20 by default) whose Fit
+   *  was judged in a real model call, and only when their components call
+   *  succeeded. persist.ts does not save components, so they are absent on a
+   *  ranking reloaded from the database. */
+  fit_components?: FitComponents
 }
 
 /** A preferences-only run's result (spec §11): no JD, so no Fit and no band.

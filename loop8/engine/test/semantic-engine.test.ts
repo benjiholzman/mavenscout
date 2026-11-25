@@ -8,14 +8,15 @@ import { createSemanticEngine } from '../src/engine/semantic'
 import type { IndexArtifact } from '../src/search/artifact'
 import { TerminalError } from '../src/core/errors'
 import { DEFAULT_LIMITS } from '../src/shared/limits'
-import type { JdMatchResult, RankJob } from '../src/core/types'
+import type { JdMatchResult, PhaseRecord, RankJob } from '../src/core/types'
 import { scoreCandidate } from '../src/scoring/score'
+import { COMPONENTS_PROMPT_VERSION } from '../src/stage2/components'
 import { FIT_PROMPT_VERSION } from '../src/stage2/fit'
 import { SUMMARY_PROMPT_VERSION } from '../src/stage2/summary'
 import { buildExpertiseIndex } from '../../../src/lib/expertise'
 import { buildOrgIndex } from '../../../src/lib/organizations'
 import type { CandidateInput } from '../../../src/lib/matching/fit'
-import type { Requirement } from '../../../src/lib/matching/types'
+import type { FitComponents, Requirement } from '../../../src/lib/matching/types'
 import type { Profile, TaxonomyCategory, TaxonomyItem } from '../../../src/types/db'
 import type { TextModel, TextRequest } from '../src/models/text-model'
 import type { Extraction, ScoringData } from '../src/data/supabase'
@@ -271,9 +272,26 @@ const reqs = [
 const fitByProfile: Record<string, number> = { p1: 90, p2: 70, p3: 60, p4: 55, p5: 40 }
 const summaryText = Array.from({ length: 45 }, (_, i) => `s${i}`).join(' ')
 
-interface FakeModel { model: TextModel; fitCalls: TextRequest[]; summaryCalls: TextRequest[]; maxInFlight: () => number }
-function fakeModel(opts: { failFit?: string[]; failSummary?: boolean; emptySummary?: boolean; delayMs?: number } = {}): FakeModel {
+const comps = (t: number | null, d: number | null, s: number | null): FitComponents =>
+  ({ technical_skills: t, domain_expertise: d, sector_regional_experience: s })
+/** What the fake components call answers when a test gives nothing for the profile. */
+const defaultComps = comps(70, 75, null)
+
+const isFitCall = (req: TextRequest) => req.system.startsWith('You judge how well')
+const isComponentsCall = (req: TextRequest) => req.system.startsWith('You judge three parts')
+const isSummaryCall = (req: TextRequest) => !isFitCall(req) && !isComponentsCall(req)
+const profileOf = (req: TextRequest) => ids5.find((p) => req.user.includes(`EV-${p}`)) ?? 'none'
+
+interface FakeModel { model: TextModel; fitCalls: TextRequest[]; componentsCalls: TextRequest[]; summaryCalls: TextRequest[]; maxInFlight: () => number }
+function fakeModel(opts: {
+  failFit?: string[]; failSummary?: boolean; emptySummary?: boolean; delayMs?: number
+  /** Fit by profile, in place of fitByProfile. */
+  fits?: Record<string, number>
+  /** The components call reply by profile: components, a thrown error or invalid text. defaultComps otherwise. */
+  components?: Record<string, FitComponents | 'fail' | 'invalid'>
+} = {}): FakeModel {
   const fitCalls: TextRequest[] = []
+  const componentsCalls: TextRequest[] = []
   const summaryCalls: TextRequest[] = []
   let inFlight = 0
   let max = 0
@@ -282,11 +300,19 @@ function fakeModel(opts: { failFit?: string[]; failSummary?: boolean; emptySumma
     max = Math.max(max, inFlight)
     try {
       if (opts.delayMs) await new Promise((r) => setTimeout(r, opts.delayMs))
-      if (req.system.startsWith('You judge')) {
+      if (isFitCall(req)) {
         fitCalls.push(req)
-        const id = ids5.find((p) => req.user.includes(`EV-${p}`)) ?? 'none'
+        const id = profileOf(req)
         if (opts.failFit?.includes(id)) throw new Error('MODEL-ERROR-TEXT')
-        return { text: JSON.stringify({ fit: fitByProfile[id] ?? 50, fragmentIds: ['E1'], reason: 'ok' }), inputTokens: 100, outputTokens: 10 }
+        const fit = opts.fits?.[id] ?? fitByProfile[id] ?? 50
+        return { text: JSON.stringify({ fit, fragmentIds: ['E1'], reason: 'ok' }), inputTokens: 100, outputTokens: 10 }
+      }
+      if (isComponentsCall(req)) {
+        componentsCalls.push(req)
+        const c = opts.components?.[profileOf(req)] ?? defaultComps
+        if (c === 'fail') throw new Error('MODEL-ERROR-TEXT')
+        if (c === 'invalid') return { text: 'MODEL-ERROR-TEXT', inputTokens: 140, outputTokens: 8 }
+        return { text: JSON.stringify(c), inputTokens: 140, outputTokens: 8 }
       }
       summaryCalls.push(req)
       if (opts.failSummary) throw new Error('MODEL-ERROR-TEXT')
@@ -295,7 +321,7 @@ function fakeModel(opts: { failFit?: string[]; failSummary?: boolean; emptySumma
       inFlight--
     }
   }
-  return { model, fitCalls, summaryCalls, maxInFlight: () => max }
+  return { model, fitCalls, componentsCalls, summaryCalls, maxInFlight: () => max }
 }
 
 const job5: RankJob = { jobId: 'j5', jobDescriptionId: 'jd5', requirements: reqs, poolIds: ids5, jdText: 'Health systems evaluation' }
@@ -312,11 +338,12 @@ function io5(over: Partial<ReturnType<typeof loadSettings>> = {}, existing: JdMa
 const stage2 = (m: FakeModel, extra: Partial<Parameters<typeof createSemanticEngine>[0]> = {}) =>
   createSemanticEngine({ artifact: art5, embed, textModel: m.model, scoringData, ...extra })
 
-test('stage 2: modelIds carry fit and text model ids, promptVersion combines both prompts', () => {
+test('stage 2: modelIds carry fit and text model ids, promptVersion combines the three prompts', () => {
   const m = fakeModel()
   const e = stage2(m, { fitModelId: 'fit-x', textModelId: 'text-y' })
   assert.deepEqual(e.modelIds, { embed: 'fake-embed-1', fit: 'fit-x', text: 'text-y', index: 'idx-1' })
-  assert.equal(e.promptVersion, `${FIT_PROMPT_VERSION}+${SUMMARY_PROMPT_VERSION}`)
+  assert.equal(e.promptVersion, `${FIT_PROMPT_VERSION}+${COMPONENTS_PROMPT_VERSION}+${SUMMARY_PROMPT_VERSION}`)
+  assert.equal(e.promptVersion, 'fit-v2+components-v1+summary-v2')
   const d = stage2(m)
   assert.equal(d.modelIds.fit, loadSettings({}).fitModel)
   assert.equal(d.modelIds.text, loadSettings({}).textModel)
@@ -394,6 +421,8 @@ test('stage 2: no more than parallelCalls model calls at a time', async () => {
   const m = fakeModel({ delayMs: 5 })
   await runEngine(job5, stage2(m), io5({ parallelCalls: 2, summaryCount: 5 }))
   assert.equal(m.fitCalls.length, 5)
+  // The components calls share the pool of the summaries, so they stay inside the same limit.
+  assert.equal(m.componentsCalls.length, 5)
   assert.equal(m.maxInFlight(), 2)
   const one = fakeModel({ delayMs: 2 })
   await runEngine(job5, stage2(one), io5({ parallelCalls: 0 }))
@@ -411,7 +440,8 @@ test('stage 2: a failed Fit falls back to the estimate with a flag, records fit_
   const fb = out.record.filter((p) => p.phase === 'fit_fallback')
   assert.equal(fb.length, 1)
   assert.equal(fb[0].calls, undefined)
-  assert.equal(out.record.reduce((n, p) => n + (p.calls ?? 0), 0), 5 + 0)
+  // 5 Fit calls, no summaries and one components call for each of the 4 judged candidates.
+  assert.equal(out.record.reduce((n, p) => n + (p.calls ?? 0), 0), 5 + 0 + 4)
   const fit = out.record.find((p) => p.phase === 'fit')
   assert.equal(fit?.calls, 5)
   assert.equal(fit?.fallbacks, 1)
@@ -652,6 +682,7 @@ test('stage 2: modelIds report the fit and text models of the job that ran, not 
   await runEngine(job5, e, io5({ fitModel: 'job-fit', textModel: 'job-text' }))
   assert.ok(m.fitCalls.length > 0 && m.fitCalls.every((c) => c.modelId === 'job-fit'))
   assert.ok(m.summaryCalls.length > 0 && m.summaryCalls.every((c) => c.modelId === 'job-text'))
+  assert.ok(m.componentsCalls.length > 0 && m.componentsCalls.every((c) => c.modelId === 'job-fit'))
   assert.deepEqual(e.modelIds, { embed: 'fake-embed-1', fit: 'job-fit', text: 'job-text', index: 'idx-1' })
 })
 
@@ -697,7 +728,7 @@ test('stage 2 deadline: Fit stops part way, the rest keep a flagged estimate and
   const base = fakeModel()
   const model: TextModel = async (req) => {
     const out = await base.model(req)
-    if (req.system.startsWith('You judge')) t += 10_000
+    if (isFitCall(req)) t += 10_000
     return out
   }
   const out = await runEngine(job5, stage2({ ...base, model }, { now: () => t }), { ...io5({ parallelCalls: 1 }), deadlineAt: 100_000 })
@@ -741,8 +772,8 @@ test('stage 2: throttles and retries are counted on the fit record and the job s
   const base = fakeModel()
   const seen = new Set<string>()
   const model: TextModel = async (req) => {
-    if (req.system.startsWith('You judge')) {
-      const id = ids5.find((p) => req.user.includes(`EV-${p}`)) as string
+    if (isFitCall(req)) {
+      const id = profileOf(req)
       if (!seen.has(id)) {
         seen.add(id)
         throw throttle()
@@ -764,9 +795,9 @@ test('stage 2: throttles and retries are counted on the fit record and the job s
 function failingFit(makeErr: (id: string) => Error | { text: string; inputTokens: number; outputTokens: number; stopReason?: string }): FakeModel {
   const base = fakeModel()
   const model: TextModel = async (req) => {
-    if (!req.system.startsWith('You judge')) return base.model(req)
+    if (!isFitCall(req)) return base.model(req)
     base.fitCalls.push(req)
-    const out = makeErr(ids5.find((p) => req.user.includes(`EV-${p}`)) ?? 'none')
+    const out = makeErr(profileOf(req))
     if (out instanceof Error) throw out
     return out
   }
@@ -849,10 +880,10 @@ test('stage 2: each failed Fit call logs its error name and the job id, never th
 test('stage 2: tokens of truncated Fit and summary replies are counted in the phase records', async () => {
   const base = fakeModel()
   const model: TextModel = async (req) => {
-    if (req.system.startsWith('You judge') && req.user.includes('EV-p2')) {
+    if (isFitCall(req) && req.user.includes('EV-p2')) {
       return { text: '{"fit":', inputTokens: 7, outputTokens: 400, stopReason: 'max_tokens' }
     }
-    if (!req.system.startsWith('You judge')) return { text: summaryText, inputTokens: 11, outputTokens: 300, stopReason: 'max_tokens' }
+    if (isSummaryCall(req)) return { text: summaryText, inputTokens: 11, outputTokens: 300, stopReason: 'max_tokens' }
     return base.model(req)
   }
   const out = await runEngine(job5, stage2({ ...base, model }), io5({ summaryCount: 2 }))
@@ -864,4 +895,234 @@ test('stage 2: tokens of truncated Fit and summary replies are counted in the ph
   assert.equal(summary?.fallbacks, 2)
   assert.equal(summary?.tokensIn, 22)
   assert.equal(summary?.tokensOut, 600)
+})
+
+// Fit components: a separate components call for the top judged candidates. They explain Fit, so they
+// ride on judged results only and never move a score.
+
+const componentsRecord = (out: { record: PhaseRecord[] }) => out.record.find((p) => p.phase === 'components')
+
+test('stage 2: a Fit reply never carries components, and COMPONENTS_COUNT 0 makes no components call', async () => {
+  const base = fakeModel()
+  // A Fit reply that tries to carry components: they are not read from it.
+  const model: TextModel = async (req) => {
+    if (!isFitCall(req)) return base.model(req)
+    base.fitCalls.push(req)
+    return { text: JSON.stringify({ fit: fitByProfile[profileOf(req)], fragmentIds: ['E1'], reason: 'ok', components: comps(1, 2, 3) }), inputTokens: 100, outputTokens: 10 }
+  }
+  const out = await runEngine(job5, stage2({ ...base, model }), io5({ componentsCount: 0 }))
+  assert.equal(base.fitCalls.length, 5)
+  assert.equal(base.componentsCalls.length, 0)
+  assert.ok(out.results.every((r) => !('fit_components' in r)))
+  assert.equal(componentsRecord(out)?.calls, 0)
+  // A stored job from before the setting existed carries no value and gets the default.
+  const old = fakeModel()
+  await runEngine(job5, stage2(old), io5({ componentsCount: undefined }))
+  assert.equal(old.componentsCalls.length, 5)
+})
+
+test('stage 2: the top componentsCount judged candidates in rank order get one components call each, on the evidence of their Fit call', async () => {
+  const m = fakeModel()
+  const out = await runEngine(job5, stage2(m), io5({ fitCap: 4, componentsCount: 2, summaryCount: 0 }))
+  const judged = out.results.filter((r) => ['p1', 'p2', 'p3', 'p4'].includes(r.profile_id)).map((r) => r.profile_id)
+  const top = judged.slice(0, 2)
+  assert.deepEqual(m.componentsCalls.map(profileOf).sort(), [...top].sort())
+  for (const c of m.componentsCalls) {
+    const fitCall = m.fitCalls.find((f) => profileOf(f) === profileOf(c)) as TextRequest
+    // The same work description and the same fragments, so the user prompts are identical.
+    assert.equal(c.user, fitCall.user)
+    assert.equal(c.modelId, loadSettings({}).fitModel)
+  }
+  for (const r of out.results) {
+    if (top.includes(r.profile_id)) assert.deepEqual(r.fit_components, defaultComps, r.profile_id)
+    else assert.equal('fit_components' in r, false, r.profile_id)
+  }
+})
+
+test('stage 2: estimates, candidates beyond the fit cap and failed Fit calls get no components call and no components', async () => {
+  // Threshold 0.9 shortlists p1 to p3; fitCap 2 leaves p3 beyond the cap; p2's Fit fails; p4 and p5 are estimates.
+  const m = fakeModel({ failFit: ['p2'] })
+  const out = await runEngine(job5, stage2(m), io5({ threshold: 0.9, fitCap: 2, summaryCount: 0 }))
+  assert.deepEqual(m.componentsCalls.map(profileOf), ['p1'])
+  for (const r of out.results) {
+    if (r.profile_id === 'p1') assert.deepEqual(r.fit_components, defaultComps)
+    else assert.equal('fit_components' in r, false, r.profile_id)
+  }
+  assert.equal(componentsRecord(out)?.calls, 1)
+})
+
+test('stage 2: a failed or invalid components call leaves no components, counts a fallback, and the job still succeeds', async () => {
+  const lines: string[] = []
+  const orig = console.log
+  console.log = (s: string) => { lines.push(String(s)) }
+  let out
+  let allFailed
+  try {
+    out = await runEngine(job5, stage2(fakeModel({ components: { p1: 'fail', p2: 'invalid' } })), io5({ fitCap: 3, summaryCount: 0 }))
+    const fail = Object.fromEntries(ids5.map((id) => [id, 'fail' as const]))
+    allFailed = await runEngine(job5, stage2(fakeModel({ components: fail })), io5())
+  } finally {
+    console.log = orig
+  }
+  assert.equal(out.state, 'DONE')
+  const byId = new Map(out.results.map((r) => [r.profile_id, r]))
+  assert.equal('fit_components' in (byId.get('p1') as JdMatchResult), false)
+  assert.equal('fit_components' in (byId.get('p2') as JdMatchResult), false)
+  assert.deepEqual(byId.get('p3')?.fit_components, defaultComps)
+  const c = componentsRecord(out)
+  assert.equal(c?.calls, 3)
+  assert.equal(c?.fallbacks, 2)
+  assert.equal(c?.componentsMissing, 2)
+  // The invalid reply was asked twice; the thrown error carried no tokens.
+  assert.equal(c?.tokensIn, 2 * 140 + 140)
+  assert.equal(c?.tokensOut, 2 * 8 + 8)
+  assert.equal(out.record.filter((p) => p.phase === 'fit_fallback').length, 0)
+  assert.equal(allFailed.state, 'DONE')
+  assert.ok(allFailed.results.every((r) => !('fit_components' in r)))
+  assert.equal(componentsRecord(allFailed)?.fallbacks, 5)
+  for (const l of lines) assert.doesNotMatch(l, /MODEL-ERROR-TEXT|EV-/)
+})
+
+test('stage 2: components never change fit, total, band, narrative or order', async () => {
+  const withC = await runEngine(job5, stage2(fakeModel({ components: Object.fromEntries(ids5.map((id) => [id, comps(5, 95, null)])) })), io5())
+  const off = await runEngine(job5, stage2(fakeModel()), io5({ componentsCount: 0 }))
+  const failed = await runEngine(job5, stage2(fakeModel({ components: Object.fromEntries(ids5.map((id) => [id, 'fail' as const])) })), io5())
+  const view = (rs: JdMatchResult[]) => rs.map((r) => [r.profile_id, r.rank, r.fit_score, r.total_score, r.band, r.narrative])
+  assert.deepEqual(view(withC.results), view(off.results))
+  assert.deepEqual(view(failed.results), view(off.results))
+  assert.ok(withC.results.every((r) => r.fit_components !== undefined))
+})
+
+test('stage 2: the components record counts calls, tokens, missing and mismatched components, and the fit record does not', async () => {
+  const m = fakeModel({
+    fits: { p1: 70, p2: 90, p3: 80 },
+    components: { p1: 'fail', p2: comps(30, 30, 30), p3: comps(75, 85, null) },
+  })
+  const out = await runEngine(job5, stage2(m), io5({ fitCap: 3 }))
+  const c = componentsRecord(out)
+  assert.deepEqual(
+    { calls: c?.calls, tokensIn: c?.tokensIn, tokensOut: c?.tokensOut, fallbacks: c?.fallbacks, skipped: c?.skipped, throttles: c?.throttles, retries: c?.retries },
+    { calls: 3, tokensIn: 280, tokensOut: 16, fallbacks: 1, skipped: 0, throttles: 0, retries: 0 },
+  )
+  assert.equal(c?.componentsMissing, 1)
+  assert.equal(c?.componentMismatch, 1)
+  assert.ok(typeof c?.durationMs === 'number')
+  const fit = out.record.find((p) => p.phase === 'fit')
+  assert.equal(fit?.componentsMissing, undefined)
+  assert.equal(fit?.componentMismatch, undefined)
+})
+
+test('stage 2: components that are all null are no mismatch, and a low Fit far below them is', async () => {
+  const m = fakeModel({
+    fits: { p1: 90, p2: 20 },
+    components: { p1: comps(null, null, null), p2: comps(50, 60, null) },
+  })
+  const out = await runEngine(job5, stage2(m), io5({ fitCap: 2 }))
+  const c = componentsRecord(out)
+  assert.equal(c?.componentsMissing, 0)
+  assert.equal(c?.componentMismatch, 1)
+  assert.deepEqual(out.results.find((r) => r.profile_id === 'p1')?.fit_components, comps(null, null, null))
+})
+
+test('stage 2: throttles and retries of the components calls are counted on the components record', async () => {
+  const base = fakeModel()
+  const seen = new Set<string>()
+  const model: TextModel = async (req) => {
+    if (isComponentsCall(req) && !seen.has(profileOf(req))) {
+      seen.add(profileOf(req))
+      throw throttle()
+    }
+    return base.model(req)
+  }
+  const out = await runEngine(job5, stage2({ ...base, model }, { callOptions: { sleep: async () => {} } }), io5({ fitCap: 2, summaryCount: 0 }))
+  const c = componentsRecord(out)
+  assert.equal(c?.calls, 2)
+  assert.equal(c?.throttles, 2)
+  assert.equal(c?.retries, 2)
+  assert.equal(c?.fallbacks, 0)
+  assert.equal(out.record.find((p) => p.phase === 'fit')?.throttles, 0)
+  assert.ok(out.results.filter((r) => ['p1', 'p2'].includes(r.profile_id)).every((r) => r.fit_components !== undefined))
+})
+
+test('stage 2 deadline: candidates skipped at the deadline get no components call', async () => {
+  const m = fakeModel()
+  const out = await runEngine(job5, stage2(m, { now: () => 0 }), { ...io5(), deadlineAt: 75_000 })
+  assert.equal(m.componentsCalls.length, 0)
+  assert.ok(out.results.every((r) => !('fit_components' in r)))
+  const c = componentsRecord(out)
+  assert.equal(c?.calls, 0)
+  assert.equal(c?.componentsMissing, 0)
+  assert.equal(c?.componentMismatch, 0)
+})
+
+test('stage 2 deadline: the guard skips components calls once out of time, and the job still succeeds', async () => {
+  // Deadline 100 s: Fit stops at 25 s and the components calls at 55 s. Every call takes 20 s.
+  let t = 0
+  const base = fakeModel()
+  const model: TextModel = async (req) => {
+    const out = await base.model(req)
+    t += 20_000
+    return out
+  }
+  const out = await runEngine(job5, stage2({ ...base, model }, { now: () => t }), { ...io5({ parallelCalls: 1, summaryCount: 0 }), deadlineAt: 100_000 })
+  assert.equal(out.state, 'DONE')
+  assert.deepEqual(base.fitCalls.map(profileOf), ['p1', 'p2'])
+  // The first components call starts at 40 s; the second would start at 60 s, past the stop.
+  assert.equal(base.componentsCalls.length, 1)
+  const c = componentsRecord(out)
+  assert.equal(c?.calls, 1)
+  assert.equal(c?.skipped, 1)
+  assert.equal(c?.fallbacks, 0)
+  assert.equal(c?.componentsMissing, 0)
+  assert.equal(out.results.filter((r) => r.fit_components !== undefined).length, 1)
+})
+
+test('stage 2: a resumed job counts only this run\'s components calls and keeps saved components', async () => {
+  // p1 (Fit 90) gets components it disagrees with, so a count that included saved results would show it.
+  const all = { ...Object.fromEntries(ids5.map((id) => [id, comps(60, 70, 80)])), p1: comps(30, 30, 30) }
+  const first = await runEngine(job5, stage2(fakeModel({ components: all })), io5({ fitCap: 3 }))
+  assert.equal(componentsRecord(first)?.componentMismatch, 1)
+  const saved = { ...(first.results.find((r) => r.profile_id === 'p1') as JdMatchResult), rank: 0 }
+  assert.equal(saved.fit_score, 90)
+  assert.deepEqual(saved.fit_components, comps(30, 30, 30))
+  const m = fakeModel({ components: all })
+  const out = await runEngine(job5, stage2(m), io5({ fitCap: 3 }, [saved]))
+  // p1 is done, so only p2 and p3 of the fit cap are judged again, and only they get a components call.
+  assert.equal(m.fitCalls.length, 2)
+  assert.deepEqual(m.componentsCalls.map(profileOf).sort(), ['p2', 'p3'])
+  const c = componentsRecord(out)
+  assert.equal(c?.calls, 2)
+  assert.equal(c?.componentsMissing, 0)
+  assert.equal(c?.componentMismatch, 0)
+  const byId = new Map(out.results.map((r) => [r.profile_id, r]))
+  assert.deepEqual(byId.get('p1')?.fit_components, comps(30, 30, 30))
+  for (const id of ['p2', 'p3']) assert.deepEqual(byId.get(id)?.fit_components, comps(60, 70, 80))
+  for (const id of ['p4', 'p5']) assert.equal('fit_components' in (byId.get(id) as JdMatchResult), false, id)
+})
+
+test('stage 2: Fit exactly COMPONENT_MISMATCH_POINTS above the highest component is no mismatch, one point more is', async () => {
+  const m = fakeModel({
+    fits: { p1: 80, p2: 81 },
+    components: { p1: comps(55, null, null), p2: comps(55, null, null) },
+  })
+  const out = await runEngine(job5, stage2(m), io5({ fitCap: 2 }))
+  const c = componentsRecord(out)
+  assert.equal(c?.calls, 2)
+  assert.equal(c?.componentMismatch, 1)
+})
+
+test('stage 2: on resume, done candidates use up components places', async () => {
+  const fits = { p1: 90, p2: 80, p3: 40 }
+  const first = await runEngine(job5, stage2(fakeModel({ fits })), io5({ fitCap: 3, componentsCount: 2 }))
+  const saved = { ...(first.results.find((r) => r.profile_id === 'p1') as JdMatchResult), rank: 0 }
+  assert.equal(first.results[0].profile_id, 'p1')
+  const m = fakeModel({ fits })
+  const out = await runEngine(job5, stage2(m), io5({ fitCap: 3, componentsCount: 2 }, [saved]))
+  // p2 and p3 are judged again, but p1 used one of the two places, so only the higher ranked p2 gets a call.
+  assert.equal(m.fitCalls.length, 2)
+  assert.deepEqual(m.componentsCalls.map(profileOf), ['p2'])
+  assert.equal(componentsRecord(out)?.calls, 1)
+  const byId = new Map(out.results.map((r) => [r.profile_id, r]))
+  assert.ok((byId.get('p2') as JdMatchResult).rank < (byId.get('p3') as JdMatchResult).rank)
+  assert.equal('fit_components' in (byId.get('p3') as JdMatchResult), false)
 })
