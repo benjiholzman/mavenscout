@@ -45,7 +45,7 @@ export function createFakeTextModel(): TextModel {
       const components = {
         technical_skills: 20 + (h % 71),
         domain_expertise: 20 + ((h >>> 8) % 71),
-        sector_regional_experience: h % 5 === 0 ? null : 20 + ((h >>> 16) % 71),
+        regional_experience: h % 5 === 0 ? null : 20 + ((h >>> 16) % 71),
       }
       return { text: JSON.stringify(components), inputTokens: 0, outputTokens: 0 }
     }

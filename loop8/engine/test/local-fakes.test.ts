@@ -7,6 +7,7 @@ import { buildFitPrompt, parseFitOutput } from '../src/stage2/fit'
 const input = {
   jdQuery: 'Evaluate a rural water and sanitation programme',
   fragments: [{ fragmentId: 'p1#portfolio#0', type: 'portfolio', text: 'Led a WASH programme evaluation.' }],
+  workPlaces: ['Malawi'],
 }
 const other = { ...input, jdQuery: 'Design a health financing study' }
 const ask = (p: { system: string; user: string }) => createFakeTextModel()({ modelId: 'fake', maxTokens: 150, ...p })
@@ -17,7 +18,7 @@ test('fake text model answers the components prompt with valid components, the s
     const b = await ask(buildComponentsPrompt(i))
     assert.equal(a.text, b.text)
     const parts = parseComponentsOutput(a.text)
-    assert.deepEqual(Object.keys(JSON.parse(a.text)).sort(), ['domain_expertise', 'sector_regional_experience', 'technical_skills'])
+    assert.deepEqual(Object.keys(JSON.parse(a.text)).sort(), ['domain_expertise', 'regional_experience', 'technical_skills'])
     for (const v of Object.values(parts)) assert.ok(v === null || (Number.isInteger(v) && v >= 0 && v <= 100))
     assert.ok(!('fit' in JSON.parse(a.text)), 'no Fit JSON for the components prompt')
   }

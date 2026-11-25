@@ -4,14 +4,14 @@ import { runEngine } from '../src/core/run'
 import { bandFor } from '../../../src/lib/matching/config'
 import type { RunIO } from '../src/core/run'
 import { loadSettings } from '../src/core/settings'
-import { createSemanticEngine } from '../src/engine/semantic'
+import { createSemanticEngine, workPlacesFromExtraction } from '../src/engine/semantic'
 import type { IndexArtifact } from '../src/search/artifact'
 import { TerminalError } from '../src/core/errors'
 import { DEFAULT_LIMITS } from '../src/shared/limits'
 import type { JdMatchResult, PhaseRecord, RankJob } from '../src/core/types'
 import { scoreCandidate } from '../src/scoring/score'
 import { COMPONENTS_PROMPT_VERSION } from '../src/stage2/components'
-import { FIT_PROMPT_VERSION } from '../src/stage2/fit'
+import { buildFitPrompt, FIT_PROMPT_VERSION } from '../src/stage2/fit'
 import { SUMMARY_PROMPT_VERSION } from '../src/stage2/summary'
 import { buildExpertiseIndex } from '../../../src/lib/expertise'
 import { buildOrgIndex } from '../../../src/lib/organizations'
@@ -273,9 +273,9 @@ const fitByProfile: Record<string, number> = { p1: 90, p2: 70, p3: 60, p4: 55, p
 const summaryText = Array.from({ length: 45 }, (_, i) => `s${i}`).join(' ')
 
 const comps = (t: number | null, d: number | null, s: number | null): FitComponents =>
-  ({ technical_skills: t, domain_expertise: d, sector_regional_experience: s })
+  ({ technical_skills: t, domain_expertise: d, regional_experience: s })
 /** What the fake components call answers when a test gives nothing for the profile. */
-const defaultComps = comps(70, 75, null)
+const defaultComps = comps(70, 75, 40)
 
 const isFitCall = (req: TextRequest) => req.system.startsWith('You judge how well')
 const isComponentsCall = (req: TextRequest) => req.system.startsWith('You judge three parts')
@@ -335,15 +335,23 @@ function io5(over: Partial<ReturnType<typeof loadSettings>> = {}, existing: JdMa
   }
 }
 
+/** A stored extraction that names the given work places. */
+const placesExtraction = (places: string[]) => async (): Promise<Extraction> => ({
+  extracted: { expertise: [], locations: places.map((value) => ({ value, mentions: 1 })), languages: [], hiring_organization: null },
+  hiringOrganization: null,
+})
+
+// The default stored extraction names a place that is not in job5's text, so the components keep the
+// regional reply and nothing else in the run changes.
 const stage2 = (m: FakeModel, extra: Partial<Parameters<typeof createSemanticEngine>[0]> = {}) =>
-  createSemanticEngine({ artifact: art5, embed, textModel: m.model, scoringData, ...extra })
+  createSemanticEngine({ artifact: art5, embed, textModel: m.model, scoringData, extraction: placesExtraction(['Kenya']), ...extra })
 
 test('stage 2: modelIds carry fit and text model ids, promptVersion combines the three prompts', () => {
   const m = fakeModel()
   const e = stage2(m, { fitModelId: 'fit-x', textModelId: 'text-y' })
   assert.deepEqual(e.modelIds, { embed: 'fake-embed-1', fit: 'fit-x', text: 'text-y', index: 'idx-1' })
   assert.equal(e.promptVersion, `${FIT_PROMPT_VERSION}+${COMPONENTS_PROMPT_VERSION}+${SUMMARY_PROMPT_VERSION}`)
-  assert.equal(e.promptVersion, 'fit-v2+components-v1+summary-v2')
+  assert.equal(e.promptVersion, 'fit-v2+components-v2+summary-v2')
   const d = stage2(m)
   assert.equal(d.modelIds.fit, loadSettings({}).fitModel)
   assert.equal(d.modelIds.text, loadSettings({}).textModel)
@@ -929,8 +937,8 @@ test('stage 2: the top componentsCount judged candidates in rank order get one c
   assert.deepEqual(m.componentsCalls.map(profileOf).sort(), [...top].sort())
   for (const c of m.componentsCalls) {
     const fitCall = m.fitCalls.find((f) => profileOf(f) === profileOf(c)) as TextRequest
-    // The same work description and the same fragments, so the user prompts are identical.
-    assert.equal(c.user, fitCall.user)
+    // The same work description and the same fragments, so the components prompt starts with the Fit prompt.
+    assert.ok(c.user.startsWith(fitCall.user + '\n\n<work_places>\n'))
     assert.equal(c.modelId, loadSettings({}).fitModel)
   }
   for (const r of out.results) {
@@ -1017,7 +1025,8 @@ test('stage 2: components that are all null are no mismatch, and a low Fit far b
     fits: { p1: 90, p2: 20 },
     components: { p1: comps(null, null, null), p2: comps(50, 60, null) },
   })
-  const out = await runEngine(job5, stage2(m), io5({ fitCap: 2 }))
+  // No work places, so regional_experience stays null.
+  const out = await runEngine(job5, stage2(m, { extraction: placesExtraction([]) }), io5({ fitCap: 2 }))
   const c = componentsRecord(out)
   assert.equal(c?.componentsMissing, 0)
   assert.equal(c?.componentMismatch, 1)
@@ -1125,4 +1134,94 @@ test('stage 2: on resume, done candidates use up components places', async () =>
   const byId = new Map(out.results.map((r) => [r.profile_id, r]))
   assert.ok((byId.get('p2') as JdMatchResult).rank < (byId.get('p3') as JdMatchResult).rank)
   assert.equal('fit_components' in (byId.get('p3') as JdMatchResult), false)
+})
+
+// Regional experience is judged only against the places the job description names (the stored
+// extraction's locations), which reach the components call only and never Fit.
+
+const workPlacesIn = (req: TextRequest): unknown => {
+  const m = req.user.match(/<work_places>\n([\s\S]*)\n<\/work_places>$/)
+  assert.ok(m, 'work_places block')
+  return JSON.parse(m![1])
+}
+
+test('workPlacesFromExtraction: the extraction locations only, trimmed and de-duplicated, whole "City, Country" values', () => {
+  const extraction: Extraction = {
+    extracted: {
+      expertise: [],
+      locations: [
+        { value: ' Addis Ababa, Ethiopia ', mentions: 2 }, { value: 'ethiopia', mentions: 1 }, { value: 'Ethiopia', mentions: 1 },
+        { value: '  ', mentions: 1 }, { value: 7, mentions: 1 } as unknown as { value: string; mentions: number }, null as unknown as { value: string; mentions: number },
+      ],
+      languages: [{ value: 'Amharic', mentions: 1 }],
+      hiring_organization: 'UNICEF',
+    },
+    hiringOrganization: 'UNICEF',
+  }
+  assert.deepEqual(workPlacesFromExtraction(extraction), ['Addis Ababa, Ethiopia', 'ethiopia'])
+  assert.deepEqual(workPlacesFromExtraction(null), [])
+  assert.deepEqual(workPlacesFromExtraction(undefined), [])
+  assert.deepEqual(workPlacesFromExtraction({ extracted: null, hiringOrganization: 'UNICEF' }), [])
+  assert.deepEqual(workPlacesFromExtraction({ extracted: { locations: 'Kenya' } as unknown as Extraction['extracted'], hiringOrganization: null }), [])
+})
+
+test('stage 2: with no work places, regional_experience is null even when the model replied a number', async () => {
+  const reply = Object.fromEntries(ids5.map((id) => [id, comps(70, 75, 90)]))
+  for (const extraction of [placesExtraction([]), async (): Promise<Extraction> => ({ extracted: null, hiringOrganization: null }), undefined]) {
+    const m = fakeModel({ components: reply })
+    const out = await runEngine(job5, stage2(m, { extraction }), io5({ fitCap: 2 }))
+    assert.equal(m.componentsCalls.length, 2)
+    for (const c of m.componentsCalls) assert.deepEqual(workPlacesIn(c), [])
+    for (const r of out.results.filter((x) => x.fit_components)) assert.deepEqual(r.fit_components, comps(70, 75, null))
+  }
+})
+
+test('stage 2: with work places, a null regional_experience reply is stored as 0 and the other parts are kept', async () => {
+  const m = fakeModel({ components: Object.fromEntries(ids5.map((id) => [id, comps(70, null, null)])) })
+  const out = await runEngine(job5, stage2(m, { extraction: placesExtraction(['Ethiopia']) }), io5({ fitCap: 2 }))
+  const judged = out.results.filter((r) => r.fit_components)
+  assert.equal(judged.length, 2)
+  for (const r of judged) assert.deepEqual(r.fit_components, comps(70, null, 0))
+  // Without work places the same reply stays null.
+  const none = await runEngine(job5, stage2(fakeModel({ components: Object.fromEntries(ids5.map((id) => [id, comps(70, null, null)])) }), { extraction: placesExtraction([]) }), io5({ fitCap: 2 }))
+  for (const r of none.results.filter((x) => x.fit_components)) assert.deepEqual(r.fit_components, comps(70, null, null))
+})
+
+test('stage 2: with work places, the regional_experience reply is kept and the places reach the components call', async () => {
+  const m = fakeModel({ components: Object.fromEntries(ids5.map((id) => [id, comps(70, 75, 90)])) })
+  const out = await runEngine(job5, stage2(m, { extraction: placesExtraction(['Kenya', 'Nairobi, Kenya']) }), io5({ fitCap: 2 }))
+  assert.equal(m.componentsCalls.length, 2)
+  for (const c of m.componentsCalls) assert.deepEqual(workPlacesIn(c), ['Kenya', 'Nairobi, Kenya'])
+  const judged = out.results.filter((r) => r.fit_components)
+  assert.equal(judged.length, 2)
+  for (const r of judged) assert.deepEqual(r.fit_components, comps(70, 75, 90))
+})
+
+test('stage 2: the mismatch count uses regional_experience after it is set to null', async () => {
+  // Fit 90 with components 60, 60, 100: no mismatch while 100 counts, a mismatch once it is null.
+  const opts = { fits: { p1: 90 }, components: { p1: comps(60, 60, 100) } }
+  const kept = await runEngine(job5, stage2(fakeModel(opts)), io5({ fitCap: 1 }))
+  assert.equal(componentsRecord(kept)?.componentMismatch, 0)
+  const nulled = await runEngine(job5, stage2(fakeModel(opts), { extraction: placesExtraction([]) }), io5({ fitCap: 1 }))
+  assert.equal(componentsRecord(nulled)?.componentMismatch, 1)
+})
+
+test('stage 2: no work place reaches a Fit call, the Fit calls are the same with or without places, and manager location rows never become work places', async () => {
+  const manager = [...reqs, { id: 'r9', kind: 'location', level: 'slight', source: 'manual', value: { values: ['Nairobi', 'Mombasa, Kenya'] } }] as unknown as Requirement[]
+  const withPlaces = fakeModel()
+  await runEngine({ ...job5, requirements: manager }, stage2(withPlaces, { extraction: placesExtraction(['Ethiopia', 'Addis Ababa, Ethiopia']) }), io5())
+  const without = fakeModel()
+  await runEngine({ ...job5, requirements: manager }, stage2(without, { extraction: placesExtraction([]) }), io5())
+  assert.equal(withPlaces.fitCalls.length, 5)
+  assert.deepEqual(withPlaces.fitCalls, without.fitCalls)
+  for (const f of withPlaces.fitCalls) {
+    for (const place of ['Ethiopia', 'Addis', 'Nairobi', 'Mombasa', 'work_places']) assert.ok(!(f.system + f.user).includes(place), place)
+    const fragments = [{ fragmentId: 'x', type: 'portfolio', text: `EV-${profileOf(f)}` }]
+    assert.equal(f.user, buildFitPrompt({ jdQuery: job5.jdText as string, fragments }).user)
+  }
+  for (const c of withPlaces.componentsCalls) {
+    assert.deepEqual(workPlacesIn(c), ['Ethiopia', 'Addis Ababa, Ethiopia'])
+    assert.ok(!c.user.includes('Nairobi') && !c.user.includes('Mombasa'))
+  }
+  for (const c of without.componentsCalls) assert.deepEqual(workPlacesIn(c), [])
 })

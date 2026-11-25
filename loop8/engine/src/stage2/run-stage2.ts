@@ -1,13 +1,14 @@
 // Stage 2 of the semantic engine: the Fit call for the first fitCap shortlisted
 // candidates, scoring for every candidate with scoring data, then summaries for
 // the top summaryCount by total and, in the same pool of calls, the components
-// call for the top componentsCount candidates with a Fit call in this run. A
-// failed Fit, score or summary falls back for that candidate only and the job
-// continues, unless every Fit call of the run failed: then the job stops (see
-// fitFailure). A failed components call only leaves the candidate without
-// components. Flags are written into the narrative text; model error text never
-// is. A failed Fit call logs its error name only. Nothing here logs profile,
-// fragment, query, prompt, model output or error message text.
+// call for the top componentsCount candidates with a Fit call in this run (with
+// the work places, which never reach Fit). A failed Fit, score or summary falls
+// back for that candidate only and the job continues, unless every Fit call of
+// the run failed: then the job stops (see fitFailure). A failed components call
+// only leaves the candidate without components. Flags are written into the
+// narrative text; model error text never is. A failed Fit call logs its error
+// name only. Nothing here logs profile, fragment, query, prompt, model output
+// or error message text.
 //
 // Time: with ctx.deadlineAt the run stops starting model calls early enough to save its results before
 // the Lambda times out. Candidates not reached keep their estimate with their own note, summaries not
@@ -58,6 +59,10 @@ export interface Stage2Options {
   scoringData: (ids: string[]) => Promise<ScoringData>
   /** The embedded query text: the job description with exclusions removed. */
   jdQuery: string
+  /** The places the job description names, from the stored extraction. Sent to the components call
+   *  only, never to Fit. When empty, regional_experience is null whatever the model replied; when not
+   *  empty, a null reply is stored as 0. */
+  workPlaces: string[]
   requirements: Requirement[]
   /** Passed to the model calls; tests use it to skip retry waits. */
   callOptions?: { retries?: number; sleep?: (ms: number) => Promise<void>; random?: () => number }
@@ -170,7 +175,7 @@ const COMPONENT_MISMATCH_POINTS = 25
 /** True when Fit is more than COMPONENT_MISMATCH_POINTS above the highest or below the lowest
  *  non-null component. Components that are all null are no mismatch. */
 function isComponentMismatch(fit: number, c: FitComponents): boolean {
-  const v = [c.technical_skills, c.domain_expertise, c.sector_regional_experience].filter((x): x is number => x !== null)
+  const v = [c.technical_skills, c.domain_expertise, c.regional_experience].filter((x): x is number => x !== null)
   if (v.length === 0) return false
   return fit > Math.max(...v) + COMPONENT_MISMATCH_POINTS || fit < Math.min(...v) - COMPONENT_MISMATCH_POINTS
 }
@@ -362,12 +367,16 @@ export async function runStage2(items: Stage2Item[], ctx: EngineContext, o: Stag
     sumEnd = Date.now()
   }
 
-  // The same work description and fragments as the candidate's Fit call. A failure never fails the
-  // candidate or the job: the candidate is only left without components.
+  // The same work description and fragments as the candidate's Fit call, plus the work places. A failure
+  // never fails the candidate or the job: the candidate is only left without components. With no work
+  // places there is nothing to judge regional experience on, so it is null whatever the model replied.
+  // With work places a null reply means the evidence shows no work there, so it is stored as 0.
+  const workPlaces = o.workPlaces
+  const regionalOf = (v: number | null): number | null => (workPlaces.length === 0 ? null : v ?? 0)
   const judgeParts = async (s: Scored): Promise<void> => {
     try {
-      const out = await judgeComponents(compModel, settings.fitModel, s.fitInput as FitInput, o.callOptions)
-      components.set(s.result.profile_id, out.components)
+      const out = await judgeComponents(compModel, settings.fitModel, { ...(s.fitInput as FitInput), workPlaces }, o.callOptions)
+      components.set(s.result.profile_id, { ...out.components, regional_experience: regionalOf(out.components.regional_experience) })
       compUsage.tokensIn += out.inputTokens
       compUsage.tokensOut += out.outputTokens
     } catch (err) {

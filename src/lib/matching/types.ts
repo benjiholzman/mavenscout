@@ -215,11 +215,15 @@ interface ResultBase {
 
 /** Capability parts of Fit, judged in a separate call from the same evidence
  *  as Fit. They explain Fit and never build it. Each is 0 to 100, or null when
- *  the work description gives nothing to judge that part on. */
+ *  the work description gives nothing to judge that part on.
+ *  regional_experience: work done in the countries or regions the job
+ *  description names, never where the consultant lives, comes from or their
+ *  nationality; null when the job description names no place. Sector knowledge
+ *  is part of domain_expertise. */
 export interface FitComponents {
   technical_skills: number | null
   domain_expertise: number | null
-  sector_regional_experience: number | null
+  regional_experience: number | null
 }
 
 /** A job-description run's result: what the engine returns. */
